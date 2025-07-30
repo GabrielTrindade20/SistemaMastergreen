@@ -20,7 +20,7 @@ export default function Sidebar() {
   const [location] = useLocation();
 
   return (
-    <div className="w-64 master-green text-white flex flex-col">
+    <div className="w-64 bg-[#002b17] text-white flex flex-col">
       {/* Logo/Brand */}
       <div className="p-6 border-b border-green-800">
         <h1 className="text-2xl font-bold">MasterGreen</h1>
@@ -37,10 +37,10 @@ export default function Sidebar() {
             return (
               <li key={item.name}>
                 <Link href={item.href}>
-                  <a className={`sidebar-link ${isActive ? 'active' : ''}`}>
+                  <div className={`sidebar-link ${isActive ? 'active' : ''}`}>
                     <item.icon className="w-5 h-5 mr-3" />
                     {item.name}
-                  </a>
+                  </div>
                 </Link>
               </li>
             );
@@ -52,7 +52,7 @@ export default function Sidebar() {
       <div className="p-4 border-t border-green-800">
         <div className="flex items-center">
           <div className="w-10 h-10 bg-green-200 rounded-full flex items-center justify-center">
-            <User className="w-5 h-5 text-master-green" />
+            <User className="w-5 h-5 text-[#002b17]" />
           </div>
           <div className="ml-3">
             <p className="text-sm font-medium">Admin User</p>
