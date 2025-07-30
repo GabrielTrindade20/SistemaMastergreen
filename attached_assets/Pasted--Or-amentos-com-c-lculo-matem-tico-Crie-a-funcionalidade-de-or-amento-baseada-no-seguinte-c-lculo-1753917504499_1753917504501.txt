@@ -1,0 +1,83 @@
+ Orçamentos com cálculo matemático
+
+Crie a funcionalidade de orçamento baseada no seguinte cálculo:
+
+- O usuário irá selecionar o **produto desejado** (ex: Grama Sintética, Capacho Vinil, Piso Tátil).
+- Irá inserir a **metragem total (em m²)** do pedido.
+- O sistema deve calcular o **valor total automático** com base no valor por m² do produto (valores fictícios padrão para testes):
+
+  - Grama Sintética: R$ 64,00/m²  
+  - Capacho Vinil: R$ 55,00/m²  
+  - Piso Tátil: R$ 52,00/m²  
+
+- Deve ser possível adicionar **múltiplos produtos** na mesma proposta.
+- O sistema deve mostrar um **resumo da proposta com subtotal, impostos simulados (10%), valor total.**
+
+---
+
+✅ 2. Geração de Proposta em PDF
+
+- Após preencher os dados da proposta (cliente, produtos, metragem), o sistema deve gerar um **PDF automático** com os seguintes dados:
+
+  - Nome e dados do cliente
+  - Lista de produtos com metragem e valor total
+  - Cálculo do subtotal + imposto
+  - Valor final
+  - Observações finais e validade de 7 dias
+  - Nome da empresa no cabeçalho (MasterGreen)
+  - Rodapé com contato (exemplo para teste: (61) 9 9999-9999)
+
+---
+
+✅ 3. Cadastro de Clientes
+
+- Tela de cadastro de clientes com:
+  - Nome completo
+  - CPF/CNPJ
+  - Telefone
+  - E-mail
+  - Endereço completo
+  - Campo de observações
+
+- Conecte esse módulo ao formulário de orçamento (seleção de cliente já cadastrado).
+
+---
+
+✅ 4. Rotas entre as páginas (SPA)
+
+Configure as rotas entre as seguintes páginas:
+
+- `/dashboard` – Painel inicial com dados gerais (gráficos, totais, etc.)
+- `/orcamentos` – Lista de orçamentos gerados
+- `/orcamentos/novo` – Página para criar novo orçamento com o cálculo
+- `/clientes` – Lista e cadastro de clientes
+- `/relatorios` – (ainda em branco)
+- `/whatsapp` – (placeholder para futuras automações)
+
+---
+
+✅ 5. Estrutura de dados
+
+- Armazene os dados localmente (ou em um JSON fake) com:
+  - Propostas
+  - Clientes
+  - Produtos
+- Os dados devem ser persistentes enquanto o projeto roda.
+
+---
+
+🎨 6. Detalhes de UI
+
+- Utilize as cores da empresa: `#000000`, `#ffffff`, `#002b17`
+- Manter a aparência semelhante à versão anterior que foi gerada
+- Adicione botão de "Nova Proposta" no topo da página `/orcamentos`
+
+---
+
+🔄 Próximos passos
+
+Após essa etapa estar concluída, vamos avançar para:
+
+- Dashboard com gráficos dinâmicos via Chart.js
+- Integração com WhatsApp (Webhook ou botão de contato)
+- Geração automática de relatórios financeiros

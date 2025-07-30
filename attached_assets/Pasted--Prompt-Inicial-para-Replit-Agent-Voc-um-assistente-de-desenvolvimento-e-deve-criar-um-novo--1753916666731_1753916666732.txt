@@ -1,0 +1,70 @@
+## Prompt Inicial para Replit Agent
+
+Você é um assistente de desenvolvimento e deve criar um novo projeto full-stack chamado **MasterGreen**. A empresa trabalha com grama sintética, capachos de vinil e pisos, personalizados sob medida, com garantia e linha de acessórios (fitas antiderrapantes, capa protetor para elevadores, grama sintética, piso tátil etc.). Seu sistema deve rodar como:
+
+1. **Aplicação Web** responsiva  
+2. **Aplicativo Mobile** (iOS e Android)  
+
+### 1. Estrutura geral
+- **Frontend web**: React (via Vite ou Create React App)  
+- **Frontend mobile**: React Native  
+- **Backend**: Node.js com Express  
+- **Banco de dados**: PostgreSQL (via Prisma ou TypeORM)  
+- **Autenticação**: JWT + refresh tokens  
+- **Deploy**: Replit Deploy para web; Expo Go / EAS Build para mobile  
+
+### 2. Tema e branding
+- Cores principais:  
+  - Preto: `#000000`  
+  - Branco: `#ffffff`  
+  - Verde escuro: `#002b17`  
+- Tipografia: fonte legível, tamanhos maiores por padrão (≥16px para texto corpo)  
+- Layout: grid fluido, cards com bordas arredondadas (border-radius 12px)  
+
+### 3. Funcionalidades MVP
+1. **Orçamentos de grama sintética**  
+   - Formulário de inserção de medidas (área, formato)  
+   - Cálculos automáticos de metros quadrados e custo total  
+   - (Opcional: mais tarde, importar planilha com suas fórmulas exatas)  
+2. **Geração de proposta em PDF**  
+   - Layout com logo, nome do cliente, detalhes do serviço, valores e condições  
+   - Download e envio direto por e-mail  
+3. **Módulos financeiros**  
+   - Fluxo de caixa  
+   - Contas a pagar e receber  
+   - Cálculo de custo vs. lucro  
+   - Dashboard de faturamento mensal  
+4. **CRM de clientes**  
+   - Cadastro e perfil de cliente  
+   - Histórico de orçamentos e pedidos  
+   - Notas fiscais vinculadas  
+5. **Automação de atendimento via WhatsApp**  
+   - Chatbot com IA humanizada  
+   - Redirecionamento para atendimento humano  
+6. **Relatórios e dashboards**  
+   - Relatórios financeiros e operacionais exportáveis (CSV/PDF)  
+   - Dashboards com gráficos de receita, custos, top 5 produtos/serviços  
+
+### 4. Checkpoints sugeridos
+1. Scaffold inicial (pastas, dependências, config DB)  
+2. Autenticação básica  
+3. CRUD de clientes (web + mobile)  
+4. Formulário de orçamento + cálculo matemático  
+5. Geração de PDF  
+6. Módulos financeiros e dashboards  
+7. Integração WhatsApp  
+8. Estilização final e deploy  
+
+### 5. Instruções ao Agent
+- Para cada passo, crie um commit ou branch separado e aguarde minha confirmação antes de avançar.  
+- Escreva código comentado, especialmente nas partes de cálculo (coloque referência às fórmulas).  
+- Utilize boas práticas de Git e teste automático (Jest / React Testing Library).  
+- Ao terminar cada etapa, aguarde meu “OK, seguir para próxima etapa”.
+
+---
+
+Cole esse bloco no Replit Agent e comece pela etapa **“1. Scaffold inicial”**.  
+Se quiser já incluir suas fórmulas matemáticas exatas de orçamento, me envie os dados e integro ao prompt do passo 4. 
+
+Como gostaria de prosseguir? Colocar as fórmulas agora ou gerar primeiro o scaffolding?
+::contentReference[oaicite:0]{index=0}
