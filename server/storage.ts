@@ -3,6 +3,7 @@ import {
   products, 
   quotations, 
   quotationItems,
+  users,
   type Customer, 
   type InsertCustomer,
   type Product,
@@ -11,7 +12,10 @@ import {
   type InsertQuotation,
   type QuotationItem,
   type InsertQuotationItem,
-  type QuotationWithDetails
+  type QuotationWithDetails,
+  type User,
+  type InsertUser,
+  type LoginUser
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -30,11 +34,21 @@ export interface IStorage {
   initializeDefaultProducts(): Promise<void>;
 
   // Quotations
-  getQuotations(): Promise<QuotationWithDetails[]>;
+  getQuotations(branch?: string): Promise<QuotationWithDetails[]>;
   getQuotation(id: string): Promise<QuotationWithDetails | undefined>;
   createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[]): Promise<QuotationWithDetails>;
   updateQuotationStatus(id: string, status: string): Promise<Quotation>;
   deleteQuotation(id: string): Promise<void>;
+
+  // Users
+  getUsers(): Promise<User[]>;
+  getUser(id: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
+  deleteUser(id: string): Promise<void>;
+  authenticateUser(email: string, password: string): Promise<User | null>;
+  initializeDefaultUsers(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -107,17 +121,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quotations
-  async getQuotations(): Promise<QuotationWithDetails[]> {
-    const result = await db
+  async getQuotations(branch?: string): Promise<QuotationWithDetails[]> {
+    const baseQuery = db
       .select()
       .from(quotations)
       .leftJoin(customers, eq(quotations.customerId, customers.id))
-      .orderBy(desc(quotations.createdAt));
+      .leftJoin(users, eq(quotations.userId, users.id));
+    
+    const result = branch
+      ? await baseQuery.where(eq(quotations.branch, branch)).orderBy(desc(quotations.createdAt))
+      : await baseQuery.orderBy(desc(quotations.createdAt));
 
     const quotationsWithDetails: QuotationWithDetails[] = [];
 
     for (const row of result) {
-      if (row.quotations && row.customers) {
+      if (row.quotations && row.customers && row.users) {
         const items = await db
           .select()
           .from(quotationItems)
@@ -127,6 +145,7 @@ export class DatabaseStorage implements IStorage {
         quotationsWithDetails.push({
           ...row.quotations,
           customer: row.customers,
+          user: row.users,
           items: items.map(item => ({
             ...item.quotation_items!,
             product: item.products!
@@ -143,9 +162,10 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(quotations)
       .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
       .where(eq(quotations.id, id));
 
-    if (!quotationRow?.quotations || !quotationRow?.customers) {
+    if (!quotationRow?.quotations || !quotationRow?.customers || !quotationRow?.users) {
       return undefined;
     }
 
@@ -158,6 +178,7 @@ export class DatabaseStorage implements IStorage {
     return {
       ...quotationRow.quotations,
       customer: quotationRow.customers,
+      user: quotationRow.users,
       items: items.map(item => ({
         ...item.quotation_items!,
         product: item.products!
@@ -206,6 +227,80 @@ export class DatabaseStorage implements IStorage {
   async deleteQuotation(id: string): Promise<void> {
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
     await db.delete(quotations).where(eq(quotations.id, id));
+  }
+
+  // Users
+  async getUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.name);
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [newUser] = await db.insert(users).values(user).returning();
+    return newUser;
+  }
+
+  async updateUser(id: string, user: Partial<InsertUser>): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(user)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, id));
+  }
+
+  async authenticateUser(email: string, password: string): Promise<User | null> {
+    const user = await this.getUserByEmail(email);
+    if (user && user.password === password) {
+      return user;
+    }
+    return null;
+  }
+
+  async initializeDefaultUsers(): Promise<void> {
+    const existingUsers = await this.getUsers();
+    if (existingUsers.length === 0) {
+      const defaultUsers = [
+        {
+          name: "Gabriel Trindade",
+          email: "admin@mastergreen.com",
+          password: "admin123",
+          type: "admin",
+          branch: "Matriz"
+        },
+        {
+          name: "João Silva",
+          email: "joao@filial1.com",
+          password: "func123",
+          type: "funcionario",
+          branch: "Filial Norte"
+        },
+        {
+          name: "Ana Lima",
+          email: "ana@filial2.com",
+          password: "func456",
+          type: "funcionario",
+          branch: "Filial Sul"
+        }
+      ];
+
+      for (const user of defaultUsers) {
+        await this.createUser(user);
+      }
+    }
   }
 }
 
