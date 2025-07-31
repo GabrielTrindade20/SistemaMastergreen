@@ -1,17 +1,142 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCustomerSchema, insertQuotationSchema, insertQuotationItemSchema } from "@shared/schema";
+import { 
+  insertCustomerSchema, 
+  insertQuotationSchema, 
+  insertQuotationItemSchema,
+  insertUserSchema,
+  loginUserSchema,
+  type User 
+} from "@shared/schema";
 import { z } from "zod";
+import session from "express-session";
 
 const createQuotationSchema = z.object({
   quotation: insertQuotationSchema,
   items: z.array(insertQuotationItemSchema)
 });
 
+// Session configuration
+declare module 'express-session' {
+  interface SessionData {
+    user?: User;
+  }
+}
+
+// Auth middleware
+function requireAuth(req: any, res: any, next: any) {
+  if (!req.session.user) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  next();
+}
+
+function requireAdmin(req: any, res: any, next: any) {
+  if (!req.session.user || req.session.user.type !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize default products
+  // Configure sessions
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key-here',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Set to true in production with HTTPS
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+  }));
+
+  // Initialize default data
   await storage.initializeDefaultProducts();
+  await storage.initializeDefaultUsers();
+
+  // Auth routes
+  app.post("/api/login", async (req, res) => {
+    try {
+      const { email, password } = loginUserSchema.parse(req.body);
+      const user = await storage.authenticateUser(email, password);
+      
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      req.session.user = user;
+      res.json({ user, message: "Login successful" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid login data", errors: error.errors });
+      }
+      console.error("Error during login:", error);
+      res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  app.post("/api/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Logout failed" });
+      }
+      res.json({ message: "Logout successful" });
+    });
+  });
+
+  app.get("/api/me", requireAuth, (req, res) => {
+    res.json(req.session.user);
+  });
+
+  // User management routes (admin only)
+  app.get("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const users = await storage.getUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post("/api/users", requireAdmin, async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      const user = await storage.createUser(userData);
+      res.status(201).json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  app.put("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      const userData = insertUserSchema.partial().parse(req.body);
+      const user = await storage.updateUser(req.params.id, userData);
+      res.json(user);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete("/api/users/:id", requireAdmin, async (req, res) => {
+    try {
+      await storage.deleteUser(req.params.id);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
 
   // Customer routes
   app.get("/api/customers", async (req, res) => {
@@ -87,9 +212,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Quotation routes
-  app.get("/api/quotations", async (req, res) => {
+  app.get("/api/quotations", requireAuth, async (req, res) => {
     try {
-      const quotations = await storage.getQuotations();
+      const user = req.session.user!;
+      // Admin pode ver todos os orçamentos, funcionário apenas da sua filial
+      const branch = user.type === "admin" ? undefined : user.branch;
+      const quotations = await storage.getQuotations(branch);
       res.json(quotations);
     } catch (error) {
       console.error("Error fetching quotations:", error);
@@ -97,12 +225,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/quotations/:id", async (req, res) => {
+  app.get("/api/quotations/:id", requireAuth, async (req, res) => {
     try {
       const quotation = await storage.getQuotation(req.params.id);
       if (!quotation) {
         return res.status(404).json({ message: "Quotation not found" });
       }
+      
+      const user = req.session.user!;
+      // Funcionários só podem ver orçamentos da própria filial
+      if (user.type === "funcionario" && quotation.branch !== user.branch) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       res.json(quotation);
     } catch (error) {
       console.error("Error fetching quotation:", error);
@@ -110,10 +245,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/quotations", async (req, res) => {
+  app.post("/api/quotations", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
       const { quotation, items } = createQuotationSchema.parse(req.body);
-      const newQuotation = await storage.createQuotation(quotation, items);
+      
+      // Adicionar userId e branch do usuário logado
+      const quotationWithUser = {
+        ...quotation,
+        userId: user.id,
+        branch: user.branch
+      };
+      
+      const newQuotation = await storage.createQuotation(quotationWithUser, items);
       res.status(201).json(newQuotation);
     } catch (error) {
       if (error instanceof z.ZodError) {

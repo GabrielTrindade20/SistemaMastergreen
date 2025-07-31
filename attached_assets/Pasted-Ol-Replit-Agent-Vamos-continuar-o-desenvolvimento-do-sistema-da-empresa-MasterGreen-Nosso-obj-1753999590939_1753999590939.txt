@@ -1,0 +1,76 @@
+Olá, Replit Agent! Vamos continuar o desenvolvimento do sistema da empresa MasterGreen.
+
+Nosso objetivo neste prompt é implementar a funcionalidade de **login de usuários**, controle de **níveis de acesso** e criação de um **painel administrativo** para gerenciar filiais, funcionários e permissões. Seguem os requisitos:
+
+---
+
+✅ 1. Autenticação de Usuários
+
+Implemente um sistema de **login com autenticação simulada** (pode ser em JSON ou localStorage).
+
+Cada usuário terá:
+
+- Nome
+- E-mail
+- Senha (plaintext para teste)
+- Tipo de usuário: `"admin"` ou `"funcionario"`
+- Filial associada (campo texto)
+
+---
+
+✅ 2. Painel Administrativo (`/admin`)
+
+Usuários com tipo `"admin"` terão acesso a:
+
+- Dashboard com resumo do sistema
+- Cadastro e edição de usuários
+- Definir o tipo de usuário (`admin` ou `funcionario`)
+- Atribuir a filial de cada usuário
+- Remover usuários
+- Visualizar dados das filiais (nome da filial, total de orçamentos, etc)
+
+---
+
+✅ 3. Controle de Acesso (Permissões)
+
+- Usuários `"admin"` têm acesso a **todas as funcionalidades** do sistema.
+- Usuários `"funcionario"` podem acessar apenas:
+  - Criar novos orçamentos
+  - Visualizar orçamentos da **própria filial**
+  - Acessar clientes e cadastrar novos
+  - Sem acesso a cadastro de usuários, relatórios gerais, nem visualizar dados de outras filiais.
+
+Importante:
+- Ao fazer login, o sistema deve verificar o tipo de usuário e redirecionar para o painel correto.
+- Ao exibir listas (como orçamentos), mostrar apenas os registros **da filial correspondente** do usuário.
+
+---
+
+✅ 4. Simulação de Usuários
+
+Para facilitar os testes, crie 3 usuários simulados ao iniciar o sistema:
+
+```json
+[
+  {
+    "nome": "Gabriel Trindade",
+    "email": "admin@mastergreen.com",
+    "senha": "admin123",
+    "tipo": "admin",
+    "filial": "Matriz"
+  },
+  {
+    "nome": "João Silva",
+    "email": "joao@filial1.com",
+    "senha": "func123",
+    "tipo": "funcionario",
+    "filial": "Filial Norte"
+  },
+  {
+    "nome": "Ana Lima",
+    "email": "ana@filial2.com",
+    "senha": "func456",
+    "tipo": "funcionario",
+    "filial": "Filial Sul"
+  }
+]

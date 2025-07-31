@@ -31,6 +31,7 @@ export const products = pgTable("products", {
 export const quotations = pgTable("quotations", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   customerId: uuid("customer_id").references(() => customers.id).notNull(),
+  userId: uuid("user_id").references(() => users.id).notNull(),
   quotationNumber: text("quotation_number").notNull().unique(),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).notNull(),
@@ -38,6 +39,7 @@ export const quotations = pgTable("quotations", {
   status: text("status").notNull().default("pending"), // pending, approved, rejected
   validUntil: timestamp("valid_until").notNull(),
   notes: text("notes"),
+  branch: text("branch").notNull(), // filial do orçamento
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -48,6 +50,16 @@ export const quotationItems = pgTable("quotation_items", {
   quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(), // area in m²
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+});
+
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  type: text("type").notNull(), // "admin" or "funcionario"
+  branch: text("branch").notNull(), // filial
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // Relations
@@ -64,7 +76,15 @@ export const quotationsRelations = relations(quotations, ({ one, many }) => ({
     fields: [quotations.customerId],
     references: [customers.id],
   }),
+  user: one(users, {
+    fields: [quotations.userId],
+    references: [users.id],
+  }),
   items: many(quotationItems),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  quotations: many(quotations),
 }));
 
 export const quotationItemsRelations = relations(quotationItems, ({ one }) => ({
@@ -99,6 +119,16 @@ export const insertQuotationItemSchema = createInsertSchema(quotationItems).omit
   id: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const loginUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
 // Types
 export type Customer = typeof customers.$inferSelect;
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
@@ -112,8 +142,13 @@ export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
 export type QuotationItem = typeof quotationItems.$inferSelect;
 export type InsertQuotationItem = z.infer<typeof insertQuotationItemSchema>;
 
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type LoginUser = z.infer<typeof loginUserSchema>;
+
 // Extended types for API responses
 export type QuotationWithDetails = Quotation & {
   customer: Customer;
+  user: User;
   items: (QuotationItem & { product: Product })[];
 };
