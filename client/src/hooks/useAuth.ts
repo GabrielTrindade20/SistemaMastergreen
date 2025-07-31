@@ -44,10 +44,15 @@ export function useAuth() {
       return response.json();
     },
     onSuccess: (data) => {
+      console.log("Login successful, user data:", data);
       setUser(data.user);
       setError(null);
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: (error) => {
+      console.log("Login error:", error);
+      setError(error);
     },
   });
 
