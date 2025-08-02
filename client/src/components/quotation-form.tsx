@@ -346,7 +346,7 @@ export default function QuotationForm({
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo do Orçamento</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal:</span>
+                <span className="text-gray-600">Valor Bruto:</span>
                 <span className="text-gray-900 font-medium">
                   R$ {totals.subtotal.toFixed(2)}
                 </span>
@@ -358,20 +358,26 @@ export default function QuotationForm({
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-gray-600">Impostos (4,5%):</span>
+                <span className="text-gray-600">Valor da Nota Fiscal (4,5%):</span>
                 <span className="text-gray-900 font-medium">
                   R$ {totals.tax.toFixed(2)}
                 </span>
               </div>
               {user?.type === "admin" && (
-                <div className="flex justify-between text-blue-600">
-                  <span className="font-medium">Lucro da Empresa:</span>
-                  <span className="font-bold">R$ {totals.netProfit.toFixed(2)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Custo Total:</span>
+                    <span>R$ {totals.totalCost.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-blue-600 border-t pt-2">
+                    <span className="font-medium">Lucro da Empresa:</span>
+                    <span className="font-bold">R$ {totals.netProfit.toFixed(2)}</span>
+                  </div>
+                </>
               )}
               <div className="border-t border-gray-300 pt-2">
                 <div className="flex justify-between">
-                  <span className="text-lg font-semibold text-gray-900">Total:</span>
+                  <span className="text-lg font-semibold text-gray-900">Valor Final ao Cliente:</span>
                   <span className="text-lg font-bold text-master-green">
                     R$ {totals.total.toFixed(2)}
                   </span>

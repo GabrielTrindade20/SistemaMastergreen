@@ -21,6 +21,7 @@ export function calculateQuotationTotals(
   totalCost: number;
   netProfit: number;
 } {
+  // 1. Calcular valor bruto (valor por metro x metragem)
   const subtotal = items.reduce((sum, item) => {
     const product = products.find(p => p.id === item.productId);
     if (!product || !item.quantity) return sum;
@@ -29,12 +30,17 @@ export function calculateQuotationTotals(
     return sum + (productPrice * item.quantity);
   }, 0);
 
+  // 2. Calcular desconto se aplicável
   const discountAmount = subtotal * (discountPercent / 100);
   const discountedSubtotal = subtotal - discountAmount;
-  const tax = discountedSubtotal * 0.045; // 4.5% tax
-  const total = discountedSubtotal + tax;
 
-  // Calculate total cost and profit
+  // 3. Calcular valor da nota fiscal (4,5% de imposto sobre valor bruto)
+  const tax = subtotal * 0.045; // Imposto sempre sobre valor bruto, não o com desconto
+
+  // 4. Calcular valor final cobrado do cliente (valor com desconto)
+  const total = discountedSubtotal; // Valor final é o valor com desconto, sem somar imposto
+
+  // 5. Calcular custo total da empresa (custo por metro x metragem)
   const totalCost = items.reduce((sum, item) => {
     const product = products.find(p => p.id === item.productId);
     if (!product || !item.quantity) return sum;
@@ -43,7 +49,8 @@ export function calculateQuotationTotals(
     return sum + (productCost * item.quantity);
   }, 0);
 
-  const netProfit = total - totalCost;
+  // 6. Calcular lucro líquido (valor final - nota fiscal - custo total)
+  const netProfit = total - tax - totalCost;
 
   return {
     subtotal,
