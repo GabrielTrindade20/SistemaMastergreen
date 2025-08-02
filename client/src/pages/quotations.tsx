@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, FileText, Check, X, Eye } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2 } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
 import QuotationForm from "@/components/quotation-form";
 import { generateQuotationPDF } from "@/lib/pdf-generator";
@@ -90,12 +90,38 @@ export default function Quotations() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/quotations/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      toast({
+        title: "Sucesso",
+        description: "Orçamento excluído com sucesso!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao excluir orçamento",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCreateQuotation = (data: any) => {
     createMutation.mutate(data);
   };
 
   const handleStatusUpdate = (id: string, status: string) => {
     updateStatusMutation.mutate({ id, status });
+  };
+
+  const handleDeleteQuotation = (id: string) => {
+    if (confirm('Tem certeza que deseja excluir este orçamento?')) {
+      deleteMutation.mutate(id);
+    }
   };
 
   const handleGeneratePDF = async (quotation: QuotationWithDetails) => {
@@ -374,6 +400,13 @@ export default function Quotations() {
                               </DropdownMenuItem>
                             </>
                           )}
+                          <DropdownMenuItem
+                            onClick={() => handleDeleteQuotation(quotation.id)}
+                            className="text-red-600"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

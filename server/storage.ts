@@ -108,6 +108,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProduct(id: string): Promise<void> {
+    // Check if product is used in any quotations
+    const usageCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(quotationItems)
+      .where(eq(quotationItems.productId, id));
+    
+    if (Number(usageCount[0].count) > 0) {
+      throw new Error("Não é possível excluir este produto pois ele está sendo usado em orçamentos existentes.");
+    }
+    
     await db.delete(products).where(eq(products.id, id));
   }
 
@@ -148,16 +158,47 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quotations
-  async getQuotations(branch?: string): Promise<QuotationWithDetails[]> {
-    const baseQuery = db
+  async getQuotations(): Promise<QuotationWithDetails[]> {
+    const result = await db
       .select()
       .from(quotations)
       .leftJoin(customers, eq(quotations.customerId, customers.id))
-      .leftJoin(users, eq(quotations.userId, users.id));
-    
-    const result = branch
-      ? await baseQuery.where(eq(quotations.branch, branch)).orderBy(desc(quotations.createdAt))
-      : await baseQuery.orderBy(desc(quotations.createdAt));
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .orderBy(quotations.createdAt);
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
+
+  async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(eq(quotations.userId, userId))
+      .orderBy(quotations.createdAt);
 
     const quotationsWithDetails: QuotationWithDetails[] = [];
 
@@ -260,7 +301,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteQuotation(id: string): Promise<void> {
+    // First delete all quotation items
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+    // Then delete the quotation
     await db.delete(quotations).where(eq(quotations.id, id));
   }
 
