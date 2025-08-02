@@ -1,189 +1,399 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Eye, Download, Edit } from "lucide-react";
-import type { QuotationWithDetails } from "@shared/schema";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, MoreHorizontal, FileText, Check, X, Eye } from "lucide-react";
+import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
+import QuotationForm from "@/components/quotation-form";
 import { generateQuotationPDF } from "@/lib/pdf-generator";
+import { formatCurrency, formatDate } from "@/lib/calculations";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Quotations() {
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState<QuotationWithDetails | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const { data: quotations = [], isLoading } = useQuery<QuotationWithDetails[]>({
+  const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
     queryKey: ["/api/quotations"],
   });
 
-  // Filter quotations
-  const filteredQuotations = quotations.filter(quotation => {
-    const matchesStatus = statusFilter === "all" || quotation.status === statusFilter;
-    const matchesSearch = quotation.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         quotation.customer.email.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSearch;
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
   });
 
-  const handleDownloadPDF = async (quotation: QuotationWithDetails) => {
+  const { data: products = [] } = useQuery<Product[]>({
+    queryKey: ["/api/products"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return await apiRequest("/api/quotations", "POST", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      setShowForm(false);
+      toast({
+        title: "Sucesso",
+        description: "Orçamento criado com sucesso!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao criar orçamento",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return await apiRequest(`/api/quotations/${id}/status`, "PUT", { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      toast({
+        title: "Sucesso",
+        description: "Status do orçamento atualizado!",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Erro ao atualizar status",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateQuotation = (data: any) => {
+    createMutation.mutate(data);
+  };
+
+  const handleStatusUpdate = (id: string, status: string) => {
+    updateStatusMutation.mutate({ id, status });
+  };
+
+  const handleGeneratePDF = async (quotation: QuotationWithDetails) => {
     try {
       await generateQuotationPDF(quotation);
+      toast({
+        title: "Sucesso",
+        description: "PDF gerado com sucesso!",
+      });
     } catch (error) {
-      console.error("Error generating PDF:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao gerar PDF",
+        variant: "destructive",
+      });
     }
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
-        return <Badge className="status-badge status-approved">Aprovado</Badge>;
+        return <Badge className="bg-green-100 text-green-800">Aprovado</Badge>;
       case "rejected":
-        return <Badge className="status-badge status-rejected">Rejeitado</Badge>;
+        return <Badge className="bg-red-100 text-red-800">Rejeitado</Badge>;
       default:
-        return <Badge className="status-badge status-pending">Pendente</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>;
     }
   };
 
-  return (
-    <div>
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Orçamentos</h1>
-            <p className="text-gray-600">Gerencie suas propostas comerciais</p>
-          </div>
-          <Link href="/orcamentos/novo">
-            <Button className="btn-primary">
-              <Plus className="w-4 h-4 mr-2" />
-              Nova Proposta
-            </Button>
-          </Link>
+  if (showForm) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            onClick={() => setShowForm(false)}
+            className="mb-4"
+          >
+            ← Voltar
+          </Button>
+          <h1 className="text-3xl font-bold text-gray-900">Novo Orçamento</h1>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="p-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Lista de Orçamentos</CardTitle>
-              <div className="flex items-center space-x-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="Filtrar por status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os status</SelectItem>
-                    <SelectItem value="pending">Pendente</SelectItem>
-                    <SelectItem value="approved">Aprovado</SelectItem>
-                    <SelectItem value="rejected">Rejeitado</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Buscar cliente..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64"
-                  />
-                </div>
-              </div>
+        <QuotationForm
+          customers={customers}
+          products={products}
+          onSubmit={handleCreateQuotation}
+          onCancel={() => setShowForm(false)}
+          isLoading={createMutation.isPending}
+        />
+      </div>
+    );
+  }
+
+  if (selectedQuotation) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="mb-6">
+          <Button
+            variant="outline"
+            onClick={() => setSelectedQuotation(null)}
+            className="mb-4"
+          >
+            ← Voltar
+          </Button>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                Orçamento {selectedQuotation.quotationNumber}
+              </h1>
+              <p className="text-gray-600">
+                Cliente: {selectedQuotation.customer.name}
+              </p>
             </div>
+            <div className="flex gap-2">
+              {getStatusBadge(selectedQuotation.status)}
+              <Button
+                onClick={() => handleGeneratePDF(selectedQuotation)}
+                className="btn-primary"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Gerar PDF
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Informações do Cliente</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <p><strong>Nome:</strong> {selectedQuotation.customer.name}</p>
+                <p><strong>Email:</strong> {selectedQuotation.customer.email}</p>
+                <p><strong>Telefone:</strong> {selectedQuotation.customer.phone}</p>
+                <p><strong>CPF/CNPJ:</strong> {selectedQuotation.customer.cpfCnpj}</p>
+                {selectedQuotation.customer.address && (
+                  <p><strong>Endereço:</strong> {selectedQuotation.customer.address}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Detalhes do Orçamento</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <p><strong>Data:</strong> {formatDate(selectedQuotation.createdAt!)}</p>
+                <p><strong>Válido até:</strong> {formatDate(selectedQuotation.validUntil)}</p>
+                <p><strong>Status:</strong> {getStatusBadge(selectedQuotation.status)}</p>
+                <p><strong>Frete:</strong> {selectedQuotation.shippingIncluded ? 'Incluso' : 'Não incluso'}</p>
+                <p><strong>Garantia:</strong> {selectedQuotation.warrantyText}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Itens do Orçamento</CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="animate-pulse">
-                    <div className="h-16 bg-gray-200 rounded"></div>
-                  </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produto</TableHead>
+                  <TableHead>Quantidade</TableHead>
+                  <TableHead>Valor Unitário</TableHead>
+                  <TableHead>Subtotal</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedQuotation.items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.product.name}</TableCell>
+                    <TableCell>{parseFloat(item.quantity).toFixed(2)} m²</TableCell>
+                    <TableCell>{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
+                    <TableCell>{formatCurrency(parseFloat(item.subtotal))}</TableCell>
+                  </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <div className="flex justify-between items-center text-lg font-semibold">
+                <span>Total:</span>
+                <span className="text-master-green">
+                  {formatCurrency(parseFloat(selectedQuotation.total))}
+                </span>
               </div>
-            ) : filteredQuotations.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-gray-500 mb-4">Nenhum orçamento encontrado</p>
-                <Link href="/orcamentos/novo">
-                  <Button className="btn-primary">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Criar Primeiro Orçamento
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">#</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">Cliente</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">Produtos</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">Valor Total</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">Status</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">Data</th>
-                      <th className="text-left py-3 px-4 font-medium text-gray-600">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {filteredQuotations.map((quotation) => (
-                      <tr key={quotation.id} className="hover:bg-gray-50">
-                        <td className="py-3 px-4 text-sm text-gray-900">
-                          {quotation.quotationNumber}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {quotation.customer.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {quotation.customer.email}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-900">
-                          {quotation.items.map(item => 
-                            `${item.product.name} (${item.quantity}m²)`
-                          ).join(", ")}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-medium text-gray-900">
-                          R$ {parseFloat(quotation.total).toLocaleString('pt-BR', { 
-                            minimumFractionDigits: 2 
-                          })}
-                        </td>
-                        <td className="py-3 px-4">
-                          {getStatusBadge(quotation.status)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-gray-500">
-                          {new Date(quotation.createdAt!).toLocaleDateString('pt-BR')}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleDownloadPDF(quotation)}
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            </div>
           </CardContent>
         </Card>
+
+        {selectedQuotation.status === "pending" && (
+          <div className="mt-6 flex gap-4">
+            <Button
+              onClick={() => handleStatusUpdate(selectedQuotation.id, "approved")}
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={updateStatusMutation.isPending}
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Aprovar
+            </Button>
+            <Button
+              onClick={() => handleStatusUpdate(selectedQuotation.id, "rejected")}
+              variant="destructive"
+              disabled={updateStatusMutation.isPending}
+            >
+              <X className="w-4 h-4 mr-2" />
+              Rejeitar
+            </Button>
+          </div>
+        )}
+
+        {selectedQuotation.notes && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Observações</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>{selectedQuotation.notes}</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Orçamentos</h1>
+          <p className="text-gray-600">Gerencie orçamentos e propostas</p>
+        </div>
+        <Button onClick={() => setShowForm(true)} className="btn-primary">
+          <Plus className="w-4 h-4 mr-2" />
+          Novo Orçamento
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Orçamentos</CardTitle>
+          <CardDescription>
+            {quotations.length} orçamento(s) cadastrado(s)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {quotationsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-master-green"></div>
+            </div>
+          ) : quotations.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Número</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {quotations.map((quotation) => (
+                  <TableRow key={quotation.id}>
+                    <TableCell className="font-medium">
+                      {quotation.quotationNumber}
+                    </TableCell>
+                    <TableCell>{quotation.customer.name}</TableCell>
+                    <TableCell>{formatDate(quotation.createdAt!)}</TableCell>
+                    <TableCell>
+                      {formatCurrency(parseFloat(quotation.total))}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(quotation.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setSelectedQuotation(quotation)}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleGeneratePDF(quotation)}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Gerar PDF
+                          </DropdownMenuItem>
+                          {quotation.status === "pending" && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => handleStatusUpdate(quotation.id, "approved")}
+                              >
+                                <Check className="mr-2 h-4 w-4" />
+                                Aprovar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleStatusUpdate(quotation.id, "rejected")}
+                              >
+                                <X className="mr-2 h-4 w-4" />
+                                Rejeitar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Nenhum orçamento encontrado.</p>
+              <Button
+                onClick={() => setShowForm(true)}
+                className="btn-primary mt-4"
+              >
+                Criar Primeiro Orçamento
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

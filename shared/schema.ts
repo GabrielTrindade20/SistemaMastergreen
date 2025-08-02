@@ -46,6 +46,11 @@ export const quotations = pgTable("quotations", {
   status: text("status").notNull().default("pending"), // pending, approved, rejected
   validUntil: timestamp("valid_until").notNull(),
   notes: text("notes"),
+  shippingIncluded: integer("shipping_included").default(1), // 1 = yes, 0 = no
+  warrantyText: text("warranty_text").default("1 ano de garantia de fábrica"),
+  pdfTitle: text("pdf_title"),
+  responsibleName: text("responsible_name"),
+  responsiblePosition: text("responsible_position").default("Administrador"),
   branch: text("branch").notNull(), // filial do orçamento
   createdAt: timestamp("created_at").defaultNow(),
 });

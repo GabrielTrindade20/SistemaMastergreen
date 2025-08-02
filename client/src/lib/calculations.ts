@@ -13,8 +13,14 @@ export interface QuotationTotals {
 
 export function calculateQuotationTotals(
   items: QuotationItem[], 
-  products: Product[]
-): QuotationTotals {
+  products: Product[],
+  discountPercent: number = 0
+): QuotationTotals & {
+  discountAmount: number;
+  discountedSubtotal: number;
+  totalCost: number;
+  netProfit: number;
+} {
   const subtotal = items.reduce((sum, item) => {
     const product = products.find(p => p.id === item.productId);
     if (!product || !item.quantity) return sum;
@@ -23,13 +29,30 @@ export function calculateQuotationTotals(
     return sum + (productPrice * item.quantity);
   }, 0);
 
-  const tax = subtotal * 0.1; // 10% tax
-  const total = subtotal + tax;
+  const discountAmount = subtotal * (discountPercent / 100);
+  const discountedSubtotal = subtotal - discountAmount;
+  const tax = discountedSubtotal * 0.045; // 4.5% tax
+  const total = discountedSubtotal + tax;
+
+  // Calculate total cost and profit
+  const totalCost = items.reduce((sum, item) => {
+    const product = products.find(p => p.id === item.productId);
+    if (!product || !item.quantity) return sum;
+    
+    const productCost = parseFloat(product.costPerM2 || "0");
+    return sum + (productCost * item.quantity);
+  }, 0);
+
+  const netProfit = total - totalCost;
 
   return {
     subtotal,
+    discountAmount,
+    discountedSubtotal,
     tax,
     total,
+    totalCost,
+    netProfit,
   };
 }
 
