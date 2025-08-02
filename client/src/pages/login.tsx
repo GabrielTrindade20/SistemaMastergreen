@@ -82,7 +82,7 @@ export default function Login() {
               )}
             </Button>
           </form>
-          
+          {/* 
           <div className="mt-6 p-4 bg-gray-100 rounded-lg">
             <h4 className="font-semibold text-sm mb-2">Usuários para teste:</h4>
             <div className="text-xs space-y-1">
@@ -90,7 +90,7 @@ export default function Login() {
               <div><strong>Funcionário:</strong> joao@filial1.com / func123</div>
               <div><strong>Funcionário:</strong> ana@filial2.com / func456</div>
             </div>
-          </div>
+          </div> */}
         </CardContent>
       </Card>
     </div>
