@@ -20,10 +20,92 @@ export default function Admin() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
 
+  // Sempre chamar hooks na mesma ordem
   const { data: users = [], isLoading } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
     enabled: !!currentUser && currentUser.type === "admin",
   });
+
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: InsertUser) => {
+      const response = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao criar usuário");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsDialogOpen(false);
+      setEditingUser(null);
+      toast({ title: "Usuário criado com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, userData }: { id: string; userData: Partial<InsertUser> }) => {
+      const response = await fetch(`/api/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao atualizar usuário");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setIsDialogOpen(false);
+      setEditingUser(null);
+      toast({ title: "Usuário atualizado com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/users/${id}`, {
+        method: "DELETE",
+        credentials: 'include'
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao excluir usuário");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Usuário excluído com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleOpenDialog = (user?: UserType) => {
+    setEditingUser(user || null);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteUser = (id: string) => {
+    if (confirm("Tem certeza que deseja excluir este usuário?")) {
+      deleteUserMutation.mutate(id);
+    }
+  };
 
   // Loading state
   if (authLoading) {
@@ -50,84 +132,6 @@ export default function Admin() {
       </div>
     );
   }
-
-  const createUserMutation = useMutation({
-    mutationFn: async (userData: InsertUser) => {
-      const response = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Erro ao criar usuário");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setIsDialogOpen(false);
-      setEditingUser(null);
-      toast({ title: "Usuário criado com sucesso!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const updateUserMutation = useMutation({
-    mutationFn: async ({ id, userData }: { id: string; userData: Partial<InsertUser> }) => {
-      const response = await fetch(`/api/users/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(userData),
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Erro ao atualizar usuário");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      setIsDialogOpen(false);
-      setEditingUser(null);
-      toast({ title: "Usuário atualizado com sucesso!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const deleteUserMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/users/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Erro ao excluir usuário");
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      toast({ title: "Usuário excluído com sucesso!" });
-    },
-    onError: (error: Error) => {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    },
-  });
-
-  const handleOpenDialog = (user?: UserType) => {
-    setEditingUser(user || null);
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteUser = (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este usuário?")) {
-      deleteUserMutation.mutate(id);
-    }
-  };
 
   if (isLoading) {
     return (
