@@ -1,0 +1,45 @@
+Atualize o sistema MasterGreen para corrigir falhas e adicionar as seguintes funcionalidades no módulo de propostas e orçamentos:
+1.	Correção de funcionalidades quebradas
+•	O botão “Visualizar PDF” na tela de orçamento não está funcionando. Corrigir.
+•	O botão “Editar orçamento” precisa ser implementado. Ele deve abrir o orçamento selecionado com os dados preenchidos para edição.
+•	O botão “Visualizar proposta” na tela de cliente não está funcionando. Corrigir.
+2.	Controle de status de aprovação
+•	Adicionar a funcionalidade de acionar botão “Marcar como aprovado” “Rejeitado” ou “Pendente” dentro da tela de visualização ou edição de orçamento.
+3.	Tela de produtos e categorias
+•	Na aba de “Produtos”, permitir a criação e edição de categorias personalizadas (ex: Grama, Piso, Acessório etc.).
+•	Cada produto deve estar vinculado a uma categoria (já está, tudo ok).
+•	O sistema deve listar produtos agrupados por categoria ao selecionar para adicionar em orçamentos.
+4.	Campos adicionais no orçamento
+Adicionar os seguintes campos no formulário de criação de proposta:
+•	Campo “Desconto (%)”: permite informar o percentual de desconto. Esse valor deve ser aplicado sobre o valor total e refletido no PDF gerado.
+•	Campo “Frete incluso?”: opções Sim / Não. Essa informação deve aparecer no PDF.
+•	Campo “Prazo de garantia”: texto aberto, onde o usuário informa por exemplo “1 ano de garantia de fábrica”. Também deve constar no PDF.
+5.	Geração de PDF
+Atualizar o PDF gerado para seguir o seguinte padrão (baseado na imagem fornecida):
+•	Cabeçalho com logo da empresa, razão social, CNPJ, endereço, telefone e e-mail.
+•	Informações do cliente (nome, A/C, telefone, endereço, CNPJ, data da proposta).
+•	Tabela com os itens da proposta:
+o	Número do item
+o	Quantidade em m²
+o	Descrição do produto
+o	Valor unitário
+o	Valor total por item
+•	Bloco final com:
+o	Descrição do produto (opcional)
+o	Garantia
+o	Forma de pagamento (texto padrão: “50% de entrada + 50% na entrega”)
+o	Frete (incluso ou não)
+o	Tributos (inclusos)
+o	Validade da proposta (30 dias)
+o	Dados de pagamento (PIX)
+o	Nome do responsável e cargo
+6.	Compartilhamento
+Na tela de orçamentos, adicionar um botão “Compartilhar” que permita enviar o PDF gerado via:
+•	WhatsApp (através da API padrão de compartilhamento)
+•	E-mail (abrindo o app de e-mail com o PDF em anexo)
+•	Outras opções nativas do dispositivo (usar shareAsync() do Expo no mobile)
+7.	Comportamento final
+•	Todos os dados da proposta devem ser salvos.
+•	O valor do desconto, quando informado, deve ser convertido em decimal, aplicado ao valor bruto e refletido no valor final e no lucro da empresa.
+•	O valor final deve ser recalculado automaticamente quando o desconto for informado ou alterado.
+

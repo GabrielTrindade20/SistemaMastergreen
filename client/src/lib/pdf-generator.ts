@@ -1,168 +1,213 @@
-import { jsPDF } from 'jspdf';
-import type { QuotationWithDetails } from "@shared/schema";
-import { formatCurrency, formatDate } from './calculations';
+import jsPDF from 'jspdf';
+import type { QuotationWithDetails } from '@shared/schema';
 
-export async function generateQuotationPDF(quotation: QuotationWithDetails): Promise<void> {
+interface CompanyInfo {
+  name: string;
+  socialName: string;
+  cnpj: string;
+  address: string;
+  phone: string;
+  email: string;
+  pixKey: string;
+}
+
+export async function generateQuotationPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
   const doc = new jsPDF();
   
-  // Company colors
-  const masterGreen: [number, number, number] = [0, 43, 23];
-  const black: [number, number, number] = [0, 0, 0];
-  const gray: [number, number, number] = [128, 128, 128];
+  // Company information
+  const company: CompanyInfo = {
+    name: "MG MASTERGREEN",
+    socialName: "MasterGreen Grama Sintética",
+    cnpj: "36.347.401/0001-99",
+    address: "QNN 24 Conjunto E Lote 14, Ceilândia Sul - DF",
+    phone: "(61) 98412-4179",
+    email: "mastergreendf@gmail.com",
+    pixKey: "36.347.401/0001-99"
+  };
 
-  // Header with company logo/name
-  doc.setFillColor(masterGreen[0], masterGreen[1], masterGreen[2]);
-  doc.rect(0, 0, 210, 30, 'F');
+  let yPosition = 20;
+  const pageWidth = doc.internal.pageSize.width;
+  const leftMargin = 20;
+  const rightMargin = 20;
+  const contentWidth = pageWidth - leftMargin - rightMargin;
+
+  // Header with company logo and info
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text(company.name, leftMargin, yPosition);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("GRAMAS E PISOS", leftMargin, yPosition + 6);
   
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
-  doc.text('MasterGreen', 20, 20);
-  
+  // Company details
+  yPosition += 15;
+  doc.setFontSize(8);
+  doc.text(`Razão Social: ${company.socialName}`, leftMargin, yPosition);
+  doc.text(`CNPJ: ${company.cnpj}`, leftMargin, yPosition + 4);
+  doc.text(`Endereço: ${company.address}`, leftMargin, yPosition + 8);
+  doc.text(`Telefone: ${company.phone}`, leftMargin, yPosition + 12);
+  doc.text(`E-mail: ${company.email}`, leftMargin, yPosition + 16);
+
+  // Title
+  yPosition += 30;
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Sistema de Gestão - Orçamentos', 20, 26);
-
-  // Reset text color
-  doc.setTextColor(black[0], black[1], black[2]);
-
-  // Quotation title and number
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PROPOSTA COMERCIAL', 20, 45);
-  
-  doc.setFontSize(12);
-  doc.text(`Número: ${quotation.quotationNumber}`, 20, 52);
-  doc.text(`Data: ${formatDate(quotation.createdAt!)}`, 20, 58);
-  doc.text(`Validade: ${formatDate(quotation.validUntil)}`, 20, 64);
+  doc.setFont("helvetica", "bold");
+  const title = quotation.pdfTitle || "PROPOSTA PARA VENDA E INSTALAÇÃO DE GRAMA SINTÉTICA";
+  const titleWidth = doc.getTextWidth(title);
+  doc.text(title, (pageWidth - titleWidth) / 2, yPosition);
 
   // Customer information
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('DADOS DO CLIENTE', 20, 80);
-  
+  yPosition += 20;
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  let yPos = 88;
-  
-  doc.text(`Nome: ${quotation.customer.name}`, 20, yPos);
-  yPos += 6;
-  doc.text(`Email: ${quotation.customer.email}`, 20, yPos);
-  yPos += 6;
-  doc.text(`Telefone: ${quotation.customer.phone}`, 20, yPos);
-  yPos += 6;
-  doc.text(`CPF/CNPJ: ${quotation.customer.cpfCnpj}`, 20, yPos);
-  yPos += 6;
-  
-  if (quotation.customer.address) {
-    doc.text(`Endereço: ${quotation.customer.address}${quotation.customer.number ? ', ' + quotation.customer.number : ''}`, 20, yPos);
-    yPos += 6;
-    if (quotation.customer.neighborhood && quotation.customer.city) {
-      doc.text(`${quotation.customer.neighborhood} - ${quotation.customer.city}`, 20, yPos);
-      yPos += 6;
-    }
+  doc.setFont("helvetica", "normal");
+  doc.text(`Ao: ${quotation.customer.name}`, leftMargin, yPosition);
+  doc.text(`Telefone: ${quotation.customer.phone || 'Não informado'}`, leftMargin, yPosition + 5);
+  doc.text(`Endereço: ${quotation.customer.address || 'Não informado'}`, leftMargin, yPosition + 10);
+  if (quotation.customer.cpfCnpj) {
+    doc.text(`CPF/CNPJ: ${quotation.customer.cpfCnpj}`, leftMargin, yPosition + 15);
+    yPosition += 5;
   }
-
-  // Products table
-  yPos += 10;
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PRODUTOS E SERVIÇOS', 20, yPos);
   
-  yPos += 10;
+  const currentDate = new Date().toLocaleDateString('pt-BR');
+  doc.text(`Data da Proposta: ${currentDate}`, leftMargin, yPosition + 15);
+
+  // Items table
+  yPosition += 30;
   
   // Table header
-  doc.setFillColor(240, 240, 240);
-  doc.rect(20, yPos - 2, 170, 8, 'F');
-  
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Produto', 22, yPos + 3);
-  doc.text('Qtd (m²)', 80, yPos + 3);
-  doc.text('Valor Unit.', 110, yPos + 3);
-  doc.text('Subtotal', 150, yPos + 3);
+  doc.setFont("helvetica", "bold");
   
-  yPos += 10;
+  const tableHeaders = ["ITEM", "QTD. (m²)", "DESCRIÇÃO DO PRODUTO", "VALOR UNIT.", "VALOR TOTAL"];
+  const columnWidths = [15, 25, 80, 25, 25];
+  let xPosition = leftMargin;
+  
+  // Draw table header
+  tableHeaders.forEach((header, index) => {
+    doc.rect(xPosition, yPosition, columnWidths[index], 8);
+    doc.text(header, xPosition + 2, yPosition + 5);
+    xPosition += columnWidths[index];
+  });
+  
+  yPosition += 8;
   
   // Table rows
-  doc.setFont('helvetica', 'normal');
-  quotation.items.forEach((item) => {
-    if (yPos > 250) {
-      doc.addPage();
-      yPos = 20;
-    }
+  doc.setFont("helvetica", "normal");
+  quotation.items.forEach((item, index) => {
+    xPosition = leftMargin;
+    const rowHeight = 12;
     
-    doc.text(item.product.name, 22, yPos);
-    doc.text(parseFloat(item.quantity).toFixed(2), 80, yPos);
-    doc.text(formatCurrency(parseFloat(item.unitPrice)), 110, yPos);
-    doc.text(formatCurrency(parseFloat(item.subtotal)), 150, yPos);
+    // Draw row cells
+    doc.rect(xPosition, yPosition, columnWidths[0], rowHeight);
+    doc.text((index + 1).toString(), xPosition + 2, yPosition + 8);
+    xPosition += columnWidths[0];
     
-    yPos += 6;
+    doc.rect(xPosition, yPosition, columnWidths[1], rowHeight);
+    doc.text(parseFloat(item.quantity).toFixed(2), xPosition + 2, yPosition + 8);
+    xPosition += columnWidths[1];
+    
+    doc.rect(xPosition, yPosition, columnWidths[2], rowHeight);
+    const productName = item.product.name;
+    doc.text(productName, xPosition + 2, yPosition + 8);
+    xPosition += columnWidths[2];
+    
+    doc.rect(xPosition, yPosition, columnWidths[3], rowHeight);
+    doc.text(`R$ ${parseFloat(item.unitPrice).toFixed(2)}`, xPosition + 2, yPosition + 8);
+    xPosition += columnWidths[3];
+    
+    doc.rect(xPosition, yPosition, columnWidths[4], rowHeight);
+    doc.text(`R$ ${parseFloat(item.subtotal).toFixed(2)}`, xPosition + 2, yPosition + 8);
+    
+    yPosition += rowHeight;
   });
 
-  // Totals
-  yPos += 10;
-  
-  // Draw line
-  doc.setDrawColor(gray[0], gray[1], gray[2]);
-  doc.line(20, yPos, 190, yPos);
-  yPos += 8;
-  
-  doc.setFont('helvetica', 'normal');
-  doc.text('Subtotal:', 130, yPos);
-  doc.text(formatCurrency(parseFloat(quotation.subtotal)), 160, yPos);
-  yPos += 6;
-  
-  doc.text('Impostos (10%):', 130, yPos);
-  doc.text(formatCurrency(parseFloat(quotation.taxAmount)), 160, yPos);
-  yPos += 8;
-  
-  // Draw line for total
-  doc.line(130, yPos - 2, 190, yPos - 2);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('TOTAL:', 130, yPos + 2);
-  doc.text(formatCurrency(parseFloat(quotation.total)), 160, yPos + 2);
+  // Total row
+  xPosition = leftMargin + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3];
+  doc.setFont("helvetica", "bold");
+  doc.rect(xPosition, yPosition, columnWidths[4], 10);
+  doc.text(`R$ ${parseFloat(quotation.total).toFixed(2)}`, xPosition + 2, yPosition + 7);
 
-  // Notes
-  if (quotation.notes) {
-    yPos += 15;
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('OBSERVAÇÕES:', 20, yPos);
-    yPos += 6;
-    
-    doc.setFont('helvetica', 'normal');
-    const splitNotes = doc.splitTextToSize(quotation.notes, 170);
-    doc.text(splitNotes, 20, yPos);
-    yPos += splitNotes.length * 4;
-  }
-
-  // Terms and validity
-  yPos += 15;
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(gray[0], gray[1], gray[2]);
-  
-  doc.text('• Esta proposta tem validade de 7 dias a partir da data de emissão.', 20, yPos);
-  yPos += 4;
-  doc.text('• Valores sujeitos a alteração sem aviso prévio.', 20, yPos);
-  yPos += 4;
-  doc.text('• Condições de pagamento e prazo de entrega a serem definidos na aprovação.', 20, yPos);
-
-  // Footer
-  yPos = 280;
-  doc.setFillColor(masterGreen[0], masterGreen[1], masterGreen[2]);
-  doc.rect(0, yPos, 210, 17, 'F');
-  
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'normal');
+  // Additional information
+  yPosition += 25;
   doc.setFontSize(10);
-  doc.text('MasterGreen - Soluções em Pisos e Revestimentos', 20, yPos + 6);
-  doc.text('Contato: (61) 9 9999-9999 | mastergreen@contato.com', 20, yPos + 12);
+  doc.setFont("helvetica", "bold");
+  doc.text("Dados da Proposta:", leftMargin, yPosition);
+  
+  yPosition += 8;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  
+  // Product description
+  if (quotation.items.length > 0 && quotation.items[0].product.description) {
+    doc.text(`Descrição do produto: ${quotation.items[0].product.description}`, leftMargin, yPosition);
+    yPosition += 6;
+  }
+  
+  // Warranty
+  doc.text(`Prazo de garantia: ${quotation.warrantyText || '1 ano de garantia de fábrica'}`, leftMargin, yPosition);
+  yPosition += 6;
+  
+  // Payment terms
+  doc.text("Forma de pagamento: 50% de entrada + 50% na entrega.", leftMargin, yPosition);
+  yPosition += 6;
+  
+  // Shipping
+  const shippingText = quotation.shippingIncluded ? "Incluso" : "Não incluso";
+  doc.text(`Frete: ${shippingText}`, leftMargin, yPosition);
+  yPosition += 6;
+  
+  // Taxes
+  doc.text("Tributos: incluso no preço.", leftMargin, yPosition);
+  yPosition += 6;
+  
+  // Validity
+  const validityDays = Math.ceil((new Date(quotation.validUntil).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  doc.text(`Validade desta proposta: ${validityDays} dias.`, leftMargin, yPosition);
+  yPosition += 10;
+  
+  // Payment info
+  doc.setFont("helvetica", "bold");
+  doc.text("Dados para pagamento:", leftMargin, yPosition);
+  yPosition += 6;
+  doc.setFont("helvetica", "normal");
+  doc.text(`PIX: ${company.pixKey} - CNPJ em nome da ${company.socialName}`, leftMargin, yPosition);
+  
+  // Responsible person
+  yPosition += 15;
+  doc.setFont("helvetica", "bold");
+  const responsibleName = quotation.responsibleName || "JOSÉ NEWTON DE ALMEIDA ROCHA";
+  const responsiblePosition = quotation.responsiblePosition || "Administrador";
+  
+  doc.text(responsibleName, leftMargin, yPosition);
+  doc.setFont("helvetica", "normal");
+  doc.text(responsiblePosition, leftMargin, yPosition + 5);
 
-  // Save the PDF
-  const fileName = `Orcamento_${quotation.quotationNumber.replace('#', '')}_${quotation.customer.name.replace(/\s+/g, '_')}.pdf`;
-  doc.save(fileName);
+  // Generate and download PDF
+  const pdfFileName = fileName || `orcamento-${quotation.quotationNumber}-${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(pdfFileName);
+}
+
+// Share function for WhatsApp and email
+export async function shareQuotationPDF(quotation: QuotationWithDetails, method: 'whatsapp' | 'email' | 'download') {
+  const fileName = `orcamento-${quotation.quotationNumber}.pdf`;
+  
+  if (method === 'download') {
+    await generateQuotationPDF(quotation, fileName);
+    return;
+  }
+  
+  // For WhatsApp and email sharing, we'll generate the PDF and provide sharing options
+  // This is a simplified version - in a real app you'd need proper file handling
+  await generateQuotationPDF(quotation, fileName);
+  
+  if (method === 'whatsapp') {
+    const message = `Olá! Segue em anexo o orçamento ${quotation.quotationNumber} no valor de R$ ${parseFloat(quotation.total).toFixed(2)}. Qualquer dúvida, estou à disposição!`;
+    const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  } else if (method === 'email') {
+    const subject = `Orçamento ${quotation.quotationNumber} - MasterGreen`;
+    const body = `Prezado(a) ${quotation.customer.name},\n\nSegue em anexo o orçamento solicitado no valor de R$ ${parseFloat(quotation.total).toFixed(2)}.\n\nQualquer dúvida, estou à disposição!\n\nAtenciosamente,\nEquipe MasterGreen`;
+    const mailtoUrl = `mailto:${quotation.customer.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoUrl;
+  }
 }

@@ -242,13 +242,21 @@ export class DatabaseStorage implements IStorage {
     return result!;
   }
 
-  async updateQuotationStatus(id: string, status: string): Promise<Quotation> {
+  async updateQuotationStatus(id: string, status: string): Promise<QuotationWithDetails> {
+    // Update quotation status
     const [updatedQuotation] = await db
       .update(quotations)
       .set({ status })
       .where(eq(quotations.id, id))
       .returning();
-    return updatedQuotation;
+    
+    if (!updatedQuotation) {
+      throw new Error("Quotation not found");
+    }
+
+    // Return complete quotation with details
+    const result = await this.getQuotation(id);
+    return result!;
   }
 
   async deleteQuotation(id: string): Promise<void> {

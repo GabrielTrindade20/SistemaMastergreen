@@ -328,6 +328,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/quotations/:id/status", requireAuth, async (req, res) => {
+    try {
+      const { status } = req.body;
+      if (!['pending', 'approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const quotation = await storage.updateQuotationStatus(req.params.id, status);
+      res.json(quotation);
+    } catch (error) {
+      console.error("Error updating quotation status:", error);
+      res.status(500).json({ message: "Failed to update quotation status" });
+    }
+  });
+
   app.patch("/api/quotations/:id/status", async (req, res) => {
     try {
       const { status } = req.body;

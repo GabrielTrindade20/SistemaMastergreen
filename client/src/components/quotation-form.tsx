@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Trash2, FileText } from "lucide-react";
 import type { Customer, Product } from "@shared/schema";
@@ -17,6 +18,12 @@ const quotationSchema = z.object({
   customerId: z.string().min(1, "Selecione um cliente"),
   validUntil: z.string().min(1, "Data de validade é obrigatória"),
   notes: z.string().optional(),
+  discountPercent: z.number().min(0).max(100).optional(),
+  shippingIncluded: z.boolean().default(true),
+  warrantyText: z.string().default("1 ano de garantia de fábrica"),
+  pdfTitle: z.string().optional(),
+  responsibleName: z.string().optional(),
+  responsiblePosition: z.string().default("Administrador"),
   items: z.array(z.object({
     productId: z.string().min(1, "Selecione um produto"),
     quantity: z.number().min(0.01, "Quantidade deve ser maior que 0"),
@@ -48,14 +55,21 @@ export default function QuotationForm({
     resolver: zodResolver(quotationSchema),
     defaultValues: {
       customerId: "",
-      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       notes: "",
+      discountPercent: 0,
+      shippingIncluded: true,
+      warrantyText: "1 ano de garantia de fábrica",
+      pdfTitle: "",
+      responsibleName: "",
+      responsiblePosition: "Administrador",
       items: quotationItems,
     },
   });
 
-  // Calculate totals
-  const totals = calculateQuotationTotals(quotationItems, products);
+  // Calculate totals with discount
+  const discountPercent = form.watch("discountPercent") || 0;
+  const totals = calculateQuotationTotals(quotationItems, products, discountPercent);
 
   const addProduct = () => {
     const newItems = [...quotationItems, { productId: "", quantity: 0 }];
@@ -93,10 +107,19 @@ export default function QuotationForm({
       quotation: {
         customerId: data.customerId,
         subtotal: totals.subtotal.toString(),
+        discountPercent: (data.discountPercent || 0).toString(),
+        discountAmount: totals.discountAmount.toString(),
         taxAmount: totals.tax.toString(),
+        totalCost: totals.totalCost.toString(),
         total: totals.total.toString(),
+        netProfit: totals.netProfit.toString(),
         validUntil: data.validUntil,
         notes: data.notes || null,
+        shippingIncluded: data.shippingIncluded ? 1 : 0,
+        warrantyText: data.warrantyText || "1 ano de garantia de fábrica",
+        pdfTitle: data.pdfTitle || null,
+        responsibleName: data.responsibleName || null,
+        responsiblePosition: data.responsiblePosition || "Administrador",
       },
       items: data.items.map(item => {
         const product = getProduct(item.productId)!;
@@ -137,11 +160,20 @@ export default function QuotationForm({
       id: 'preview',
       quotationNumber: '#PREVIEW',
       subtotal: totals.subtotal.toString(),
+      discountPercent: (formData.discountPercent || 0).toString(),
+      discountAmount: totals.discountAmount.toString(),
       taxAmount: totals.tax.toString(),
+      totalCost: totals.totalCost.toString(),
       total: totals.total.toString(),
+      netProfit: totals.netProfit.toString(),
       status: 'pending',
       validUntil: formData.validUntil,
       notes: formData.notes || null,
+      shippingIncluded: formData.shippingIncluded,
+      warrantyText: formData.warrantyText || "1 ano de garantia de fábrica",
+      pdfTitle: formData.pdfTitle || null,
+      responsibleName: formData.responsibleName || null,
+      responsiblePosition: formData.responsiblePosition || "Administrador",
       createdAt: new Date().toISOString(),
       customer,
       items: formData.items.map(item => {
@@ -317,8 +349,14 @@ export default function QuotationForm({
                   R$ {totals.subtotal.toFixed(2)}
                 </span>
               </div>
+              {totals.discountAmount > 0 && (
+                <div className="flex justify-between text-red-600">
+                  <span>Desconto ({discountPercent}%):</span>
+                  <span>- R$ {totals.discountAmount.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
-                <span className="text-gray-600">Impostos (10%):</span>
+                <span className="text-gray-600">Impostos (4,5%):</span>
                 <span className="text-gray-900 font-medium">
                   R$ {totals.tax.toFixed(2)}
                 </span>
@@ -334,6 +372,123 @@ export default function QuotationForm({
             </div>
           </CardContent>
         </Card>
+
+        {/* Additional Configuration */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Configurações Adicionais</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="discountPercent"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Desconto (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      placeholder="0.00"
+                      {...field}
+                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="shippingIncluded"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Frete incluso?
+                    </FormLabel>
+                  </div>
+                </FormItem>
+              )}
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <FormField
+              control={form.control}
+              name="warrantyText"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prazo de Garantia</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="1 ano de garantia de fábrica"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="pdfTitle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Título do PDF</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="PROPOSTA PARA VENDA E INSTALAÇÃO DE GRAMA SINTÉTICA"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <FormField
+              control={form.control}
+              name="responsibleName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Nome do Responsável</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Nome completo"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="responsiblePosition"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Cargo do Responsável</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Administrador"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
 
         {/* Additional Information */}
         <FormField
