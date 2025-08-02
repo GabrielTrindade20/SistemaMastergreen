@@ -12,7 +12,9 @@ export function useAuth() {
     // Check auth status once on mount
     const checkAuth = async () => {
       try {
-        const response = await fetch("/api/me");
+        const response = await fetch("/api/me", {
+          credentials: 'include' // Importante para incluir cookies
+        });
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
@@ -36,6 +38,7 @@ export function useAuth() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
+        credentials: 'include' // Importante para incluir cookies
       });
       if (!response.ok) {
         const error = await response.json();
@@ -44,11 +47,9 @@ export function useAuth() {
       return response.json();
     },
     onSuccess: (data) => {
-      console.log("Login successful, user data:", data);
-      setUser(data.user);
-      setError(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      console.log("Login successful, reloading to update interface");
+      // Usar window.location.href para recarregar completamente
+      window.location.href = "/dashboard";
     },
     onError: (error) => {
       console.log("Login error:", error);
@@ -58,16 +59,19 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/logout", { method: "POST" });
+      const response = await fetch("/api/logout", { 
+        method: "POST",
+        credentials: 'include' // Importante para incluir cookies
+      });
       if (!response.ok) {
         throw new Error("Logout failed");
       }
       return response.json();
     },
     onSuccess: () => {
-      setUser(null);
-      setError(null);
-      queryClient.clear();
+      console.log("Logout successful, reloading to update interface");
+      // Usar window.location.href para recarregar completamente
+      window.location.href = "/";
     },
   });
 
