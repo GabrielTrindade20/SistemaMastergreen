@@ -51,7 +51,8 @@ export default function Quotations() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("/api/quotations", "POST", data);
+      const response = await apiRequest("POST", "/api/quotations", data);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
@@ -72,7 +73,8 @@ export default function Quotations() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      return await apiRequest(`/api/quotations/${id}/status`, "PUT", { status });
+      const response = await apiRequest("PUT", `/api/quotations/${id}/status`, { status });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
@@ -92,7 +94,8 @@ export default function Quotations() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      return await apiRequest(`/api/quotations/${id}`, "DELETE");
+      const response = await apiRequest("DELETE", `/api/quotations/${id}`);
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });

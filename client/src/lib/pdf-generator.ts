@@ -183,7 +183,8 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
   doc.text(responsiblePosition, leftMargin, yPosition + 5);
 
   // Generate and download PDF
-  const pdfFileName = fileName || `orcamento-${quotation.quotationNumber}-${new Date().toISOString().split('T')[0]}.pdf`;
+  const dateForFile = new Date().toISOString().split('T')[0];
+  const pdfFileName = fileName || `orcamento-#PREVIEW-${dateForFile}.pdf`;
   doc.save(pdfFileName);
 }
 
