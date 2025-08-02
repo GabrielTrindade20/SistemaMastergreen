@@ -2,8 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, FileText, Users, TrendingUp, ArrowUp, Clock, UserPlus } from "lucide-react";
 import type { QuotationWithDetails, Customer } from "@shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
     queryKey: ["/api/quotations"],
   });
@@ -14,19 +17,28 @@ export default function Dashboard() {
 
   const isLoading = quotationsLoading || customersLoading;
 
-  // Calculate metrics
-  const totalRevenue = quotations
+  // Filter data based on user type
+  const userQuotations = user?.type === "admin" 
+    ? quotations 
+    : quotations.filter(q => q.userId === user?.id);
+  
+  const userCustomers = user?.type === "admin" 
+    ? customers 
+    : customers.filter(c => c.userId === user?.id);
+
+  // Calculate metrics using filtered data
+  const totalRevenue = userQuotations
     .filter(q => q.status === 'approved')
     .reduce((sum, q) => sum + parseFloat(q.total), 0);
 
-  const pendingQuotations = quotations.filter(q => q.status === 'pending');
-  const activeCustomers = customers.length;
-  const conversionRate = quotations.length > 0 
-    ? (quotations.filter(q => q.status === 'approved').length / quotations.length) * 100 
+  const pendingQuotations = userQuotations.filter(q => q.status === 'pending');
+  const activeCustomers = userCustomers.length;
+  const conversionRate = userQuotations.length > 0 
+    ? (userQuotations.filter(q => q.status === 'approved').length / userQuotations.length) * 100 
     : 0;
 
-  // Recent activities
-  const recentActivities = quotations
+  // Recent activities using filtered data
+  const recentActivities = userQuotations
     .slice(0, 3)
     .map(q => ({
       id: q.id,
@@ -44,7 +56,9 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600">Visão geral do seu negócio</p>
+            <p className="text-gray-600">
+              {user?.type === "admin" ? "Visão geral do negócio" : "Seus dados pessoais"}
+            </p>
           </div>
           <div className="text-sm text-gray-500">
             <Clock className="w-4 h-4 inline mr-2" />

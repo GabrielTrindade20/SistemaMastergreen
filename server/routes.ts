@@ -269,9 +269,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      // Admin pode ver todos os orçamentos, funcionário apenas da sua filial
-      const branch = user.type === "admin" ? undefined : user.branch;
-      const quotations = await storage.getQuotations(branch);
+      console.log("Getting quotations for user:", user);
+      
+      let quotations;
+      if (user.type === "admin") {
+        // Admin sees all quotations
+        quotations = await storage.getQuotations();
+      } else {
+        // Funcionario sees only their own quotations
+        quotations = await storage.getQuotationsByUser(user.id);
+      }
+      
       res.json(quotations);
     } catch (error) {
       console.error("Error fetching quotations:", error);
@@ -343,21 +351,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/quotations/:id/status", async (req, res) => {
-    try {
-      const { status } = req.body;
-      const quotation = await storage.updateQuotationStatus(req.params.id, status);
-      res.json(quotation);
-    } catch (error) {
-      console.error("Error updating quotation status:", error);
-      res.status(500).json({ message: "Failed to update quotation status" });
-    }
-  });
 
-  app.delete("/api/quotations/:id", async (req, res) => {
+
+  app.delete("/api/quotations/:id", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
+      
+      // Check if user has permission to delete
+      if (user.type !== "admin") {
+        const quotation = await storage.getQuotation(req.params.id);
+        if (!quotation || quotation.userId !== user.id) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+      
       await storage.deleteQuotation(req.params.id);
-      res.status(204).send();
+      res.json({ message: "Quotation deleted successfully" });
     } catch (error) {
       console.error("Error deleting quotation:", error);
       res.status(500).json({ message: "Failed to delete quotation" });
