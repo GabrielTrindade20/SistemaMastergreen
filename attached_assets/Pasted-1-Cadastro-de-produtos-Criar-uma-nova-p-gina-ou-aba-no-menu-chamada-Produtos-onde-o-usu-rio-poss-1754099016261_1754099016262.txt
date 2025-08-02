@@ -1,0 +1,35 @@
+1.	Cadastro de produtos
+Criar uma nova página ou aba no menu chamada "Produtos" onde o usuário possa cadastrar os itens que ele vende. Cada produto deve conter os seguintes campos:
+•	Nome do produto (ex: Grama Sintética 20mm)
+•	Tipo/Categoria (ex: Grama, Piso, Carpete)
+•	Opção de instalação (Sim/Não)
+•	Preço de venda por metro quadrado (R$)
+•	Custo por metro quadrado (R$)
+•	Descrição adicional (opcional)
+Essa lista de produtos será armazenada em uma base de dados local (JSON, localStorage ou banco, conforme disponibilidade atual) e deve permitir:
+•	Adicionar novo produto
+•	Editar produto existente
+•	Remover produto
+2.	Integração com o módulo de orçamentos
+Ao gerar um orçamento, o usuário não irá preencher o nome do produto manualmente. Em vez disso, ele poderá selecionar o produto a partir da lista cadastrada na aba "Produtos".
+Com base no produto selecionado, o sistema deve preencher automaticamente os seguintes campos do orçamento:
+•	Preço por metro quadrado (mas o usuário pode editar se quiser)
+•	Custo por metro quadrado (mas também pode editar)
+•	Tipo e instalação (para identificar se o preço é com ou sem instalação)
+3.	Lógica de cálculo do orçamento
+Após o produto ser selecionado e o usuário informar a metragem, o sistema deve realizar os seguintes cálculos:
+•	Valor bruto = valor por metro × metragem
+•	Valor de imposto = aplicar percentual ajustável (por padrão 4,5%) sobre o valor bruto (o usuário pode ajustar no orçamento)
+•	Custo total = custo por metro × metragem
+•	Desconto = aplicar percentual ajustável (se informado) sobre o valor bruto
+•	Valor final para o cliente = valor bruto - desconto
+•	Lucro líquido = valor final - custo total - imposto
+Todos os valores devem ser exibidos claramente no resumo do orçamento.
+4.	Configurações ajustáveis pelo usuário no orçamento
+•	Percentual de desconto
+•	Percentual de imposto
+•	Valor de venda (pode sobrescrever o valor padrão do produto)
+•	Valor de custo (pode sobrescrever o valor padrão do produto)
+5.	Objetivo do sistema
+Esse sistema visa facilitar a criação de orçamentos rápidos e precisos, com base em produtos cadastrados previamente. Deve evitar a necessidade de digitação repetida e permitir ajustes manuais nos valores.
+

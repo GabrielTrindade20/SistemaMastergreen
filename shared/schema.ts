@@ -22,8 +22,10 @@ export const customers = pgTable("customers", {
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  category: text("category").default("Grama"), // Grama, Piso, Carpete, etc
+  hasInstallation: integer("has_installation").notNull().default(0), // 0=Não, 1=Sim
   pricePerM2: decimal("price_per_m2", { precision: 10, scale: 2 }).notNull(),
-  category: text("category"),
+  costPerM2: decimal("cost_per_m2", { precision: 10, scale: 2 }).default("0.00"),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -34,8 +36,13 @@ export const quotations = pgTable("quotations", {
   userId: uuid("user_id").references(() => users.id).notNull(),
   quotationNumber: text("quotation_number").notNull().unique(),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  discountPercent: decimal("discount_percent", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  taxPercent: decimal("tax_percent", { precision: 5, scale: 2 }).notNull().default("4.50"),
   taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).notNull(),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull().default("0.00"),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  netProfit: decimal("net_profit", { precision: 10, scale: 2 }).notNull().default("0.00"),
   status: text("status").notNull().default("pending"), // pending, approved, rejected
   validUntil: timestamp("valid_until").notNull(),
   notes: text("notes"),
@@ -49,7 +56,9 @@ export const quotationItems = pgTable("quotation_items", {
   productId: uuid("product_id").references(() => products.id).notNull(),
   quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull(), // area in m²
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  unitCost: decimal("unit_cost", { precision: 10, scale: 2 }).notNull(),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
 });
 
 export const users = pgTable("users", {
@@ -131,18 +140,15 @@ export const loginUserSchema = z.object({
 
 // Types
 export type Customer = typeof customers.$inferSelect;
-export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
-
 export type Product = typeof products.$inferSelect;
-export type InsertProduct = z.infer<typeof insertProductSchema>;
-
 export type Quotation = typeof quotations.$inferSelect;
-export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
-
 export type QuotationItem = typeof quotationItems.$inferSelect;
-export type InsertQuotationItem = z.infer<typeof insertQuotationItemSchema>;
-
 export type User = typeof users.$inferSelect;
+
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
+export type InsertQuotationItem = z.infer<typeof insertQuotationItemSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 

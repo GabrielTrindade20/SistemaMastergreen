@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   FileText, 
   Users, 
+  Package,
   BarChart3, 
   MessageCircle, 
   User,
@@ -16,6 +17,7 @@ const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Orçamentos", href: "/orcamentos", icon: FileText },
   { name: "Clientes", href: "/clientes", icon: Users },
+  { name: "Produtos", href: "/produtos", icon: Package },
   { name: "Relatórios", href: "/relatorios", icon: BarChart3 },
   { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
 ];

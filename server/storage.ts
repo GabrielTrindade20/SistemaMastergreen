@@ -30,7 +30,10 @@ export interface IStorage {
 
   // Products
   getProducts(): Promise<Product[]>;
+  getProduct(id: string): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
+  updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product>;
+  deleteProduct(id: string): Promise<void>;
   initializeDefaultProducts(): Promise<void>;
 
   // Quotations
@@ -85,9 +88,27 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(products).orderBy(products.name);
   }
 
+  async getProduct(id: string): Promise<Product | undefined> {
+    const [product] = await db.select().from(products).where(eq(products.id, id));
+    return product;
+  }
+
   async createProduct(product: InsertProduct): Promise<Product> {
     const [newProduct] = await db.insert(products).values(product).returning();
     return newProduct;
+  }
+
+  async updateProduct(id: string, product: Partial<InsertProduct>): Promise<Product> {
+    const [updatedProduct] = await db
+      .update(products)
+      .set(product)
+      .where(eq(products.id, id))
+      .returning();
+    return updatedProduct;
+  }
+
+  async deleteProduct(id: string): Promise<void> {
+    await db.delete(products).where(eq(products.id, id));
   }
 
   async initializeDefaultProducts(): Promise<void> {
@@ -97,19 +118,25 @@ export class DatabaseStorage implements IStorage {
         {
           name: "Grama Sintética",
           pricePerM2: "64.00",
-          category: "Decoração",
+          costPerM2: "40.00",
+          category: "Grama",
+          hasInstallation: 1,
           description: "Grama sintética de alta qualidade para jardins e áreas externas"
         },
         {
           name: "Capacho Vinil",
           pricePerM2: "55.00",
-          category: "Proteção",
+          costPerM2: "35.00",
+          category: "Carpete",
+          hasInstallation: 0,
           description: "Capacho de vinil resistente para entrada de estabelecimentos"
         },
         {
           name: "Piso Tátil",
           pricePerM2: "52.00",
-          category: "Acessibilidade",
+          costPerM2: "30.00",
+          category: "Piso",
+          hasInstallation: 1,
           description: "Piso tátil para acessibilidade de pessoas com deficiência visual"
         }
       ];
