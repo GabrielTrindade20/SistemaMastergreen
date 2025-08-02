@@ -14,13 +14,30 @@ import { Users, Plus, Edit, Trash2, Shield, User } from "lucide-react";
 import type { User as UserType, InsertUser } from "@shared/schema";
 
 export default function Admin() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
 
-  // Verificar se o usuário é admin
+  const { data: users = [], isLoading } = useQuery<UserType[]>({
+    queryKey: ["/api/users"],
+    enabled: !!currentUser && currentUser.type === "admin",
+  });
+
+  // Loading state
+  if (authLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-32 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Access control
   if (!currentUser || currentUser.type !== "admin") {
     return (
       <div className="p-6">
@@ -33,10 +50,6 @@ export default function Admin() {
       </div>
     );
   }
-
-  const { data: users = [], isLoading } = useQuery<UserType[]>({
-    queryKey: ["/api/users"],
-  });
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: InsertUser) => {

@@ -95,7 +95,7 @@ export default function QuotationForm({
         subtotal: totals.subtotal.toString(),
         taxAmount: totals.tax.toString(),
         total: totals.total.toString(),
-        validUntil: new Date(data.validUntil).toISOString(),
+        validUntil: data.validUntil,
         notes: data.notes || null,
       },
       items: data.items.map(item => {

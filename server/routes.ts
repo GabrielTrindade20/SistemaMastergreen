@@ -13,8 +13,8 @@ import { z } from "zod";
 import session from "express-session";
 
 const createQuotationSchema = z.object({
-  quotation: insertQuotationSchema,
-  items: z.array(insertQuotationItemSchema)
+  quotation: insertQuotationSchema.omit({ userId: true, branch: true }),
+  items: z.array(insertQuotationItemSchema.omit({ quotationId: true }))
 });
 
 // Session configuration
@@ -248,6 +248,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
+      console.log("Received quotation data:", JSON.stringify(req.body, null, 2));
+      
       const { quotation, items } = createQuotationSchema.parse(req.body);
       
       // Adicionar userId e branch do usuário logado
@@ -257,10 +259,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         branch: user.branch
       };
       
+      console.log("Processed quotation:", quotationWithUser);
+      console.log("Processed items:", items);
+      
       const newQuotation = await storage.createQuotation(quotationWithUser, items);
       res.status(201).json(newQuotation);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
         return res.status(400).json({ message: "Invalid quotation data", errors: error.errors });
       }
       console.error("Error creating quotation:", error);
