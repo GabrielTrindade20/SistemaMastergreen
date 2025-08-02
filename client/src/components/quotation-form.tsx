@@ -101,13 +101,17 @@ export default function QuotationForm({
       items: data.items.map(item => {
         const product = getProduct(item.productId)!;
         const unitPrice = parseFloat(product.pricePerM2);
+        const unitCost = parseFloat(product.costPerM2 || "0");
         const subtotal = unitPrice * item.quantity;
+        const totalCost = unitCost * item.quantity;
         
         return {
           productId: item.productId,
           quantity: item.quantity.toString(),
           unitPrice: unitPrice.toString(),
+          unitCost: unitCost.toString(),
           subtotal: subtotal.toString(),
+          totalCost: totalCost.toString(),
         };
       }),
     };
