@@ -1,0 +1,97 @@
+Corrija imediatamente os seguintes problemas no sistema MasterGreen:
+
+1. Erros de requisição HTTP (fetch)
+Todos os erros abaixo indicam que o método HTTP não está sendo especificado corretamente no fetch(). O erro:
+"Failed to execute 'fetch' on 'Window': ... is not a valid HTTP method"
+ocorre porque você está passando a URL como método, em vez de definir corretamente os parâmetros do fetch.
+
+Corrigir os seguintes endpoints com os métodos corretos:
+
+Aprovar orçamento
+javascript
+Copiar
+Editar
+fetch(`/api/quotations/${id}/status`, {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ status: "aprovado" })
+});
+Rejeitar orçamento
+javascript
+Copiar
+Editar
+fetch(`/api/quotations/${id}/status`, {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ status: "rejeitado" })
+});
+Excluir orçamento
+javascript
+Copiar
+Editar
+fetch(`/api/quotations/${id}`, {
+  method: "DELETE"
+});
+Salvar orçamento
+javascript
+Copiar
+Editar
+fetch(`/api/quotations`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(novoOrcamento)
+});
+2. Nome do arquivo PDF não está sendo aplicado corretamente
+O nome do arquivo gerado no PDF não está sendo definido explicitamente. Deve ser assim:
+
+javascript
+Copiar
+Editar
+const fileName = `orcamento-#PREVIEW-${new Date().toISOString().slice(0, 10)}.pdf`;
+
+await Print.printToFileAsync({
+  html: conteudoHTML,
+  fileName: fileName,
+  base64: false
+});
+Importante: o nome deve ser tratado antes da função de compartilhamento/salvamento.
+
+3. Campos "Responsável" e "Cargo" não devem ser editáveis
+Atualmente, esses campos estão sendo preenchidos manualmente. Corrigir isso para que o sistema preencha automaticamente com base no usuário autenticado.
+
+Solução esperada:
+
+Ao criar um orçamento, o sistema deve automaticamente preencher:
+
+js
+Copiar
+Editar
+createdBy: user.name,
+role: user.type
+Esses campos não devem aparecer no formulário para edição.
+
+Eles devem aparecer apenas em visualizações e no PDF como informações de referência.
+
+4. Funcionários ainda veem dados que não deveriam
+Reforçar controle de acesso com base no tipo de usuário. Corrigir imediatamente as seguintes permissões:
+
+Usuários do tipo funcionario:
+Só podem ver orçamentos criados por eles
+
+Dashboard deve mostrar:
+
+Total de orçamentos feitos por eles
+
+Total de clientes cadastrados por eles
+
+Taxa de conversão (apenas deles)
+
+Devem ser bloqueados de acessar:
+
+Relatórios globais
+
+Dados de outros usuários
+
+Gráficos financeiros gerais
+
+Implementar filtros baseados no user.id ou user.email em todas as requisições e na exibição dos dashboards.

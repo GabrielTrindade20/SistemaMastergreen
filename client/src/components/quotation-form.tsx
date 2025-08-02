@@ -13,6 +13,7 @@ import { Plus, Trash2, FileText } from "lucide-react";
 import type { Customer, Product } from "@shared/schema";
 import { calculateQuotationTotals } from "@/lib/calculations";
 import { generateQuotationPDF } from "@/lib/pdf-generator";
+import { useAuth } from "@/hooks/useAuth";
 
 const quotationSchema = z.object({
   customerId: z.string().min(1, "Selecione um cliente"),
@@ -47,6 +48,7 @@ export default function QuotationForm({
   onCancel, 
   isLoading 
 }: QuotationFormProps) {
+  const { user } = useAuth();
   const [quotationItems, setQuotationItems] = useState([
     { productId: "", quantity: 0 }
   ]);
@@ -61,8 +63,8 @@ export default function QuotationForm({
       shippingIncluded: true,
       warrantyText: "1 ano de garantia de fábrica",
       pdfTitle: "",
-      responsibleName: "",
-      responsiblePosition: "Administrador",
+      responsibleName: user?.name || "",
+      responsiblePosition: user?.type === "admin" ? "Administrador" : "Funcionário",
       items: quotationItems,
     },
   });
@@ -118,8 +120,8 @@ export default function QuotationForm({
         shippingIncluded: data.shippingIncluded ? 1 : 0,
         warrantyText: data.warrantyText || "1 ano de garantia de fábrica",
         pdfTitle: data.pdfTitle || null,
-        responsibleName: data.responsibleName || null,
-        responsiblePosition: data.responsiblePosition || "Administrador",
+        responsibleName: user?.name || null,
+        responsiblePosition: user?.type === "admin" ? "Administrador" : "Funcionário",
       },
       items: data.items.map(item => {
         const product = getProduct(item.productId)!;
@@ -455,38 +457,19 @@ export default function QuotationForm({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <FormField
-              control={form.control}
-              name="responsibleName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome do Responsável</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Nome completo"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="responsiblePosition"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cargo do Responsável</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      placeholder="Administrador"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Responsável pelo orçamento</label>
+              <div className="p-3 bg-gray-50 border rounded-md">
+                <p className="text-sm font-medium">{user?.name || "Não informado"}</p>
+                <p className="text-xs text-gray-500">{user?.type === "admin" ? "Administrador" : "Funcionário"}</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Filial</label>
+              <div className="p-3 bg-gray-50 border rounded-md">
+                <p className="text-sm font-medium">{user?.branch || "Não informado"}</p>
+              </div>
+            </div>
           </div>
         </div>
 
