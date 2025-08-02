@@ -363,6 +363,12 @@ export default function QuotationForm({
                   R$ {totals.tax.toFixed(2)}
                 </span>
               </div>
+              {user?.type === "admin" && (
+                <div className="flex justify-between text-blue-600">
+                  <span className="font-medium">Lucro da Empresa:</span>
+                  <span className="font-bold">R$ {totals.netProfit.toFixed(2)}</span>
+                </div>
+              )}
               <div className="border-t border-gray-300 pt-2">
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-gray-900">Total:</span>

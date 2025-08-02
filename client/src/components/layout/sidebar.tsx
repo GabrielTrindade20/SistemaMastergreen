@@ -17,8 +17,8 @@ const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Orçamentos", href: "/orcamentos", icon: FileText },
   { name: "Clientes", href: "/clientes", icon: Users },
-  { name: "Produtos", href: "/produtos", icon: Package },
-  { name: "Relatórios", href: "/relatorios", icon: BarChart3 },
+  { name: "Produtos", href: "/produtos", icon: Package, adminOnly: true },
+  { name: "Relatórios", href: "/relatorios", icon: BarChart3, adminOnly: true },
   { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
 ];
 
@@ -27,7 +27,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth();
 
   const navigation = [
-    ...baseNavigation,
+    ...baseNavigation.filter(item => !item.adminOnly || user?.type === "admin"),
     ...(user?.type === "admin" ? [{ name: "Admin", href: "/admin", icon: Shield }] : [])
   ];
 

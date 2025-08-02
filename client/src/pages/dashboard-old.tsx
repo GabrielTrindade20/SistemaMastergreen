@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, FileText, Users, TrendingUp, Clock } from "lucide-react";
+import { DollarSign, FileText, Users, TrendingUp, ArrowUp, Clock, UserPlus } from "lucide-react";
 import type { QuotationWithDetails, Customer } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -181,86 +181,134 @@ export default function Dashboard() {
               <CardTitle>Atividades Recentes</CardTitle>
               <CardDescription>Últimas movimentações no sistema</CardDescription>
             </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="animate-pulse">
-                      <div className="flex space-x-3">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Faturamento Mensal</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                  <p className="text-green-600 text-sm mt-1 flex items-center">
+                    <ArrowUp className="w-4 h-4 mr-1" />
+                    +12% vs mês anterior
+                  </p>
                 </div>
-              ) : recentActivities.length > 0 ? (
-                recentActivities.map(activity => (
-                  <div key={activity.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg mb-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        Orçamento para {activity.customer}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {activity.description} • R$ {activity.amount.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {activity.createdAt.toLocaleDateString('pt-BR')}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>Nenhuma atividade recente</p>
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-master-green" />
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Performance Metrics */}
           <Card>
-            <CardHeader>
-              <CardTitle>Indicadores de Performance</CardTitle>
-              <CardDescription>Métricas {user?.type === "admin" ? "globais" : "pessoais"}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Ticket Médio</span>
-                  <span className="text-lg font-semibold">
-                    R$ {userQuotations.filter(q => q.status === 'approved').length > 0 
-                      ? (totalRevenue / userQuotations.filter(q => q.status === 'approved').length).toFixed(2)
-                      : '0.00'
-                    }
-                  </span>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Orçamentos Pendentes</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{pendingQuotations.length}</p>
+                  <p className="text-yellow-600 text-sm mt-1 flex items-center">
+                    <Clock className="w-4 h-4 mr-1" />
+                    Aguardando resposta
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Orçamentos Criados</span>
-                  <span className="text-lg font-semibold">{userQuotations.length}</span>
+                <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-yellow-600" />
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Orçamentos Aprovados</span>
-                  <span className="text-lg font-semibold text-green-600">
-                    {userQuotations.filter(q => q.status === 'approved').length}
-                  </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Clientes Ativos</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">{activeCustomers}</p>
+                  <p className="text-blue-600 text-sm mt-1 flex items-center">
+                    <UserPlus className="w-4 h-4 mr-1" />
+                    Base de clientes
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Orçamentos Rejeitados</span>
-                  <span className="text-lg font-semibold text-red-600">
-                    {userQuotations.filter(q => q.status === 'rejected').length}
-                  </span>
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Users className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Taxa de Conversão</p>
+                  <p className="text-2xl font-bold text-gray-900 mt-1">
+                    {conversionRate.toFixed(0)}%
+                  </p>
+                  <p className="text-green-600 text-sm mt-1 flex items-center">
+                    <TrendingUp className="w-4 h-4 mr-1" />
+                    Performance excelente
+                  </p>
+                </div>
+                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-purple-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Activity */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Atividades Recentes</CardTitle>
+            <CardDescription>Últimas movimentações do sistema</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="flex items-start animate-pulse">
+                    <div className="w-8 h-8 bg-gray-200 rounded-full mr-3"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentActivities.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">Nenhuma atividade recente</p>
+            ) : (
+              <div className="space-y-4">
+                {recentActivities.map((activity) => (
+                  <div key={activity.id} className="flex items-start">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                      activity.type === 'approved' ? 'bg-green-100' :
+                      activity.type === 'pending' ? 'bg-yellow-100' : 'bg-gray-100'
+                    }`}>
+                      <FileText className={`w-4 h-4 ${
+                        activity.type === 'approved' ? 'text-green-600' :
+                        activity.type === 'pending' ? 'text-yellow-600' : 'text-gray-600'
+                      }`} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-gray-900">
+                        {activity.type === 'approved' ? 'Orçamento aprovado' : 
+                         activity.type === 'pending' ? 'Novo orçamento criado' : 'Orçamento atualizado'} - {activity.customer}
+                      </p>
+                      <p className="text-gray-500 text-sm">
+                        {activity.description} - R$ {activity.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        {activity.createdAt.toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
