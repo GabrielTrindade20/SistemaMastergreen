@@ -11,33 +11,60 @@ interface CompanyInfo {
   pixKey: string;
 }
 
+// Function to convert image to base64
+async function getImageAsBase64(imagePath: string): Promise<string> {
+  try {
+    const response = await fetch(imagePath);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error loading image:', error);
+    return '';
+  }
+}
+
 export async function generateQuotationPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
-  const doc = new jsPDF();
+  try {
+    const doc = new jsPDF();
 
-  // Add company logo (base64 or URL)
-  // Example: const logoBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANS...';
-  // Adjust width, height, and position as needed
-  const logoBase64 = 'data:../imagem/logoSemFundo.png';
-  doc.addImage(logoBase64, 'PNG', 20, 10, 30, 15); // x=20, y=10, width=30, height=15
+    // Company information
+    const company: CompanyInfo = {
+      name: "MG MASTERGREEN",
+      socialName: "MasterGreen Grama Sintética",
+      cnpj: "36.347.401/0001-99",
+      address: "QNN 24 Conjunto E Lote 14, Ceilândia Sul - DF",
+      phone: "(61) 98412-4179",
+      email: "mastergreendf@gmail.com",
+      pixKey: "36.347.401/0001-99"
+    };
 
-  let yPosition = 30; // Move down to avoid overlapping logo
+    const pageWidth = doc.internal.pageSize.width;
+    const leftMargin = 20;
+    const rightMargin = 20;
+    const contentWidth = pageWidth - leftMargin - rightMargin;
 
-  // Company information
-  const company: CompanyInfo = {
-    name: "MG MASTERGREEN",
-    socialName: "MasterGreen Grama Sintética",
-    cnpj: "36.347.401/0001-99",
-    address: "QNN 24 Conjunto E Lote 14, Ceilândia Sul - DF",
-    phone: "(61) 98412-4179",
-    email: "mastergreendf@gmail.com",
-    pixKey: "36.347.401/0001-99"
-  };
+    let yPosition = 15;
 
-  const pageWidth = doc.internal.pageSize.width;
-  const leftMargin = 20;
-  const rightMargin = 20;
-  const contentWidth = pageWidth - leftMargin - rightMargin;
-
+    // Try to load logo, if fails continue without it
+    try {
+      const logoBase64 = await getImageAsBase64('@/imagem/logoSemFundo.png');
+      if (logoBase64) {
+        const logoWidth = 40;
+        const logoHeight = 15;
+        doc.addImage(logoBase64, 'PNG', leftMargin, 5, logoWidth, logoHeight);
+        yPosition = 25;
+      }
+    } catch (error) {
+      console.error('Error adding logo to PDF:', error);
+      // Continue without logo
+      yPosition = 15;
+    }
+  
   // Header with company logo and info
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
@@ -46,6 +73,7 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
   doc.setFont("helvetica", "normal");
   doc.text("GRAMAS E PISOS", leftMargin, yPosition + 6);
 
+  
   // Company details
   yPosition += 15;
   doc.setFontSize(8);
@@ -54,6 +82,7 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
   doc.text(`Endereço: ${company.address}`, leftMargin, yPosition + 8);
   doc.text(`Telefone: ${company.phone}`, leftMargin, yPosition + 12);
   doc.text(`E-mail: ${company.email}`, leftMargin, yPosition + 16);
+
 
   // Title
   yPosition += 30;
@@ -189,10 +218,14 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
   doc.setFont("helvetica", "normal");
   doc.text(responsiblePosition, leftMargin, yPosition + 5);
 
-  // Generate and download PDF
-  const dateForFile = new Date().toISOString().split('T')[0];
-  const pdfFileName = fileName || `orcamento-#PREVIEW-${dateForFile}.pdf`;
-  doc.save(pdfFileName);
+    // Generate and download PDF
+    const dateForFile = new Date().toISOString().split('T')[0];
+    const pdfFileName = fileName || `orcamento-#PREVIEW-${dateForFile}.pdf`;
+    doc.save(pdfFileName);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    throw new Error('Erro ao gerar PDF. Tente novamente.');
+  }
 }
 
 // Share function for WhatsApp and email
