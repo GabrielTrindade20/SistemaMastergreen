@@ -30,7 +30,7 @@ export default function NewQuotation() {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       toast({
         title: "Sucesso",
-        description: "Orçamento criado com sucesso!",
+        description: "Proposta criada com sucesso!",
       });
       setLocation("/orcamentos");
     },
@@ -38,7 +38,7 @@ export default function NewQuotation() {
       console.error("Error creating quotation:", error);
       toast({
         title: "Erro",
-        description: "Erro ao criar orçamento. Tente novamente.",
+        description: "Erro ao criar proposta. Tente novamente.",
         variant: "destructive",
       });
     },
@@ -58,7 +58,7 @@ export default function NewQuotation() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Novo Orçamento</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Nova Proposta</h1>
             <p className="text-gray-600">Crie uma nova proposta comercial</p>
           </div>
           <Button variant="outline" onClick={handleCancel}>
@@ -71,7 +71,7 @@ export default function NewQuotation() {
       <div className="p-6">
         <Card className="max-w-4xl mx-auto">
           <CardHeader>
-            <CardTitle>Informações do Orçamento</CardTitle>
+            <CardTitle>Informações da Proposta</CardTitle>
           </CardHeader>
           <CardContent>
             <QuotationForm
