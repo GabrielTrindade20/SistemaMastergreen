@@ -59,13 +59,13 @@ export default function Quotations() {
       setShowForm(false);
       toast({
         title: "Sucesso",
-        description: "Orçamento criado com sucesso!",
+        description: "Proposta criada com sucesso!",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Erro ao criar orçamento",
+        description: error.message || "Erro ao criar proposta",
         variant: "destructive",
       });
     },
@@ -80,7 +80,7 @@ export default function Quotations() {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       toast({
         title: "Sucesso",
-        description: "Status do orçamento atualizado!",
+        description: "Status da proposta atualizado!",
       });
     },
     onError: (error: any) => {
@@ -101,13 +101,13 @@ export default function Quotations() {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       toast({
         title: "Sucesso",
-        description: "Orçamento excluído com sucesso!",
+        description: "Proposta excluída com sucesso!",
       });
     },
     onError: (error: any) => {
       toast({
         title: "Erro",
-        description: error.message || "Erro ao excluir orçamento",
+        description: error.message || "Erro ao excluir proposta",
         variant: "destructive",
       });
     },
@@ -122,7 +122,7 @@ export default function Quotations() {
   };
 
   const handleDeleteQuotation = (id: string) => {
-    if (confirm('Tem certeza que deseja excluir este orçamento?')) {
+    if (confirm('Tem certeza que deseja excluir esta proposta?')) {
       deleteMutation.mutate(id);
     }
   };
@@ -165,7 +165,7 @@ export default function Quotations() {
           >
             ← Voltar
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">Novo Orçamento</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Nova Proposta</h1>
         </div>
 
         <QuotationForm
@@ -193,7 +193,7 @@ export default function Quotations() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                Orçamento {selectedQuotation.quotationNumber}
+                Proposta {selectedQuotation.quotationNumber}
               </h1>
               <p className="text-gray-600">
                 Cliente: {selectedQuotation.customer.name}

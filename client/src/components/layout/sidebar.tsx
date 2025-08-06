@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 
 const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Orçamentos", href: "/orcamentos", icon: FileText },
+  { name: "Propostas", href: "/orcamentos", icon: FileText },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "Produtos", href: "/produtos", icon: Package, adminOnly: true },
   { name: "Relatórios", href: "/relatorios", icon: BarChart3, adminOnly: true },

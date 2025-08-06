@@ -28,19 +28,19 @@ async function getImageAsBase64(imagePath: string): Promise<string> {
   }
 }
 
-export async function generateQuotationPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
+export async function generateProposalPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
   try {
     const doc = new jsPDF();
 
     // Company information
     const company: CompanyInfo = {
       name: "MG MASTERGREEN",
-      socialName: "MasterGreen Grama Sintética",
-      cnpj: "36.347.401/0001-99",
+      socialName: "Rocha Comércio e Instalação de Grama Sintética",
+      cnpj: "36.347.491/0001-99",
       address: "QNN 24 Conjunto E Lote 14, Ceilândia Sul - DF",
       phone: "(61) 98412-4179",
       email: "mastergreendf@gmail.com",
-      pixKey: "36.347.401/0001-99"
+      pixKey: "36.347.491/0001-99"
     };
 
     const pageWidth = doc.internal.pageSize.width;
@@ -52,7 +52,7 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
 
     // Try to load logo, if fails continue without it
     try {
-      const logoBase64 = await getImageAsBase64('@/imagem/logoSemFundo.png');
+      const logoBase64 = await getImageAsBase64('/src/imagem/logoSemFundo.png');
       if (logoBase64) {
         const logoWidth = 40;
         const logoHeight = 15;
@@ -65,23 +65,25 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
       yPosition = 15;
     }
   
-  // Header with company logo and info
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text(company.name, leftMargin, yPosition);
+  // Company details - centered format matching the reference
+  yPosition += 10;
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("GRAMAS E PISOS", leftMargin, yPosition + 6);
-
   
-  // Company details
-  yPosition += 15;
-  doc.setFontSize(8);
-  doc.text(`Razão Social: ${company.socialName}`, leftMargin, yPosition);
-  doc.text(`CNPJ: ${company.cnpj}`, leftMargin, yPosition + 4);
-  doc.text(`Endereço: ${company.address}`, leftMargin, yPosition + 8);
-  doc.text(`Telefone: ${company.phone}`, leftMargin, yPosition + 12);
-  doc.text(`E-mail: ${company.email}`, leftMargin, yPosition + 16);
+  // Center-align all company info
+  const companyDetails = [
+    `Razão Social: ${company.socialName}`,
+    `CNPJ: ${company.cnpj}`,
+    `Endereço: ${company.address}`,
+    `Telefone: ${company.phone}`,
+    `E-mail: ${company.email}`
+  ];
+  
+  companyDetails.forEach((detail, index) => {
+    const textWidth = doc.getTextWidth(detail);
+    const xPosition = (pageWidth - textWidth) / 2;
+    doc.text(detail, xPosition, yPosition + (index * 4));
+  });
 
 
   // Title
@@ -96,72 +98,124 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
   yPosition += 20;
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text(`Ao: ${quotation.customer.name}`, leftMargin, yPosition);
-  doc.text(`Telefone: ${quotation.customer.phone || 'Não informado'}`, leftMargin, yPosition + 5);
-  doc.text(`Endereço: ${quotation.customer.address || 'Não informado'}`, leftMargin, yPosition + 10);
-  if (quotation.customer.cpfCnpj) {
-    doc.text(`CPF/CNPJ: ${quotation.customer.cpfCnpj}`, leftMargin, yPosition + 15);
+  doc.text(`Ao ${quotation.customer.name}`, leftMargin, yPosition);
+  
+  // A/C line (if there's a contact person)
+  if (quotation.customer.name) {
     yPosition += 5;
+    doc.text(`A/C: ${quotation.customer.name}`, leftMargin, yPosition);
+  }
+  
+  yPosition += 5;
+  doc.text(`Telefone: ${quotation.customer.phone || 'Não informado'}`, leftMargin, yPosition);
+  yPosition += 5;
+  doc.text(`Endereço: ${quotation.customer.address || 'Não informado'}`, leftMargin, yPosition);
+  
+  if (quotation.customer.cpfCnpj) {
+    yPosition += 5;
+    doc.text(`CNPJ: ${quotation.customer.cpfCnpj}`, leftMargin, yPosition);
   }
 
   const currentDate = new Date().toLocaleDateString('pt-BR');
-  doc.text(`Data da Proposta: ${currentDate}`, leftMargin, yPosition + 15);
+  yPosition += 5;
+  doc.text(`Data da Proposta: ${currentDate}`, leftMargin, yPosition);
 
   // Items table
   yPosition += 30;
 
-  // Table header
+  // Table header - centered format like reference
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
 
-  const tableHeaders = ["ITEM", "QTD. (m²)", "DESCRIÇÃO DO PRODUTO", "VALOR UNIT.", "VALOR TOTAL"];
-  const columnWidths = [15, 25, 80, 25, 25];
+  const tableHeaders = ["ITEM", "QTD.\n(m²)", "DESCRIÇÃO DO PRODUTO", "VALOR\nUNIT.", "VALOR\nTOTAL"];
+  const columnWidths = [20, 25, 80, 25, 25];
   let xPosition = leftMargin;
 
-  // Draw table header
+  // Draw table header with centered text
   tableHeaders.forEach((header, index) => {
-    doc.rect(xPosition, yPosition, columnWidths[index], 8);
-    doc.text(header, xPosition + 2, yPosition + 5);
+    doc.rect(xPosition, yPosition, columnWidths[index], 12);
+    
+    // Center text in each column
+    const lines = header.split('\n');
+    lines.forEach((line, lineIndex) => {
+      const textWidth = doc.getTextWidth(line);
+      const centerX = xPosition + (columnWidths[index] - textWidth) / 2;
+      doc.text(line, centerX, yPosition + 6 + (lineIndex * 3));
+    });
+    
     xPosition += columnWidths[index];
   });
 
-  yPosition += 8;
+  yPosition += 12;
 
-  // Table rows
+  // Table rows with centered content
   doc.setFont("helvetica", "normal");
   quotation.items.forEach((item, index) => {
     xPosition = leftMargin;
-    const rowHeight = 12;
+    const rowHeight = 20;
 
-    // Draw row cells
+    // Draw row cells with centered content
+    // Item number
     doc.rect(xPosition, yPosition, columnWidths[0], rowHeight);
-    doc.text((index + 1).toString(), xPosition + 2, yPosition + 8);
+    const itemNum = (index + 1).toString();
+    const itemNumWidth = doc.getTextWidth(itemNum);
+    doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + 12);
     xPosition += columnWidths[0];
 
+    // Quantity
     doc.rect(xPosition, yPosition, columnWidths[1], rowHeight);
-    doc.text(parseFloat(item.quantity).toFixed(2), xPosition + 2, yPosition + 8);
+    const qty = parseFloat(item.quantity).toFixed(0);
+    const qtyWidth = doc.getTextWidth(qty);
+    doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + 12);
     xPosition += columnWidths[1];
 
+    // Product description - left aligned with padding
     doc.rect(xPosition, yPosition, columnWidths[2], rowHeight);
     const productName = item.product.name;
-    doc.text(productName, xPosition + 2, yPosition + 8);
+    // Split long product names into multiple lines if needed
+    const maxWidth = columnWidths[2] - 4;
+    const words = productName.split(' ');
+    let line = '';
+    let lineY = yPosition + 8;
+    
+    words.forEach(word => {
+      const testLine = line + (line ? ' ' : '') + word;
+      if (doc.getTextWidth(testLine) > maxWidth && line) {
+        doc.text(line, xPosition + 2, lineY);
+        line = word;
+        lineY += 4;
+      } else {
+        line = testLine;
+      }
+    });
+    if (line) {
+      doc.text(line, xPosition + 2, lineY);
+    }
     xPosition += columnWidths[2];
 
+    // Unit price - right aligned
     doc.rect(xPosition, yPosition, columnWidths[3], rowHeight);
-    doc.text(`R$ ${parseFloat(item.unitPrice).toFixed(2)}`, xPosition + 2, yPosition + 8);
+    const unitPrice = `R$ ${parseFloat(item.unitPrice).toFixed(0)}`;
+    const unitPriceWidth = doc.getTextWidth(unitPrice);
+    doc.text(unitPrice, xPosition + columnWidths[3] - unitPriceWidth - 2, yPosition + 12);
     xPosition += columnWidths[3];
 
+    // Total price - right aligned
     doc.rect(xPosition, yPosition, columnWidths[4], rowHeight);
-    doc.text(`R$ ${parseFloat(item.subtotal).toFixed(2)}`, xPosition + 2, yPosition + 8);
+    const totalPrice = `R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}`;
+    const totalPriceWidth = doc.getTextWidth(totalPrice);
+    doc.text(totalPrice, xPosition + columnWidths[4] - totalPriceWidth - 2, yPosition + 12);
 
     yPosition += rowHeight;
   });
 
-  // Total row
+  // Total row - spanning the full width and centered
   xPosition = leftMargin + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3];
   doc.setFont("helvetica", "bold");
-  doc.rect(xPosition, yPosition, columnWidths[4], 10);
-  doc.text(`R$ ${parseFloat(quotation.total).toFixed(2)}`, xPosition + 2, yPosition + 7);
+  doc.rect(xPosition, yPosition, columnWidths[4], 15);
+  const totalText = `R$ ${parseFloat(quotation.total).toFixed(2).replace('.', ',')}`;
+  const totalTextWidth = doc.getTextWidth(totalText);
+  doc.text(totalText, xPosition + (columnWidths[4] - totalTextWidth) / 2, yPosition + 10);
 
   // Additional information
   yPosition += 25;
@@ -220,7 +274,7 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
 
     // Generate and download PDF
     const dateForFile = new Date().toISOString().split('T')[0];
-    const pdfFileName = fileName || `orcamento-#PREVIEW-${dateForFile}.pdf`;
+    const pdfFileName = fileName || `proposta-#PREVIEW-${dateForFile}.pdf`;
     doc.save(pdfFileName);
   } catch (error) {
     console.error('Error generating PDF:', error);
@@ -229,26 +283,35 @@ export async function generateQuotationPDF(quotation: QuotationWithDetails, file
 }
 
 // Share function for WhatsApp and email
-export async function shareQuotationPDF(quotation: QuotationWithDetails, method: 'whatsapp' | 'email' | 'download') {
-  const fileName = `orcamento-${quotation.quotationNumber}.pdf`;
+export async function shareProposalPDF(quotation: QuotationWithDetails, method: 'whatsapp' | 'email' | 'download') {
+  const fileName = `proposta-${quotation.quotationNumber}.pdf`;
 
   if (method === 'download') {
-    await generateQuotationPDF(quotation, fileName);
+    await generateProposalPDF(quotation, fileName);
     return;
   }
 
   // For WhatsApp and email sharing, we'll generate the PDF and provide sharing options
   // This is a simplified version - in a real app you'd need proper file handling
-  await generateQuotationPDF(quotation, fileName);
+  await generateProposalPDF(quotation, fileName);
 
   if (method === 'whatsapp') {
-    const message = `Olá! Segue em anexo o orçamento ${quotation.quotationNumber} no valor de R$ ${parseFloat(quotation.total).toFixed(2)}. Qualquer dúvida, estou à disposição!`;
+    const message = `Olá! Segue em anexo a proposta ${quotation.quotationNumber} no valor de R$ ${parseFloat(quotation.total).toFixed(2)}. Qualquer dúvida, estou à disposição!`;
     const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   } else if (method === 'email') {
-    const subject = `Orçamento ${quotation.quotationNumber} - MasterGreen`;
-    const body = `Prezado(a) ${quotation.customer.name},\n\nSegue em anexo o orçamento solicitado no valor de R$ ${parseFloat(quotation.total).toFixed(2)}.\n\nQualquer dúvida, estou à disposição!\n\nAtenciosamente,\nEquipe MasterGreen`;
+    const subject = `Proposta ${quotation.quotationNumber} - MasterGreen`;
+    const body = `Prezado(a) ${quotation.customer.name},\n\nSegue em anexo a proposta solicitada no valor de R$ ${parseFloat(quotation.total).toFixed(2)}.\n\nQualquer dúvida, estou à disposição!\n\nAtenciosamente,\nEquipe MasterGreen`;
     const mailtoUrl = `mailto:${quotation.customer.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailtoUrl;
   }
+}
+
+// Keep the old function name for backward compatibility
+export async function generateQuotationPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
+  return generateProposalPDF(quotation, fileName);
+}
+
+export async function shareQuotationPDF(quotation: QuotationWithDetails, method: 'whatsapp' | 'email' | 'download') {
+  return shareProposalPDF(quotation, method);
 }
