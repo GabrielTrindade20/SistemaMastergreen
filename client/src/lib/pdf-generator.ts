@@ -123,7 +123,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   // Items table
   yPosition += 10;
 
-  // Table header - professional format matching reference
+  // Table header - centered format like reference
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
 
@@ -131,27 +131,22 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   const columnWidths = [20, 25, 80, 25, 25];
   let xPosition = leftMargin;
 
-  // Draw table header with light gray background
-  doc.setFillColor(245, 245, 245); // Light gray background for header
-  
+  // Draw table header with centered text
   tableHeaders.forEach((header, index) => {
-    // Draw header cell with background
-    doc.rect(xPosition, yPosition, columnWidths[index], 15, 'F');
-    doc.rect(xPosition, yPosition, columnWidths[index], 15); // Border
+    doc.rect(xPosition, yPosition, columnWidths[index], 12);
     
-    // Center text in each column with black text
-    doc.setTextColor(0, 0, 0);
+    // Center text in each column
     const lines = header.split('\n');
     lines.forEach((line, lineIndex) => {
       const textWidth = doc.getTextWidth(line);
       const centerX = xPosition + (columnWidths[index] - textWidth) / 2;
-      doc.text(line, centerX, yPosition + 8 + (lineIndex * 3));
+      doc.text(line, centerX, yPosition + 6 + (lineIndex * 3));
     });
     
     xPosition += columnWidths[index];
   });
 
-  yPosition += 15;
+  yPosition += 12;
 
   // Table rows with centered content
   doc.setFont("helvetica", "normal");
@@ -202,14 +197,14 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     doc.rect(xPosition, yPosition, columnWidths[3], rowHeight);
     const unitPrice = `R$ ${parseFloat(item.unitPrice).toFixed(0)}`;
     const unitPriceWidth = doc.getTextWidth(unitPrice);
-    doc.text(unitPrice, xPosition + columnWidths[3] - unitPriceWidth - 2, yPosition + 12);
+    doc.text(unitPrice, xPosition + columnWidths[3] - unitPriceWidth - 2, yPosition + 8);
     xPosition += columnWidths[3];
 
     // Total price - right aligned
     doc.rect(xPosition, yPosition, columnWidths[4], rowHeight);
     const totalPrice = `R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}`;
     const totalPriceWidth = doc.getTextWidth(totalPrice);
-    doc.text(totalPrice, xPosition + columnWidths[4] - totalPriceWidth - 2, yPosition + 12);
+    doc.text(totalPrice, xPosition + columnWidths[4] - totalPriceWidth - 2, yPosition + 8);
 
     yPosition += rowHeight;
   });
@@ -221,6 +216,10 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFillColor(41, 138, 30); // RGB values for #298a1e
   doc.rect(xPosition, yPosition, columnWidths[4], 15, 'F'); // 'F' fills the rectangle
   
+  // Add border around the green cell
+  doc.setDrawColor(0, 0, 0); // Black border
+  doc.rect(xPosition, yPosition, columnWidths[4], 15, 'S'); // 'S' for stroke only
+  
   // Set white text color for contrast
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
@@ -229,9 +228,10 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   const totalTextWidth = doc.getTextWidth(totalText);
   doc.text(totalText, xPosition + (columnWidths[4] - totalTextWidth) / 2, yPosition + 10);
   
-  // Reset text color to black for subsequent text
-  doc.setTextColor(0, 0, 0);
-    
+  // CRITICAL: Reset all colors and settings to default for subsequent content
+  doc.setTextColor(0, 0, 0); // Reset text to black
+  doc.setFillColor(255, 255, 255); // Reset fill to white
+  doc.setDrawColor(0, 0, 0); // Reset draw color to black
     
   // Additional information
   yPosition += 12;
