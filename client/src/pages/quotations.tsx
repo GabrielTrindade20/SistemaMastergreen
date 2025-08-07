@@ -248,7 +248,7 @@ export default function Quotations() {
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Itens do Orçamento</CardTitle>
+            <CardTitle>Itens da Proposta</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -322,20 +322,20 @@ export default function Quotations() {
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Orçamentos</h1>
-          <p className="text-gray-600">Gerencie orçamentos e propostas</p>
+          <h1 className="text-3xl font-bold text-gray-900">Propostas</h1>
+          <p className="text-gray-600">Gerencie propostas comerciais</p>
         </div>
         <Button onClick={() => setShowForm(true)} className="btn-primary">
           <Plus className="w-4 h-4 mr-2" />
-          Novo Orçamento
+          Nova Proposta
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista de Orçamentos</CardTitle>
+          <CardTitle>Lista de Propostas</CardTitle>
           <CardDescription>
-            {quotations.length} orçamento(s) cadastrado(s)
+            {quotations.length} proposta(s) cadastrada(s)
           </CardDescription>
         </CardHeader>
         <CardContent>

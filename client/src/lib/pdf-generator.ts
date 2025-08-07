@@ -54,10 +54,10 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     try {
       const logoBase64 = await getImageAsBase64('/src/imagem/logoSemFundo.png');
       if (logoBase64) {
-        const logoWidth = 40;
-        const logoHeight = 15;
-        doc.addImage(logoBase64, 'PNG', leftMargin, 5, logoWidth, logoHeight);
-        yPosition = 25;
+        const logoWidth = 60;
+        const logoHeight = 60;
+        doc.addImage(logoBase64, 'PNG', 75, 5, logoWidth, logoHeight);
+        yPosition = 45;
       }
     } catch (error) {
       console.error('Error adding logo to PDF:', error);
@@ -121,9 +121,9 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.text(`Data da Proposta: ${currentDate}`, leftMargin, yPosition);
 
   // Items table
-  yPosition += 30;
+  yPosition += 10;
 
-  // Table header - centered format like reference
+  // Table header - professional format matching reference
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
 
@@ -131,42 +131,47 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   const columnWidths = [20, 25, 80, 25, 25];
   let xPosition = leftMargin;
 
-  // Draw table header with centered text
+  // Draw table header with light gray background
+  doc.setFillColor(245, 245, 245); // Light gray background for header
+  
   tableHeaders.forEach((header, index) => {
-    doc.rect(xPosition, yPosition, columnWidths[index], 12);
+    // Draw header cell with background
+    doc.rect(xPosition, yPosition, columnWidths[index], 15, 'F');
+    doc.rect(xPosition, yPosition, columnWidths[index], 15); // Border
     
-    // Center text in each column
+    // Center text in each column with black text
+    doc.setTextColor(0, 0, 0);
     const lines = header.split('\n');
     lines.forEach((line, lineIndex) => {
       const textWidth = doc.getTextWidth(line);
       const centerX = xPosition + (columnWidths[index] - textWidth) / 2;
-      doc.text(line, centerX, yPosition + 6 + (lineIndex * 3));
+      doc.text(line, centerX, yPosition + 8 + (lineIndex * 3));
     });
     
     xPosition += columnWidths[index];
   });
 
-  yPosition += 12;
+  yPosition += 15;
 
   // Table rows with centered content
   doc.setFont("helvetica", "normal");
   quotation.items.forEach((item, index) => {
     xPosition = leftMargin;
-    const rowHeight = 20;
+    const rowHeight = 10;
 
     // Draw row cells with centered content
     // Item number
     doc.rect(xPosition, yPosition, columnWidths[0], rowHeight);
     const itemNum = (index + 1).toString();
     const itemNumWidth = doc.getTextWidth(itemNum);
-    doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + 12);
+    doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + 8);
     xPosition += columnWidths[0];
 
     // Quantity
     doc.rect(xPosition, yPosition, columnWidths[1], rowHeight);
     const qty = parseFloat(item.quantity).toFixed(0);
     const qtyWidth = doc.getTextWidth(qty);
-    doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + 12);
+    doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + 8);
     xPosition += columnWidths[1];
 
     // Product description - left aligned with padding
@@ -209,16 +214,27 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     yPosition += rowHeight;
   });
 
-  // Total row - spanning the full width and centered
+  // Total row with green background spanning the last column
   xPosition = leftMargin + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3];
+  
+  // Set green background color #298a1e
+  doc.setFillColor(41, 138, 30); // RGB values for #298a1e
+  doc.rect(xPosition, yPosition, columnWidths[4], 15, 'F'); // 'F' fills the rectangle
+  
+  // Set white text color for contrast
+  doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.rect(xPosition, yPosition, columnWidths[4], 15);
+  
   const totalText = `R$ ${parseFloat(quotation.total).toFixed(2).replace('.', ',')}`;
   const totalTextWidth = doc.getTextWidth(totalText);
   doc.text(totalText, xPosition + (columnWidths[4] - totalTextWidth) / 2, yPosition + 10);
-
+  
+  // Reset text color to black for subsequent text
+  doc.setTextColor(0, 0, 0);
+    
+    
   // Additional information
-  yPosition += 25;
+  yPosition += 12;
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("Dados da Proposta:", leftMargin, yPosition);
@@ -274,7 +290,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
 
     // Generate and download PDF
     const dateForFile = new Date().toISOString().split('T')[0];
-    const pdfFileName = fileName || `proposta-#PREVIEW-${dateForFile}.pdf`;
+    const pdfFileName = fileName || `Proposta-${dateForFile}.pdf`;
     doc.save(pdfFileName);
   } catch (error) {
     console.error('Error generating PDF:', error);
