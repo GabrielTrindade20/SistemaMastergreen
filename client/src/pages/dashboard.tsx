@@ -51,16 +51,16 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-            <p className="text-gray-600">
+      {/* Header - Mobile responsive */}
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
+          <div className="mb-2 md:mb-0">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 text-sm md:text-base">
               {user?.type === "admin" ? "Visão geral do negócio" : "Seus dados pessoais"}
             </p>
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-xs md:text-sm text-gray-500">
             <Clock className="w-4 h-4 inline mr-2" />
             Atualizado agora
           </div>
@@ -68,9 +68,9 @@ export default function Dashboard() {
       </div>
 
       {/* Dashboard Content */}
-      <div className="p-6">
-        {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="p-4 md:p-6">
+        {/* Key Metrics Cards - Mobile responsive grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           {user?.type === "admin" ? (
             <>
               <Card>

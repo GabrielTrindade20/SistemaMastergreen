@@ -377,13 +377,17 @@ export default function Quotations() {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto p-4 md:p-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Propostas</h1>
-          <p className="text-gray-600">Gerencie propostas comerciais</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Propostas</h1>
+          <p className="text-gray-600 text-sm md:text-base">Gerencie propostas comerciais</p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="btn-primary">
+        <Button 
+          onClick={() => setShowForm(true)} 
+          className="btn-primary w-full md:w-auto"
+          data-testid="button-nova-proposta"
+        >
           <Plus className="w-4 h-4 mr-2" />
           Nova Proposta
         </Button>
