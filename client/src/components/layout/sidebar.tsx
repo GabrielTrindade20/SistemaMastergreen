@@ -67,7 +67,13 @@ export default function Sidebar() {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed md:relative top-0 left-0 z-50 md:z-auto w-64 bg-[#002b17] text-white flex flex-col h-full transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+      <div className={`
+        fixed md:relative top-0 left-0 z-50 md:z-auto 
+        w-64 bg-[#002b17] text-white flex flex-col 
+        h-full md:h-auto
+        transform transition-transform duration-300 ease-in-out
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
         {/* Logo/Brand */}
         <div className="p-6 border-b border-green-800">
           <h1 className="text-2xl font-bold md:text-2xl sm:text-xl">MasterGreen</h1>

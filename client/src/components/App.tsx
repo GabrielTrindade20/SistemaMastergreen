@@ -36,9 +36,9 @@ function Router() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden relative">
       <Sidebar />
-      <div className="flex-1 overflow-auto md:ml-0 w-full">
+      <div className="flex-1 overflow-auto w-full min-w-0 md:ml-0">
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />

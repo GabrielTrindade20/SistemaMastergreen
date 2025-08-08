@@ -55,11 +55,24 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground min-h-screen;
+    @apply font-sans antialiased bg-background text-foreground;
     font-size: 16px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    line-height: 1.5;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -154,64 +167,95 @@
 
   /* Mobile-first responsive design */
   @media (max-width: 768px) {
-    .container {
-      padding-left: 1rem;
-      padding-right: 1rem;
+    /* Force full width and proper spacing */
+    .container,
+    .max-w-7xl,
+    .max-w-6xl,
+    .max-w-5xl,
+    .max-w-4xl {
+      max-width: 100% !important;
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
     }
     
-    .grid-cols-2 {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
+    /* Simplify grid layouts to single column */
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4,
+    .md\:grid-cols-2,
+    .md\:grid-cols-3,
+    .md\:grid-cols-4,
+    .lg\:grid-cols-2,
+    .lg\:grid-cols-3,
+    .lg\:grid-cols-4 {
+      grid-template-columns: 1fr !important;
     }
     
-    .grid-cols-3 {
-      grid-template-columns: repeat(1, minmax(0, 1fr));
-    }
-    
-    .grid-cols-4 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    
-    .text-3xl {
-      font-size: 1.5rem;
-      line-height: 2rem;
-    }
-    
+    /* Responsive text sizes */
+    .text-3xl,
     .text-2xl {
-      font-size: 1.25rem;
-      line-height: 1.75rem;
+      font-size: 1.5rem !important;
+      line-height: 2rem !important;
     }
     
-    .p-6 {
-      padding: 1rem;
+    /* Better mobile padding */
+    .p-6,
+    .px-6,
+    .py-6 {
+      padding: 1rem !important;
     }
     
+    /* Smaller gaps for mobile */
     .gap-6 {
-      gap: 1rem;
+      gap: 1rem !important;
     }
     
     .gap-4 {
-      gap: 0.75rem;
+      gap: 0.75rem !important;
     }
 
+    /* Force column layouts */
     .flex-row {
-      flex-direction: column;
+      flex-direction: column !important;
     }
 
-    .justify-between {
-      justify-content: flex-start;
-      gap: 1rem;
+    /* Mobile sidebar fixes */
+    .sidebar-mobile-hidden {
+      transform: translateX(-100%) !important;
     }
 
-    .hidden-mobile {
-      display: none;
+    /* Mobile card improvements */
+    .mobile-card {
+      padding: 1rem !important;
+      margin-bottom: 1rem !important;
+      border-radius: 8px !important;
     }
 
-    .full-width-mobile {
-      width: 100%;
+    /* Mobile button fixes */
+    .btn-mobile-full {
+      width: 100% !important;
+      margin-bottom: 0.5rem !important;
     }
 
-    .text-mobile-center {
-      text-align: center;
+    /* Table to card conversion */
+    .mobile-table-hidden {
+      display: none !important;
+    }
+
+    .mobile-card-list {
+      display: block !important;
+    }
+  }
+
+  /* Ensure proper mobile viewport */
+  @media screen and (max-width: 768px) {
+    body {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Fix for iOS Safari */
+    .ios-fix {
+      min-height: -webkit-fill-available;
     }
   }
 }
