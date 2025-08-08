@@ -406,17 +406,78 @@ export default function Quotations() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-master-green"></div>
             </div>
           ) : quotations.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Número</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="block md:hidden space-y-4">
+              {quotations.map((quotation) => (
+                <Card key={quotation.id} className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-medium">#{quotation.quotationNumber}</p>
+                      <p className="text-sm text-gray-600">{quotation.customer.name}</p>
+                    </div>
+                    {getStatusBadge(quotation.status)}
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-sm text-gray-500">{formatDate(quotation.createdAt!)}</p>
+                      <p className="font-semibold text-lg">{formatCurrency(parseFloat(quotation.total))}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setSelectedQuotation(quotation)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Visualizar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleGeneratePDF(quotation)}>
+                          <FileText className="mr-2 h-4 w-4" />
+                          Gerar PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleShare(quotation)}>
+                          <Share2 className="mr-2 h-4 w-4" />
+                          Compartilhar
+                        </DropdownMenuItem>
+                        {quotation.status === "pending" && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(quotation.id, "approved")}>
+                              <Check className="mr-2 h-4 w-4" />
+                              Aprovar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(quotation.id, "rejected")}>
+                              <X className="mr-2 h-4 w-4" />
+                              Rejeitar
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteQuotation(quotation.id)}
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : quotations.length > 0 ? (
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Número</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {quotations.map((quotation) => (
                   <TableRow key={quotation.id}>
@@ -483,8 +544,9 @@ export default function Quotations() {
                     </TableCell>
                   </TableRow>
                 ))}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </div>
           ) : (
             <div className="text-center py-8">
               <p className="text-gray-500">Nenhum orçamento encontrado.</p>
