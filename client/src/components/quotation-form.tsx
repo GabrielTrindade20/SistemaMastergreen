@@ -29,6 +29,10 @@ const quotationSchema = z.object({
     productId: z.string().min(1, "Selecione um produto"),
     quantity: z.number().min(0.01, "Quantidade deve ser maior que 0"),
   })).min(1, "Adicione pelo menos um produto"),
+  costs: z.array(z.object({
+    costId: z.string().min(1, "Selecione um custo"),
+    adjustedValue: z.number().min(0, "Valor deve ser maior ou igual a 0"),
+  })).optional(),
 });
 
 type QuotationFormData = z.infer<typeof quotationSchema>;

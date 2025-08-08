@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2 } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2 } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
 import QuotationForm from "@/components/quotation-form";
 import { generateQuotationPDF } from "@/lib/pdf-generator";
@@ -143,6 +143,55 @@ export default function Quotations() {
     }
   };
 
+  const handleShare = async (quotation: QuotationWithDetails) => {
+    try {
+      const shareData = {
+        title: `Proposta ${quotation.quotationNumber} - MasterGreen`,
+        text: `Proposta comercial para ${quotation.customer.name}\nValor: ${formatCurrency(parseFloat(quotation.total))}\nStatus: ${quotation.status}`,
+        url: window.location.href
+      };
+
+      if (navigator.share) {
+        await navigator.share(shareData);
+        toast({
+          title: "Compartilhado",
+          description: "Proposta compartilhada com sucesso!",
+        });
+      } else {
+        // Fallback for browsers that don't support Web Share API
+        const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
+        
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(shareText);
+          toast({
+            title: "Copiado",
+            description: "Informações da proposta copiadas para a área de transferência!",
+          });
+        } else {
+          // Ultimate fallback
+          const textArea = document.createElement('textarea');
+          textArea.value = shareText;
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+          
+          toast({
+            title: "Copiado",
+            description: "Informações da proposta copiadas para a área de transferência!",
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao compartilhar proposta",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
@@ -204,9 +253,18 @@ export default function Quotations() {
               <Button
                 onClick={() => handleGeneratePDF(selectedQuotation)}
                 className="btn-primary"
+                data-testid="button-generate-pdf"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Gerar PDF
+              </Button>
+              <Button
+                onClick={() => handleShare(selectedQuotation)}
+                variant="outline"
+                data-testid="button-share-quotation"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Compartilhar
               </Button>
             </div>
           </div>
@@ -386,6 +444,12 @@ export default function Quotations() {
                           >
                             <FileText className="mr-2 h-4 w-4" />
                             Gerar PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleShare(quotation)}
+                          >
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Compartilhar
                           </DropdownMenuItem>
                           {quotation.status === "pending" && (
                             <>

@@ -6,6 +6,8 @@ import {
   insertProductSchema,
   insertQuotationSchema, 
   insertQuotationItemSchema,
+  insertCostSchema,
+  insertQuotationCostSchema,
   insertUserSchema,
   loginUserSchema,
   type User 
@@ -17,7 +19,8 @@ const createQuotationSchema = z.object({
   quotation: insertQuotationSchema.omit({ userId: true, branch: true }).extend({
     validUntil: z.string().transform((str) => new Date(str))
   }),
-  items: z.array(insertQuotationItemSchema.omit({ quotationId: true }))
+  items: z.array(insertQuotationItemSchema.omit({ quotationId: true })),
+  costs: z.array(insertQuotationCostSchema.omit({ quotationId: true })).optional()
 });
 
 // Session configuration
@@ -265,6 +268,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Cost routes
+  app.get("/api/costs", requireAuth, async (req, res) => {
+    try {
+      const costs = await storage.getCosts();
+      res.json(costs);
+    } catch (error) {
+      console.error("Error fetching costs:", error);
+      res.status(500).json({ message: "Failed to fetch costs" });
+    }
+  });
+
+  app.get("/api/costs/:id", requireAuth, async (req, res) => {
+    try {
+      const cost = await storage.getCost(req.params.id);
+      if (!cost) {
+        return res.status(404).json({ message: "Cost not found" });
+      }
+      res.json(cost);
+    } catch (error) {
+      console.error("Error fetching cost:", error);
+      res.status(500).json({ message: "Failed to fetch cost" });
+    }
+  });
+
+  app.post("/api/costs", requireAuth, async (req, res) => {
+    try {
+      const costData = insertCostSchema.parse(req.body);
+      const cost = await storage.createCost(costData);
+      res.status(201).json(cost);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid cost data", errors: error.errors });
+      }
+      console.error("Error creating cost:", error);
+      res.status(500).json({ message: "Failed to create cost" });
+    }
+  });
+
+  app.put("/api/costs/:id", requireAuth, async (req, res) => {
+    try {
+      const costData = insertCostSchema.partial().parse(req.body);
+      const cost = await storage.updateCost(req.params.id, costData);
+      res.json(cost);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid cost data", errors: error.errors });
+      }
+      console.error("Error updating cost:", error);
+      res.status(500).json({ message: "Failed to update cost" });
+    }
+  });
+
+  app.delete("/api/costs/:id", requireAuth, async (req, res) => {
+    try {
+      await storage.deleteCost(req.params.id);
+      res.json({ message: "Cost deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting cost:", error);
+      res.status(500).json({ message: "Failed to delete cost" });
+    }
+  });
+
   // Quotation routes
   app.get("/api/quotations", requireAuth, async (req, res) => {
     try {
@@ -312,7 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.session.user!;
       console.log("Received quotation data:", JSON.stringify(req.body, null, 2));
       
-      const { quotation, items } = createQuotationSchema.parse(req.body);
+      const { quotation, items, costs } = createQuotationSchema.parse(req.body);
       
       // Adicionar userId e branch do usuário logado
       const quotationWithUser = {
@@ -323,8 +388,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Processed quotation:", quotationWithUser);
       console.log("Processed items:", items);
+      console.log("Processed costs:", costs);
       
-      const newQuotation = await storage.createQuotation(quotationWithUser, items);
+      const newQuotation = await storage.createQuotation(quotationWithUser, items, costs);
       res.status(201).json(newQuotation);
     } catch (error) {
       if (error instanceof z.ZodError) {

@@ -9,7 +9,8 @@ import {
   MessageCircle, 
   User,
   Shield,
-  LogOut
+  LogOut,
+  DollarSign
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,6 +19,7 @@ const baseNavigation = [
   { name: "Propostas", href: "/orcamentos", icon: FileText },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "Produtos", href: "/produtos", icon: Package, adminOnly: true },
+  { name: "Custos", href: "/custos", icon: DollarSign, adminOnly: true },
   { name: "Relatórios", href: "/relatorios", icon: BarChart3, adminOnly: true },
   { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
 ];
@@ -70,12 +72,12 @@ export default function Sidebar() {
       <div className="p-4 border-t border-green-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <div className="w-10 h-10 bg-green-200 rounded-full flex items-center justify-center">
-              {user.type === "admin" ? (
-                <Shield className="w-5 h-5 text-[#002b17]" />
-              ) : (
-                <User className="w-5 h-5 text-[#002b17]" />
-              )}
+            <div className="w-10 h-10 bg-[#ffffff] rounded-full flex items-center justify-center">
+              <img
+                src="/src/imagem/logoSemFundo.png"
+                alt="Logo MasterGreen"
+                className="w-10 h-10 object-contain"
+              />
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium">{user.name}</p>

@@ -7,13 +7,13 @@ import { z } from "zod";
 export const customers = pgTable("customers", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  email: text("email").notNull(),
+  email: text("email"),
   phone: text("phone").notNull(),
-  cpfCnpj: text("cpf_cnpj").notNull(),
+  cpfCnpj: text("cpf_cnpj"),
   address: text("address"),
   number: text("number"),
   neighborhood: text("neighborhood"),
-  city: text("city"),
+  city: text("city").notNull(),
   zipCode: text("zip_code"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -66,6 +66,25 @@ export const quotationItems = pgTable("quotation_items", {
   totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
 });
 
+export const costs = pgTable("costs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  supplier: text("supplier").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const quotationCosts = pgTable("quotation_costs", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  quotationId: uuid("quotation_id").references(() => quotations.id).notNull(),
+  costId: uuid("cost_id").references(() => costs.id),
+  name: text("name").notNull(), // For variable costs or copy of cost name
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  supplier: text("supplier"),
+  description: text("description"),
+});
+
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
@@ -95,6 +114,7 @@ export const quotationsRelations = relations(quotations, ({ one, many }) => ({
     references: [users.id],
   }),
   items: many(quotationItems),
+  costs: many(quotationCosts),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -109,6 +129,21 @@ export const quotationItemsRelations = relations(quotationItems, ({ one }) => ({
   product: one(products, {
     fields: [quotationItems.productId],
     references: [products.id],
+  }),
+}));
+
+export const costsRelations = relations(costs, ({ many }) => ({
+  quotationCosts: many(quotationCosts),
+}));
+
+export const quotationCostsRelations = relations(quotationCosts, ({ one }) => ({
+  quotation: one(quotations, {
+    fields: [quotationCosts.quotationId],
+    references: [quotations.id],
+  }),
+  cost: one(costs, {
+    fields: [quotationCosts.costId],
+    references: [costs.id],
   }),
 }));
 
@@ -138,6 +173,15 @@ export const insertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
 });
 
+export const insertCostSchema = createInsertSchema(costs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertQuotationCostSchema = createInsertSchema(quotationCosts).omit({
+  id: true,
+});
+
 export const loginUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -149,12 +193,16 @@ export type Product = typeof products.$inferSelect;
 export type Quotation = typeof quotations.$inferSelect;
 export type QuotationItem = typeof quotationItems.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type Cost = typeof costs.$inferSelect;
+export type QuotationCost = typeof quotationCosts.$inferSelect;
 
 export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type InsertQuotation = z.infer<typeof insertQuotationSchema>;
 export type InsertQuotationItem = z.infer<typeof insertQuotationItemSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertCost = z.infer<typeof insertCostSchema>;
+export type InsertQuotationCost = z.infer<typeof insertQuotationCostSchema>;
 export type LoginUser = z.infer<typeof loginUserSchema>;
 
 // Extended types for API responses
@@ -162,4 +210,5 @@ export type QuotationWithDetails = Quotation & {
   customer: Customer;
   user: User;
   items: (QuotationItem & { product: Product })[];
+  costs: (QuotationCost & { cost?: Cost })[];
 };
