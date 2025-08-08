@@ -3,6 +3,8 @@ import {
   products, 
   quotations, 
   quotationItems,
+  costs,
+  quotationCosts,
   users,
   type Customer, 
   type InsertCustomer,
@@ -12,6 +14,10 @@ import {
   type InsertQuotation,
   type QuotationItem,
   type InsertQuotationItem,
+  type Cost,
+  type InsertCost,
+  type QuotationCost,
+  type InsertQuotationCost,
   type QuotationWithDetails,
   type User,
   type InsertUser,
@@ -36,10 +42,17 @@ export interface IStorage {
   deleteProduct(id: string): Promise<void>;
   initializeDefaultProducts(): Promise<void>;
 
+  // Costs
+  getCosts(): Promise<Cost[]>;
+  getCost(id: string): Promise<Cost | undefined>;
+  createCost(cost: InsertCost): Promise<Cost>;
+  updateCost(id: string, cost: Partial<InsertCost>): Promise<Cost>;
+  deleteCost(id: string): Promise<void>;
+
   // Quotations
   getQuotations(branch?: string): Promise<QuotationWithDetails[]>;
   getQuotation(id: string): Promise<QuotationWithDetails | undefined>;
-  createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[]): Promise<QuotationWithDetails>;
+  createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[], costs?: InsertQuotationCost[]): Promise<QuotationWithDetails>;
   updateQuotationStatus(id: string, status: string): Promise<Quotation>;
   deleteQuotation(id: string): Promise<void>;
 
@@ -157,6 +170,44 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Costs
+  async getCosts(): Promise<Cost[]> {
+    return await db.select().from(costs).orderBy(costs.name);
+  }
+
+  async getCost(id: string): Promise<Cost | undefined> {
+    const [cost] = await db.select().from(costs).where(eq(costs.id, id));
+    return cost;
+  }
+
+  async createCost(cost: InsertCost): Promise<Cost> {
+    const [newCost] = await db.insert(costs).values(cost).returning();
+    return newCost;
+  }
+
+  async updateCost(id: string, cost: Partial<InsertCost>): Promise<Cost> {
+    const [updatedCost] = await db
+      .update(costs)
+      .set(cost)
+      .where(eq(costs.id, id))
+      .returning();
+    return updatedCost;
+  }
+
+  async deleteCost(id: string): Promise<void> {
+    // Check if cost is used in any quotations
+    const usageCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(quotationCosts)
+      .where(eq(quotationCosts.costId, id));
+    
+    if (Number(usageCount[0].count) > 0) {
+      throw new Error("Não é possível excluir este custo pois ele está sendo usado em propostas existentes.");
+    }
+    
+    await db.delete(costs).where(eq(costs.id, id));
+  }
+
   // Quotations
   async getQuotations(): Promise<QuotationWithDetails[]> {
     const result = await db
@@ -176,6 +227,13 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(products, eq(quotationItems.productId, products.id))
           .where(eq(quotationItems.quotationId, row.quotations.id));
 
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
         quotationsWithDetails.push({
           ...row.quotations,
           customer: row.customers,
@@ -183,6 +241,10 @@ export class DatabaseStorage implements IStorage {
           items: items.map(item => ({
             ...item.quotation_items!,
             product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
           }))
         });
       }
@@ -210,6 +272,13 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(products, eq(quotationItems.productId, products.id))
           .where(eq(quotationItems.quotationId, row.quotations.id));
 
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
         quotationsWithDetails.push({
           ...row.quotations,
           customer: row.customers,
@@ -217,6 +286,10 @@ export class DatabaseStorage implements IStorage {
           items: items.map(item => ({
             ...item.quotation_items!,
             product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
           }))
         });
       }
@@ -243,6 +316,13 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(products, eq(quotationItems.productId, products.id))
       .where(eq(quotationItems.quotationId, id));
 
+    // Get costs for this quotation
+    const quotationCostsData = await db
+      .select()
+      .from(quotationCosts)
+      .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+      .where(eq(quotationCosts.quotationId, id));
+
     return {
       ...quotationRow.quotations,
       customer: quotationRow.customers,
@@ -250,11 +330,15 @@ export class DatabaseStorage implements IStorage {
       items: items.map(item => ({
         ...item.quotation_items!,
         product: item.products!
+      })),
+      costs: quotationCostsData.map(costData => ({
+        ...costData.quotation_costs!,
+        cost: costData.costs || undefined
       }))
     };
   }
 
-  async createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[]): Promise<QuotationWithDetails> {
+  async createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[], costs?: InsertQuotationCost[]): Promise<QuotationWithDetails> {
     // Generate quotation number
     const count = await db
       .select({ count: sql<number>`count(*)` })
@@ -277,6 +361,16 @@ export class DatabaseStorage implements IStorage {
     }));
 
     await db.insert(quotationItems).values(quotationItemsWithId);
+
+    // Insert quotation costs if provided
+    if (costs && costs.length > 0) {
+      const quotationCostsWithId = costs.map(cost => ({
+        ...cost,
+        quotationId: newQuotation.id
+      }));
+
+      await db.insert(quotationCosts).values(quotationCostsWithId);
+    }
 
     // Return the complete quotation
     const result = await this.getQuotation(newQuotation.id);

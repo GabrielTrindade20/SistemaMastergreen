@@ -1,0 +1,62 @@
+Página de Custos, ajustes de clientes, permissões e custos variáveis no orçamento
+
+Crie no sistema MasterGreen as seguintes alterações e novas funcionalidades:
+
+1. Página de Custos
+Criar uma nova página chamada Custos, seguindo o mesmo padrão visual e funcional da página Produtos.
+Essa página deve permitir cadastrar, listar, editar e excluir custos.
+Cada custo terá os seguintes campos:
+
+Nome do custo (string – obrigatório)
+
+Valor do custo (número – obrigatório, em R$)
+
+Fornecedor (string – obrigatório)
+
+Descrição (texto – opcional)
+
+Todos os custos cadastrados devem ficar salvos e disponíveis para serem selecionados na página de criação de orçamentos, exatamente como acontece com os produtos.
+
+2. Aba de Clientes
+Na tela de cadastro/edição de clientes, deixar como campos obrigatórios apenas:
+
+Telefone
+
+Nome
+
+Cidade
+
+Todos os outros campos devem ser opcionais ou removidos como obrigatórios.
+
+3. Permissões no perfil de colaborador (funcionario)
+Para usuários do tipo funcionario:
+
+Ocultar o valor da nota fiscal em todas as telas e funcionalidades do sistema.
+
+Ocultar o valor do lucro da empresa em todas as telas e funcionalidades.
+Essas informações devem permanecer visíveis apenas para usuários admin.
+
+4. Compartilhamento de Propostas
+Após criar e salvar uma proposta, na tela de visualização dessa proposta deve haver um botão Compartilhar.
+Esse botão deve abrir as opções de compartilhamento padrão do dispositivo (via API nativa no navegador ou shareAsync() no mobile) para enviar o PDF da proposta por:
+
+WhatsApp
+
+E-mail
+
+Outras redes sociais disponíveis no dispositivo
+
+O compartilhamento deve usar o PDF gerado no padrão visual atual.
+
+5. Custos variáveis no orçamento
+Na tela de criação de proposta/orçamento, adicionar a possibilidade de incluir custos variáveis específicos daquela proposta.
+Deve existir:
+
+Um campo para nome do custo variável
+
+Um campo para valor do custo variável
+
+Opção de selecionar custos já cadastrados na página de Custos (mesmo modelo de seleção dos produtos)
+
+Os custos variáveis informados ou selecionados devem ser somados ao cálculo do custo total daquela proposta.
+

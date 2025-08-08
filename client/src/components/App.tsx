@@ -10,6 +10,7 @@ import Quotations from "@/pages/quotations";
 import NewQuotation from "@/pages/new-quotation";
 import Customers from "@/pages/customers";
 import Products from "@/pages/products";
+import Costs from "@/pages/costs";
 import Reports from "@/pages/reports";
 import WhatsApp from "@/pages/whatsapp";
 import Admin from "@/pages/admin";
@@ -45,6 +46,7 @@ function Router() {
           <Route path="/orcamentos/novo" component={NewQuotation} />
           <Route path="/clientes" component={Customers} />
           <Route path="/produtos" component={Products} />
+          <Route path="/custos" component={Costs} />
           <Route path="/relatorios" component={Reports} />
           <Route path="/whatsapp" component={WhatsApp} />
           {user.type === "admin" && <Route path="/admin" component={Admin} />}

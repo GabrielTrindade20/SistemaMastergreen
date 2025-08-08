@@ -109,7 +109,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
 
         // Draw table header with centered text
         tableHeaders.forEach((header, index) => {
-            doc.rect(xPosition, yPosition, columnWidths[index], 12);
+            doc.rect(xPosition, yPosition, columnWidths[index], 10);
 
             // Center text in each column
             const lines = header.split('\n');
@@ -135,14 +135,14 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
             doc.rect(xPosition, yPosition, columnWidths[0], rowHeight);
             const itemNum = (index + 1).toString();
             const itemNumWidth = doc.getTextWidth(itemNum);
-            doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + 12);
+            doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + 10);
             xPosition += columnWidths[0];
 
             // Quantity
             doc.rect(xPosition, yPosition, columnWidths[1], rowHeight);
             const qty = parseFloat(item.quantity).toFixed(0);
             const qtyWidth = doc.getTextWidth(qty);
-            doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + 12);
+            doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + 10);
             xPosition += columnWidths[1];
 
             // Product description - left aligned with padding
@@ -173,14 +173,14 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
             doc.rect(xPosition, yPosition, columnWidths[3], rowHeight);
             const unitPrice = `R$ ${parseFloat(item.unitPrice).toFixed(0)}`;
             const unitPriceWidth = doc.getTextWidth(unitPrice);
-            doc.text(unitPrice, xPosition + columnWidths[3] - unitPriceWidth - 2, yPosition + 12);
+            doc.text(unitPrice, xPosition + columnWidths[3] - unitPriceWidth - 2, yPosition + 10);
             xPosition += columnWidths[3];
 
             // Total price - right aligned
             doc.rect(xPosition, yPosition, columnWidths[4], rowHeight);
             const totalPrice = `R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}`;
             const totalPriceWidth = doc.getTextWidth(totalPrice);
-            doc.text(totalPrice, xPosition + columnWidths[4] - totalPriceWidth - 2, yPosition + 12);
+            doc.text(totalPrice, xPosition + columnWidths[4] - totalPriceWidth - 2, yPosition + 10);
 
             yPosition += rowHeight;
         });
@@ -188,7 +188,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
         // Total row - spanning the full width and centered
         xPosition = leftMargin + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3];
         doc.setFont("helvetica", "bold");
-        doc.rect(xPosition, yPosition, columnWidths[4], 15);
+        doc.rect(xPosition, yPosition, columnWidths[4], 10);
         const totalText = `R$ ${parseFloat(quotation.total).toFixed(2).replace('.', ',')}`;
         const totalTextWidth = doc.getTextWidth(totalText);
         doc.text(totalText, xPosition + (columnWidths[4] - totalTextWidth) / 2, yPosition + 10);

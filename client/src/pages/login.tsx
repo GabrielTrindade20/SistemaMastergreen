@@ -21,14 +21,19 @@ export default function Login() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-[#002b17] rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-white" />
+          <div className="w-32 h-16 bg-[#ffffff] rounded-full flex items-center justify-center mx-auto mb-4">
+            <img
+              src="/src/imagem/logoSemFundo.png"
+              alt="Logo MasterGreen"
+              className="w-32 h-32 object-contain"
+            />
           </div>
           <CardTitle className="text-2xl font-bold text-[#002b17]">MasterGreen</CardTitle>
           <CardDescription>
             Sistema de Gestão - Faça login para continuar
           </CardDescription>
         </CardHeader>
+        
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
