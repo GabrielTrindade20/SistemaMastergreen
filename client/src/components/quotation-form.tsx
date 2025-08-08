@@ -10,7 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Trash2, FileText } from "lucide-react";
-import type { Customer, Product } from "@shared/schema";
+import type { Customer, Product, Cost } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 import { calculateQuotationTotals } from "@/lib/calculations";
 import { generateQuotationPDF } from "@/lib/pdf-generator";
 import { useAuth } from "@/hooks/useAuth";
@@ -56,6 +57,12 @@ export default function QuotationForm({
   const [quotationItems, setQuotationItems] = useState([
     { productId: "", quantity: 0 }
   ]);
+  const [quotationCosts, setQuotationCosts] = useState<Array<{ costId: string; adjustedValue: number }>>([]);
+
+  // Fetch available costs
+  const { data: costs = [] } = useQuery<Cost[]>({
+    queryKey: ["/api/costs"],
+  });
 
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
@@ -70,6 +77,7 @@ export default function QuotationForm({
       responsibleName: user?.name || "",
       responsiblePosition: user?.type === "admin" ? "Administrador" : "Funcionário",
       items: quotationItems,
+      costs: quotationCosts,
     },
   });
 
@@ -96,6 +104,29 @@ export default function QuotationForm({
     newItems[index] = { ...newItems[index], [field]: value };
     setQuotationItems(newItems);
     form.setValue("items", newItems);
+  };
+
+  const addCost = () => {
+    const newCosts = [...quotationCosts, { costId: "", adjustedValue: 0 }];
+    setQuotationCosts(newCosts);
+    form.setValue("costs", newCosts);
+  };
+
+  const removeCost = (index: number) => {
+    const newCosts = quotationCosts.filter((_, i) => i !== index);
+    setQuotationCosts(newCosts);
+    form.setValue("costs", newCosts);
+  };
+
+  const updateCost = (index: number, field: 'costId' | 'adjustedValue', value: string | number) => {
+    const newCosts = [...quotationCosts];
+    newCosts[index] = { ...newCosts[index], [field]: value };
+    setQuotationCosts(newCosts);
+    form.setValue("costs", newCosts);
+  };
+
+  const getCost = (costId: string) => {
+    return costs.find(c => c.id === costId);
   };
 
   const getProduct = (productId: string) => {
@@ -143,6 +174,13 @@ export default function QuotationForm({
           totalCost: totalCost.toString(),
         };
       }),
+      costs: data.costs?.map(cost => {
+        const costData = getCost(cost.costId)!;
+        return {
+          costId: cost.costId,
+          adjustedValue: cost.adjustedValue.toString(),
+        };
+      }) || [],
     };
 
     onSubmit(quotationData);
@@ -343,6 +381,93 @@ export default function QuotationForm({
             })}
           </div>
         </div>
+
+        {/* Costs Section */}
+        {user?.type === "admin" && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Custos Adicionais</h3>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addCost}
+                data-testid="button-add-cost"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Custo
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              {quotationCosts.map((cost, index) => {
+                const costData = getCost(cost.costId);
+                return (
+                  <Card key={index}>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Custo *
+                          </label>
+                          <Select
+                            value={cost.costId}
+                            onValueChange={(value) => updateCost(index, 'costId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um custo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {costs.map(costOption => (
+                                <SelectItem key={costOption.id} value={costOption.id}>
+                                  {costOption.name} - {costOption.supplier}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Valor Original
+                          </label>
+                          <Input
+                            value={costData ? `R$ ${parseFloat(costData.value).toFixed(2)}` : 'R$ 0,00'}
+                            readOnly
+                            className="bg-gray-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Valor Ajustado (R$) *
+                          </label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            value={cost.adjustedValue || ""}
+                            onChange={(e) => updateCost(index, 'adjustedValue', parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeCost(index)}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Summary Section */}
         <Card className="bg-gray-50">
