@@ -31,7 +31,10 @@ export default function CostsPage() {
 
   // Create cost mutation
   const createCostMutation = useMutation({
-    mutationFn: (data: InsertCost) => apiRequest("/api/costs", "POST", data),
+    mutationFn: async (data: InsertCost) => {
+      const response = await apiRequest("POST", "/api/costs", data);
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/costs"] });
       setShowCreateDialog(false);
@@ -52,8 +55,10 @@ export default function CostsPage() {
 
   // Update cost mutation
   const updateCostMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<InsertCost> }) =>
-      apiRequest(`/api/costs/${id}`, "PUT", data),
+    mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCost> }) => {
+      const response = await apiRequest("PUT", `/api/costs/${id}`, data);
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/costs"] });
       setEditingCost(null);
@@ -74,7 +79,10 @@ export default function CostsPage() {
 
   // Delete cost mutation
   const deleteCostMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/costs/${id}`, "DELETE"),
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/costs/${id}`);
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/costs"] });
       toast({
@@ -168,11 +176,11 @@ export default function CostsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-4 md:p-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Custos</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold">Custos</h1>
+          <p className="text-muted-foreground text-sm md:text-base">
             Gerencie os custos que podem ser incluídos nas propostas
           </p>
         </div>

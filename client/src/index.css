@@ -151,4 +151,67 @@
   .status-rejected {
     @apply bg-red-100 text-red-800;
   }
+
+  /* Mobile-first responsive design */
+  @media (max-width: 768px) {
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    
+    .grid-cols-2 {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    
+    .grid-cols-3 {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    
+    .grid-cols-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    
+    .text-3xl {
+      font-size: 1.5rem;
+      line-height: 2rem;
+    }
+    
+    .text-2xl {
+      font-size: 1.25rem;
+      line-height: 1.75rem;
+    }
+    
+    .p-6 {
+      padding: 1rem;
+    }
+    
+    .gap-6 {
+      gap: 1rem;
+    }
+    
+    .gap-4 {
+      gap: 0.75rem;
+    }
+
+    .flex-row {
+      flex-direction: column;
+    }
+
+    .justify-between {
+      justify-content: flex-start;
+      gap: 1rem;
+    }
+
+    .hidden-mobile {
+      display: none;
+    }
+
+    .full-width-mobile {
+      width: 100%;
+    }
+
+    .text-mobile-center {
+      text-align: center;
+    }
+  }
 }

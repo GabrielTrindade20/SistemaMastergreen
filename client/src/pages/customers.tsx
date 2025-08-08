@@ -107,14 +107,18 @@ export default function Customers() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
+      {/* Header - Mobile responsive */}
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Clientes</h1>
-            <p className="text-gray-600">Gerencie sua base de clientes</p>
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Clientes</h1>
+            <p className="text-gray-600 text-sm md:text-base">Gerencie sua base de clientes</p>
           </div>
-          <Button className="btn-primary" onClick={handleNewCustomer}>
+          <Button 
+            className="btn-primary w-full md:w-auto" 
+            onClick={handleNewCustomer}
+            data-testid="button-novo-cliente"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Novo Cliente
           </Button>
@@ -122,25 +126,26 @@ export default function Customers() {
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <CardTitle>Lista de Clientes</CardTitle>
-              <div className="relative">
+              <div className="relative w-full md:w-64">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
                   placeholder="Buscar cliente..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-64"
+                  className="pl-10 w-full"
+                  data-testid="input-search-clients"
                 />
               </div>
             </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="animate-pulse">
                     <div className="h-32 bg-gray-200 rounded-lg"></div>
@@ -158,7 +163,7 @@ export default function Customers() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {filteredCustomers.map((customer) => (
                   <Card key={customer.id} className="hover:shadow-md transition-shadow">
                     <CardContent className="p-6">
