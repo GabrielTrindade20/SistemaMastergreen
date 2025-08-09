@@ -126,6 +126,13 @@ export default function NewQuotationForm({
     },
   });
 
+  // Atualizar o nome do responsável quando o usuário for carregado
+  useEffect(() => {
+    if (user?.name) {
+      form.setValue('responsibleName', user.name);
+    }
+  }, [user, form]);
+
   // Recalcular automaticamente quando items, costs ou desconto mudarem
   useEffect(() => {
     calculateTotals();

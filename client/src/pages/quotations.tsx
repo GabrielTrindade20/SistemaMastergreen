@@ -128,9 +128,45 @@ export default function Quotations() {
     }
   };
 
-  const handleGeneratePDF = async (quotation: QuotationWithDetails) => {
+  const handleGeneratePDF = (quotation: QuotationWithDetails) => {
     try {
-      await generateQuotationPDF(quotation);
+      const pdfData = {
+        quotationNumber: quotation.quotationNumber,
+        pdfTitle: quotation.pdfTitle || undefined,
+        customerName: quotation.customer.name,
+        customerPhone: quotation.customer.phone || undefined,
+        customerEmail: quotation.customer.email || undefined,
+        customerAddress: quotation.customer.address || undefined,
+        validUntil: quotation.validUntil.toISOString(),
+        items: quotation.items.map(item => ({
+          productName: item.product.name,
+          quantity: parseFloat(item.quantity),
+          unitPrice: parseFloat(item.unitPrice),
+          total: parseFloat(item.subtotal)
+        })),
+        subtotal: parseFloat(quotation.subtotal),
+        discount: 0,
+        discountPercent: 0,
+        finalTotal: parseFloat(quotation.total),
+        shippingIncluded: quotation.shippingIncluded,
+        warrantyText: quotation.warrantyText || undefined,
+        responsibleName: quotation.responsibleName || undefined,
+        responsiblePosition: quotation.responsiblePosition || undefined,
+        notes: quotation.notes || undefined,
+      };
+      
+      const { blob, filename } = generateQuotationPDF(pdfData);
+      
+      // Download direto
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
       toast({
         title: "Sucesso",
         description: "PDF gerado com sucesso!",
@@ -144,50 +180,85 @@ export default function Quotations() {
     }
   };
 
-  const handleShare = async (quotation: QuotationWithDetails) => {
+  const handleSharePDF = async (quotation: QuotationWithDetails) => {
     try {
-      const shareData = {
-        title: `Proposta ${quotation.quotationNumber} - MasterGreen`,
-        text: `Proposta comercial para ${quotation.customer.name}\nValor: ${formatCurrency(parseFloat(quotation.total))}\nStatus: ${quotation.status}`,
-        url: window.location.href
+      const pdfData = {
+        quotationNumber: quotation.quotationNumber,
+        pdfTitle: quotation.pdfTitle || undefined,
+        customerName: quotation.customer.name,
+        customerPhone: quotation.customer.phone || undefined,
+        customerEmail: quotation.customer.email || undefined,
+        customerAddress: quotation.customer.address || undefined,
+        validUntil: quotation.validUntil.toISOString(),
+        items: quotation.items.map(item => ({
+          productName: item.product.name,
+          quantity: parseFloat(item.quantity),
+          unitPrice: parseFloat(item.unitPrice),
+          total: parseFloat(item.subtotal)
+        })),
+        subtotal: parseFloat(quotation.subtotal),
+        discount: 0,
+        discountPercent: 0,
+        finalTotal: parseFloat(quotation.total),
+        shippingIncluded: quotation.shippingIncluded,
+        warrantyText: quotation.warrantyText || undefined,
+        responsibleName: quotation.responsibleName || undefined,
+        responsiblePosition: quotation.responsiblePosition || undefined,
+        notes: quotation.notes || undefined,
       };
-
-      if (navigator.share) {
-        await navigator.share(shareData);
-        toast({
-          title: "Compartilhado",
-          description: "Proposta compartilhada com sucesso!",
-        });
-      } else {
-        // Fallback for browsers that don't support Web Share API
-        const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
+      
+      const { blob, filename } = generateQuotationPDF(pdfData);
+      
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], filename, { type: 'application/pdf' });
         
-        if (navigator.clipboard) {
-          await navigator.clipboard.writeText(shareText);
-          toast({
-            title: "Copiado",
-            description: "Informações da proposta copiadas para a área de transferência!",
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: pdfData.pdfTitle || 'Proposta Comercial',
+            text: `Proposta ${quotation.quotationNumber} - MG MasterGreen`,
+            files: [file]
           });
-        } else {
-          // Ultimate fallback
-          const textArea = document.createElement('textarea');
-          textArea.value = shareText;
-          document.body.appendChild(textArea);
-          textArea.select();
-          document.execCommand('copy');
-          document.body.removeChild(textArea);
           
           toast({
-            title: "Copiado",
-            description: "Informações da proposta copiadas para a área de transferência!",
+            title: "Compartilhado",
+            description: "PDF compartilhado com sucesso!",
+          });
+        } else {
+          // Fallback para download se não pode compartilhar arquivos
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          toast({
+            title: "Download",
+            description: "PDF baixado. Compartilhe o arquivo manualmente.",
           });
         }
+      } else {
+        // Fallback para download direto
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        toast({
+          title: "Download",
+          description: "PDF baixado. Compartilhe o arquivo manualmente.",
+        });
       }
     } catch (error) {
-      console.error('Error sharing:', error);
       toast({
         title: "Erro",
-        description: "Erro ao compartilhar proposta",
+        description: "Erro ao compartilhar PDF",
         variant: "destructive",
       });
     }
@@ -260,12 +331,12 @@ export default function Quotations() {
                 Gerar PDF
               </Button>
               <Button
-                onClick={() => handleShare(selectedQuotation)}
+                onClick={() => handleSharePDF(selectedQuotation)}
                 variant="outline"
                 data-testid="button-share-quotation"
               >
                 <Share2 className="w-4 h-4 mr-2" />
-                Compartilhar
+                Compartilhar PDF
               </Button>
             </div>
           </div>
@@ -437,9 +508,9 @@ export default function Quotations() {
                           <FileText className="mr-2 h-4 w-4" />
                           Gerar PDF
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleShare(quotation)}>
+                        <DropdownMenuItem onClick={() => handleSharePDF(quotation)}>
                           <Share2 className="mr-2 h-4 w-4" />
-                          Compartilhar
+                          Compartilhar PDF
                         </DropdownMenuItem>
                         {quotation.status === "pending" && (
                           <>
@@ -512,10 +583,10 @@ export default function Quotations() {
                             Gerar PDF
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => handleShare(quotation)}
+                            onClick={() => handleSharePDF(quotation)}
                           >
                             <Share2 className="mr-2 h-4 w-4" />
-                            Compartilhar
+                            Compartilhar PDF
                           </DropdownMenuItem>
                           {quotation.status === "pending" && (
                             <>
