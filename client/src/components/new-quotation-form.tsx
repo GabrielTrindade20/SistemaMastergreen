@@ -128,49 +128,51 @@ export default function NewQuotationForm({
   }, [items, costs]);
 
   const calculateTotals = () => {
-    // 1. Total Final ao Cliente: multiplicar quantidade do produto pelo valor do metro
+    // 1. Total Final ao Cliente: quantidade do produto * valor do metro do produto
     const totalFinalCliente = items.reduce((sum, item) => {
-      return sum + (item.quantity * item.unitPrice);
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unitPrice) || 0;
+      return sum + (quantity * unitPrice);
     }, 0);
 
-    // 2. Total de Custos: somar todos os custos (quantidade * valor unitário)
+    // 2. Total de Custos: soma de todos os custos
     const totalCosts = costs.reduce((sum, cost) => {
       return sum + cost.totalValue;
     }, 0);
 
-    // 3. Valor Total dos Produtos: somar Total Final ao Cliente + Total de Custos
+    // 3. Valor Total dos Produtos: soma de todos os custos, incluindo a grama (produto escolhido)
     const valorTotalProdutos = totalCosts + totalFinalCliente;
 
-    // 4. Valor da Nota Fiscal: 5% do Total Final ao Cliente
+    // 4. Valor da Nota Fiscal (5%): Total Final ao Cliente * 5%
     const invoicePercent = 5.00;
-    const valorNotaFiscal = totalFinalCliente * 0.05;
+    const invoiceAmount = totalFinalCliente * (invoicePercent / 100);
 
     // 5. Total com Nota Fiscal: Total de Custos + Valor da Nota Fiscal
-    const totalComNotaFiscal = totalCosts + valorNotaFiscal;
+    const totalWithInvoice = totalCosts + invoiceAmount;
 
     // 6. Lucro da Empresa: Total Final ao Cliente - Total com Nota Fiscal
-    const lucroEmpresa = totalFinalCliente - totalComNotaFiscal;
+    const companyProfit = totalFinalCliente - totalWithInvoice;
 
-    // 7. Porcentagem de Lucro: (lucroEmpresa * 100) / totalComNotaFiscal
-    const profitPercent = totalComNotaFiscal > 0 ? (lucroEmpresa * 100) / totalComNotaFiscal : 0;
+    // 7. Porcentagem de Lucro: Lucro da Empresa * 100 / Total Final ao Cliente
+    const profitPercent = totalFinalCliente > 0 ? (companyProfit * 100) / totalFinalCliente : 0;
 
-    // 8. Dízimo (10%): 10% do Lucro da Empresa
-    const dizimo = lucroEmpresa * 0.10;
+    // 8. Dízimo (10%): Lucro da Empresa * 10%
+    const tithe = companyProfit * 0.10;
 
     // 9. Lucro Líquido: Lucro da Empresa - Dízimo
-    const lucroLiquido = lucroEmpresa - dizimo;
+    const netProfit = companyProfit - tithe;
 
     setCalculations({
       subtotal: valorTotalProdutos, // Valor Total dos Produtos
       totalCosts, // Total de Custos
-      totalWithoutInvoice: totalCosts, // Total sem nota fiscal
+      totalWithoutInvoice: totalCosts, // Total sem nota fiscal = total de custos
       invoicePercent,
-      invoiceAmount: valorNotaFiscal, // Valor da Nota Fiscal
-      totalWithInvoice: totalComNotaFiscal, // Total com Nota Fiscal
-      companyProfit: lucroEmpresa, // Lucro da Empresa
+      invoiceAmount, // Valor da Nota Fiscal (5%)
+      totalWithInvoice, // Total com Nota Fiscal
+      companyProfit, // Lucro da Empresa
       profitPercent, // Porcentagem de Lucro
-      tithe: dizimo, // Dízimo (10%)
-      netProfit: lucroLiquido, // Lucro Líquido
+      tithe, // Dízimo (10%)
+      netProfit, // Lucro Líquido
       total: totalFinalCliente, // Total Final ao Cliente
     });
   };
@@ -374,7 +376,7 @@ export default function NewQuotationForm({
                   <div>
                     <label className="text-sm font-medium">Subtotal</label>
                     <div className="text-lg font-semibold text-green-600">
-                      {formatCurrency(item.quantity * item.unitPrice)}
+                      {formatCurrency((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))}
                     </div>
                   </div>
                   
