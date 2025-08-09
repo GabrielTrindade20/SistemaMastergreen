@@ -339,12 +339,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[], costs?: InsertQuotationCost[]): Promise<QuotationWithDetails> {
-    // Generate quotation number
-    const count = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(quotations);
-    
-    const quotationNumber = `#${String(Number(count[0].count) + 1).padStart(3, '0')}`;
+    // Generate unique quotation number using timestamp and random number
+    const timestamp = Date.now().toString().slice(-6); // Last 6 digits of timestamp
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    const quotationNumber = `#${timestamp}${random}`;
 
     const [newQuotation] = await db
       .insert(quotations)
