@@ -104,69 +104,81 @@ export function generateQuotationPDF(data: PDFQuotationData): { blob: Blob; file
   
   yPosition += 20;
   
-  // Tabela de itens (estilo da segunda imagem)
+  // Tabela de itens (estilo da imagem mostrada)
   const tableStartY = yPosition;
-  const tableX = 20;
-  const tableWidth = 170;
-  const rowHeight = 12;
+  const tableX = 55;
+  const tableWidth = 100;
+  const rowHeight = 10;
   
-  // Cabeçalho da tabela com bordas
+  // Cabeçalho da tabela
   doc.setLineWidth(0.5);
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  
+  // Desenhar cabeçalho
   doc.rect(tableX, tableStartY, tableWidth, rowHeight);
   
-  // Dividir colunas
-  doc.line(tableX + 15, tableStartY, tableX + 15, tableStartY + rowHeight); // ITEM
-  doc.line(tableX + 35, tableStartY, tableX + 35, tableStartY + rowHeight); // QTD
-  doc.line(tableX + 100, tableStartY, tableX + 100, tableStartY + rowHeight); // DESCRIÇÃO
-  doc.line(tableX + 130, tableStartY, tableX + 130, tableStartY + rowHeight); // VALOR UNIT
+  // Dividir colunas do cabeçalho
+  doc.line(tableX + 10, tableStartY, tableX + 10, tableStartY + rowHeight); // ITEM
+  doc.line(tableX + 25, tableStartY, tableX + 25, tableStartY + rowHeight); // QTD
+  doc.line(tableX + 65, tableStartY, tableX + 65, tableStartY + rowHeight); // DESCRIÇÃO
+  doc.line(tableX + 80, tableStartY, tableX + 80, tableStartY + rowHeight); // VALOR UNIT
   
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.text('ITEM', tableX + 2, tableStartY + 8);
-  doc.text('QTD', tableX + 17, tableStartY + 8);
-  doc.text('DESCRIÇÃO DO PRODUTO', tableX + 37, tableStartY + 8);
-  doc.text('VALOR', tableX + 102, tableStartY + 8);
-  doc.text('VALOR', tableX + 132, tableStartY + 8);
-  doc.text('(m²)', tableX + 17, tableStartY + 4);
-  doc.text('UNIT.', tableX + 105, tableStartY + 4);
-  doc.text('TOTAL', tableX + 135, tableStartY + 4);
+  doc.text('ITEM', tableX + 3, tableStartY + 7);
+  doc.text('QTD (m²)', tableX + 12, tableStartY + 7);
+  doc.text('DESCRIÇÃO DO PRODUTO', tableX + 28, tableStartY + 7);
+  doc.text('VALOR UNIT.', tableX + 66, tableStartY + 7);
+  doc.text('VALOR TOTAL', tableX + 81, tableStartY + 7);
   
   yPosition = tableStartY + rowHeight;
   
-  // Linhas dos itens
+  // Linhas dos itens com dados reais
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  
   data.items.forEach((item, index) => {
     // Desenhar linha da tabela
     doc.rect(tableX, yPosition, tableWidth, rowHeight);
     
     // Dividir colunas
-    doc.line(tableX + 15, yPosition, tableX + 15, yPosition + rowHeight);
-    doc.line(tableX + 35, yPosition, tableX + 35, yPosition + rowHeight);
-    doc.line(tableX + 100, yPosition, tableX + 100, yPosition + rowHeight);
-    doc.line(tableX + 130, yPosition, tableX + 130, yPosition + rowHeight);
+    doc.line(tableX + 10, yPosition, tableX + 10, yPosition + rowHeight);
+    doc.line(tableX + 25, yPosition, tableX + 25, yPosition + rowHeight);
+    doc.line(tableX + 65, yPosition, tableX + 65, yPosition + rowHeight);
+    doc.line(tableX + 80, yPosition, tableX + 80, yPosition + rowHeight);
     
-    // Conteúdo
-    doc.text((index + 1).toString(), tableX + 7, yPosition + 8);
-    doc.text(item.quantity.toString(), tableX + 22, yPosition + 8);
-    doc.text(item.productName, tableX + 37, yPosition + 8);
-    doc.text(`R$ ${item.unitPrice.toFixed(2)}`, tableX + 102, yPosition + 8);
-    doc.text(`R$ ${item.total.toFixed(2)}`, tableX + 132, yPosition + 8);
+    // Conteúdo dos itens
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.text((index + 1).toString(), tableX + 5, yPosition + 6);
+    doc.text(item.quantity.toString(), tableX + 15, yPosition + 6);
+    // Truncar nome do produto se for muito longo
+    const productName = item.productName.length > 30 ? item.productName.substring(0, 30) + '...' : item.productName;
+    doc.text(productName, tableX + 27, yPosition + 6);
+    doc.text(`R$ ${item.unitPrice.toFixed(2)}`, tableX + 66, yPosition + 6);
+    doc.text(`R$ ${item.total.toFixed(2)}`, tableX + 81, yPosition + 6);
     
     yPosition += rowHeight;
   });
   
-  yPosition += 10;
+  // Linha do total em verde
+  const totalRowY = yPosition;
   
-  // Total em destaque verde (como na segunda imagem)
-  const totalBoxX = pageWidth - 70;
-  const totalBoxY = yPosition - 5;
+  // Primeira célula com "TOTAL:" em verde
   doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
-  doc.rect(totalBoxX, totalBoxY, 50, 15, 'F');
+  doc.rect(tableX, totalRowY, tableWidth - 20, rowHeight, 'F');
   
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text(`R$ ${data.finalTotal.toFixed(2)}`, totalBoxX + 5, totalBoxY + 10);
+  doc.setFontSize(9);
+  doc.text('TOTAL:', tableX + 30, totalRowY + 7);
+  
+  // Segunda célula com valor em verde
+  doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
+  doc.rect(tableX + 80, totalRowY, 20, rowHeight, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`R$ ${data.finalTotal.toFixed(2)}`, tableX + 82, totalRowY + 7);
   
   yPosition += 25;
   
