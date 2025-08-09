@@ -33,7 +33,8 @@ type QuotationFormData = z.infer<typeof quotationSchema>;
 interface QuotationItem {
   productId: string;
   quantity: number | string;
-  unitPrice: number | string;
+  unitPrice: number | string; // Custo unitário do produto
+  salePrice: number | string; // Valor por metro para venda ao cliente
   originalUnitPrice: number;
 }
 
@@ -81,7 +82,8 @@ export default function NewQuotationForm({
   const [items, setItems] = useState<QuotationItem[]>([{
     productId: '',
     quantity: 0,
-    unitPrice: 0,
+    unitPrice: 0, // Custo unitário
+    salePrice: 0, // Valor de venda por metro
     originalUnitPrice: 0,
   }]);
   
@@ -128,52 +130,56 @@ export default function NewQuotationForm({
   }, [items, costs]);
 
   const calculateTotals = () => {
-    // 1. Total Final ao Cliente: quantidade do produto * valor do metro do produto
-    const totalFinalCliente = items.reduce((sum, item) => {
+    // 1. Valor Total da Venda: quantidade * valor por metro escolhido pelo cliente
+    const valorTotalVenda = items.reduce((sum, item) => {
+      const quantity = Number(item.quantity) || 0;
+      const salePrice = Number(item.salePrice) || 0;
+      return sum + (quantity * salePrice);
+    }, 0);
+
+    // 2. Custos dos Produtos: custo unitário * quantidade
+    const custoProdutos = items.reduce((sum, item) => {
       const quantity = Number(item.quantity) || 0;
       const unitPrice = Number(item.unitPrice) || 0;
       return sum + (quantity * unitPrice);
     }, 0);
 
-    // 2. Total de Custos: soma de todos os custos
-    const totalCosts = costs.reduce((sum, cost) => {
+    // 3. Total de Custos: soma custos dos produtos + outros custos
+    const totalCosts = custoProdutos + costs.reduce((sum, cost) => {
       return sum + cost.totalValue;
     }, 0);
 
-    // 3. Valor Total dos Produtos: soma de todos os custos, incluindo a grama (produto escolhido)
-    const valorTotalProdutos = totalCosts + totalFinalCliente;
-
-    // 4. Valor da Nota Fiscal (5%): Total Final ao Cliente * 5%
+    // 4. Valor da Nota Fiscal (5%): 5% do Valor Total da Venda
     const invoicePercent = 5.00;
-    const invoiceAmount = totalFinalCliente * (invoicePercent / 100);
+    const valorNotaFiscal = valorTotalVenda * 0.05;
 
     // 5. Total com Nota Fiscal: Total de Custos + Valor da Nota Fiscal
-    const totalWithInvoice = totalCosts + invoiceAmount;
+    const totalComNotaFiscal = totalCosts + valorNotaFiscal;
 
-    // 6. Lucro da Empresa: Total Final ao Cliente - Total com Nota Fiscal
-    const companyProfit = totalFinalCliente - totalWithInvoice;
+    // 6. Lucro da Empresa: Valor Total da Venda - Total com Nota Fiscal
+    const lucroEmpresa = valorTotalVenda - totalComNotaFiscal;
 
-    // 7. Porcentagem de Lucro: Lucro da Empresa * 100 / Total Final ao Cliente
-    const profitPercent = totalFinalCliente > 0 ? (companyProfit * 100) / totalFinalCliente : 0;
+    // 7. Porcentagem de Lucro: (lucro * 100) / Total com Nota Fiscal
+    const profitPercent = totalComNotaFiscal > 0 ? (lucroEmpresa * 100) / totalComNotaFiscal : 0;
 
-    // 8. Dízimo (10%): Lucro da Empresa * 10%
-    const tithe = companyProfit * 0.10;
+    // 8. Dízimo (10%): 10% do Lucro da Empresa
+    const dizimo = lucroEmpresa * 0.10;
 
     // 9. Lucro Líquido: Lucro da Empresa - Dízimo
-    const netProfit = companyProfit - tithe;
+    const lucroLiquido = lucroEmpresa - dizimo;
 
     setCalculations({
-      subtotal: valorTotalProdutos, // Valor Total dos Produtos
-      totalCosts, // Total de Custos
-      totalWithoutInvoice: totalCosts, // Total sem nota fiscal = total de custos
+      subtotal: valorTotalVenda, // Valor Total da Venda
+      totalCosts, // Total de Custos (produtos + outros custos)
+      totalWithoutInvoice: totalCosts, // Total sem nota fiscal
       invoicePercent,
-      invoiceAmount, // Valor da Nota Fiscal (5%)
-      totalWithInvoice, // Total com Nota Fiscal
-      companyProfit, // Lucro da Empresa
+      invoiceAmount: valorNotaFiscal, // Valor da Nota Fiscal (5%)
+      totalWithInvoice: totalComNotaFiscal, // Total com Nota Fiscal
+      companyProfit: lucroEmpresa, // Lucro da Empresa
       profitPercent, // Porcentagem de Lucro
-      tithe, // Dízimo (10%)
-      netProfit, // Lucro Líquido
-      total: totalFinalCliente, // Total Final ao Cliente
+      tithe: dizimo, // Dízimo (10%)
+      netProfit: lucroLiquido, // Lucro Líquido
+      total: valorTotalVenda, // Total Final ao Cliente
     });
   };
 
@@ -182,6 +188,7 @@ export default function NewQuotationForm({
       productId: '',
       quantity: 0,
       unitPrice: 0,
+      salePrice: 0,
       originalUnitPrice: 0,
     }]);
   };
@@ -194,11 +201,12 @@ export default function NewQuotationForm({
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     
-    // Se mudou o produto, atualizar o preço padrão
+    // Se mudou o produto, atualizar o preço padrão (custo) e sugerir preço de venda
     if (field === 'productId') {
       const product = products.find(p => p.id === value);
       if (product) {
-        newItems[index].unitPrice = parseFloat(product.pricePerM2);
+        newItems[index].unitPrice = parseFloat(product.pricePerM2); // Custo
+        newItems[index].salePrice = parseFloat(product.pricePerM2); // Preço de venda inicial igual ao custo
         newItems[index].originalUnitPrice = parseFloat(product.pricePerM2);
       }
     }
@@ -329,7 +337,7 @@ export default function NewQuotationForm({
           <CardContent>
             <div className="space-y-4">
               {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
                   <div>
                     <label className="text-sm font-medium">Produto</label>
                     <Select 
@@ -362,7 +370,7 @@ export default function NewQuotationForm({
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium">Valor Unitário (R$/m²)</label>
+                    <label className="text-sm font-medium">Custo Unitário (R$/m²)</label>
                     <Input
                       type="number"
                       step="0.01"
@@ -370,13 +378,29 @@ export default function NewQuotationForm({
                       value={item.unitPrice || ''}
                       onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
                       data-testid={`input-unit-price-${index}`}
+                      className="bg-gray-50"
+                      title="Custo do produto (incluído nos custos)"
                     />
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium">Subtotal</label>
+                    <label className="text-sm font-medium">Valor por Metro (Venda)</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.salePrice || ''}
+                      onChange={(e) => updateItem(index, 'salePrice', parseFloat(e.target.value) || 0)}
+                      data-testid={`input-sale-price-${index}`}
+                      className="bg-green-50 border-green-200"
+                      title="Valor por metro que será cobrado do cliente"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Valor Total Venda</label>
                     <div className="text-lg font-semibold text-green-600">
-                      {formatCurrency((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))}
+                      {formatCurrency((Number(item.quantity) || 0) * (Number(item.salePrice) || 0))}
                     </div>
                   </div>
                   
