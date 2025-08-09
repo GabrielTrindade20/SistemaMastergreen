@@ -25,7 +25,6 @@ const quotationSchema = z.object({
   responsibleName: z.string().optional(),
   responsiblePosition: z.string().default("Administrador"),
   discountPercent: z.string().optional(),
-  discountAmount: z.string().optional(),
 });
 
 type QuotationFormData = z.infer<typeof quotationSchema>;
@@ -60,6 +59,8 @@ interface QuotationCalculations {
   tithe: number; // 10% do lucro da empresa
   netProfit: number; // Lucro após dízimo
   total: number; // Total final ao cliente (= subtotal)
+  discount: number; // Valor do desconto
+  finalTotal: number; // Total final com desconto
 }
 
 interface NewQuotationFormProps {
@@ -101,6 +102,8 @@ export default function NewQuotationForm({
     tithe: 0,
     netProfit: 0,
     total: 0,
+    discount: 0,
+    finalTotal: 0,
   });
 
   // Fetch available costs
@@ -120,14 +123,13 @@ export default function NewQuotationForm({
       responsibleName: user?.name || "",
       responsiblePosition: "Administrador",
       discountPercent: "",
-      discountAmount: "",
     },
   });
 
-  // Recalcular automaticamente quando items ou costs mudarem
+  // Recalcular automaticamente quando items, costs ou desconto mudarem
   useEffect(() => {
     calculateTotals();
-  }, [items, costs]);
+  }, [items, costs, form.watch('discountPercent')]);
 
   const calculateTotals = () => {
     // 1. Valor Total da Venda: quantidade * valor por metro escolhido pelo cliente
@@ -168,6 +170,11 @@ export default function NewQuotationForm({
     // 9. Lucro Líquido: Lucro da Empresa - Dízimo
     const lucroLiquido = lucroEmpresa - dizimo;
 
+    // 10. Calcular desconto
+    const discountPercent = parseFloat(form.getValues('discountPercent') || '0');
+    const discount = valorTotalVenda * (discountPercent / 100);
+    const finalTotal = valorTotalVenda - discount;
+
     setCalculations({
       subtotal: valorTotalVenda, // Valor Total da Venda
       totalCosts, // Total de Custos (produtos + outros custos)
@@ -180,6 +187,8 @@ export default function NewQuotationForm({
       tithe: dizimo, // Dízimo (10%)
       netProfit: lucroLiquido, // Lucro Líquido
       total: valorTotalVenda, // Total Final ao Cliente
+      discount, // Valor do desconto
+      finalTotal, // Total final com desconto
     });
   };
 
@@ -222,8 +231,8 @@ export default function NewQuotationForm({
       costId: firstCost.id,
       name: firstCost.name,
       unitValue: parseFloat(firstCost.value),
-      quantity: 1,
-      totalValue: parseFloat(firstCost.value),
+      quantity: 0,
+      totalValue: 0,
       supplier: firstCost.supplier || '',
       description: firstCost.description || '',
     };
@@ -439,9 +448,11 @@ export default function NewQuotationForm({
               <CardTitle>Custos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {costs.map((cost, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                  <Card key={index} className="border-l-4 border-l-red-500">
+                    <CardContent className="pt-6">
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
                     <div>
                       <label className="text-sm font-medium">Custo</label>
                       <Select 
@@ -502,18 +513,20 @@ export default function NewQuotationForm({
                       </div>
                     </div>
                     
-                    <div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeCost(index)}
-                        data-testid={`button-remove-cost-${index}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                        <div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeCost(index)}
+                            data-testid={`button-remove-cost-${index}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
                 
                 <Button
@@ -547,9 +560,16 @@ export default function NewQuotationForm({
                 <span className="font-semibold">{formatCurrency(calculations.subtotal)}</span>
               </div>
               
+              {calculations.discount > 0 && (
+                <div className="flex justify-between">
+                  <span>Desconto ({form.getValues('discountPercent')}%):</span>
+                  <span className="text-red-600">-{formatCurrency(calculations.discount)}</span>
+                </div>
+              )}
+              
               <div className="flex justify-between">
                 <span>Total Final ao Cliente:</span>
-                <span className="font-bold text-lg text-green-600">{formatCurrency(calculations.total)}</span>
+                <span className="font-bold text-lg text-green-600">{formatCurrency(calculations.finalTotal)}</span>
               </div>
 
               {/* Valores apenas para Admin */}
@@ -605,50 +625,30 @@ export default function NewQuotationForm({
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Desconto */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="discountPercent"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Desconto (%)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        placeholder="0.00"
-                        {...field}
-                        data-testid="input-discount-percent"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="discountAmount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Valor do Desconto (R$)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        {...field}
-                        data-testid="input-discount-amount"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="discountPercent"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Desconto (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      placeholder="0.00"
+                      {...field}
+                      data-testid="input-discount-percent"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {calculations.discount > 0 && `Desconto: ${formatCurrency(calculations.discount)}`}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Frete e Garantia */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -703,11 +703,15 @@ export default function NewQuotationForm({
                     <FormLabel>Nome do Responsável</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Nome completo"
-                        {...field}
+                        value={user?.name || ''}
+                        readOnly
+                        className="bg-gray-100"
                         data-testid="input-responsible-name"
                       />
                     </FormControl>
+                    <FormDescription>
+                      Responsável logado no sistema
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
