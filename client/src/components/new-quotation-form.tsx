@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Calculator } from "lucide-react";
 import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -23,6 +24,8 @@ const quotationSchema = z.object({
   pdfTitle: z.string().optional(),
   responsibleName: z.string().optional(),
   responsiblePosition: z.string().default("Administrador"),
+  discountPercent: z.string().optional(),
+  discountAmount: z.string().optional(),
 });
 
 type QuotationFormData = z.infer<typeof quotationSchema>;
@@ -114,6 +117,8 @@ export default function NewQuotationForm({
       pdfTitle: "",
       responsibleName: user?.name || "",
       responsiblePosition: "Administrador",
+      discountPercent: "",
+      discountAmount: "",
     },
   });
 
@@ -567,6 +572,164 @@ export default function NewQuotationForm({
                 </>
               )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Configurações Adicionais */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Configurações da Proposta</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Desconto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="discountPercent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Desconto (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="0.00"
+                        {...field}
+                        data-testid="input-discount-percent"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="discountAmount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Valor do Desconto (R$)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        {...field}
+                        data-testid="input-discount-amount"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Frete e Garantia */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="shippingIncluded"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel>Frete Incluso</FormLabel>
+                      <FormDescription>
+                        Marque se o frete está incluído no valor
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="switch-shipping-included"
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="warrantyText"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Texto da Garantia</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="1 ano de garantia de fábrica"
+                        {...field}
+                        data-testid="input-warranty-text"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Informações do Responsável */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="responsibleName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome do Responsável</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Nome completo"
+                        {...field}
+                        data-testid="input-responsible-name"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="responsiblePosition"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Cargo do Responsável</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Ex: Administrador, Vendedor"
+                        {...field}
+                        data-testid="input-responsible-position"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Título personalizado do PDF */}
+            <FormField
+              control={form.control}
+              name="pdfTitle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Título Personalizado da Proposta</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Ex: Proposta Comercial - Instalação de Grama Sintética"
+                      {...field}
+                      data-testid="input-pdf-title"
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Deixe em branco para usar o título padrão
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
