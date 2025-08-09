@@ -27,156 +27,207 @@ export interface PDFQuotationData {
 
 export function generateQuotationPDF(data: PDFQuotationData): { blob: Blob; filename: string } {
   const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.width;
   
-  // Configurações
-  const primaryColor = [0, 43, 23]; // #002b17
+  // Configurações de cores
+  const greenColor = [0, 123, 23]; // Verde MasterGreen
   const textColor = [0, 0, 0];
-  const grayColor = [128, 128, 128];
   
   let yPosition = 20;
   
-  // Cabeçalho da empresa
-  doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.setFontSize(20);
+  // Logo "MG" estilizado no centro
+  doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
+  const logoX = (pageWidth - 30) / 2;
+  doc.rect(logoX, yPosition, 30, 20, 'F');
+  
+  doc.setTextColor(255, 255, 255); // Texto branco
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('MG MASTERGREEN', 20, yPosition);
+  doc.text('MG', logoX + 8, yPosition + 13);
   
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('CNPJ: 36.347.401/0001-99', 20, yPosition + 8);
-  doc.text('Especialista em Grama Sintética, Capachos de Vinil e Piso Tátil', 20, yPosition + 15);
+  yPosition += 25;
   
-  yPosition += 35;
-  
-  // Título da proposta
+  // Nome da empresa centralizado
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  const title = data.pdfTitle || 'Proposta Comercial';
-  doc.text(title, 20, yPosition);
+  const companyName = 'MASTERGREEN';
+  const companyNameWidth = doc.getTextWidth(companyName);
+  doc.text(companyName, (pageWidth - companyNameWidth) / 2, yPosition);
   
   yPosition += 15;
   
-  // Informações da proposta
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Proposta: ${data.quotationNumber}`, 20, yPosition);
-  doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 120, yPosition);
-  yPosition += 7;
-  doc.text(`Válida até: ${new Date(data.validUntil).toLocaleDateString('pt-BR')}`, 20, yPosition);
-  
-  yPosition += 20;
-  
-  // Dados do cliente
-  doc.setFont('helvetica', 'bold');
-  doc.text('DADOS DO CLIENTE', 20, yPosition);
-  yPosition += 10;
-  
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Nome: ${data.customerName}`, 20, yPosition);
-  if (data.customerPhone) {
-    yPosition += 7;
-    doc.text(`Telefone: ${data.customerPhone}`, 20, yPosition);
-  }
-  if (data.customerEmail) {
-    yPosition += 7;
-    doc.text(`Email: ${data.customerEmail}`, 20, yPosition);
-  }
-  if (data.customerAddress) {
-    yPosition += 7;
-    doc.text(`Endereço: ${data.customerAddress}`, 20, yPosition);
-  }
-  
-  yPosition += 20;
-  
-  // Itens da proposta
-  doc.setFont('helvetica', 'bold');
-  doc.text('ITENS DA PROPOSTA', 20, yPosition);
-  yPosition += 15;
-  
-  // Cabeçalho da tabela
-  doc.setFillColor(240, 240, 240);
-  doc.rect(20, yPosition - 5, 170, 10, 'F');
-  doc.setFont('helvetica', 'bold');
+  // Informações da empresa centralizada
   doc.setFontSize(9);
-  doc.text('Produto', 25, yPosition);
-  doc.text('Qtd', 110, yPosition);
-  doc.text('Valor Unit.', 130, yPosition);
-  doc.text('Total', 165, yPosition);
-  
-  yPosition += 10;
-  
-  // Itens
   doc.setFont('helvetica', 'normal');
-  data.items.forEach((item) => {
-    doc.text(item.productName, 25, yPosition);
-    doc.text(`${item.quantity} m²`, 110, yPosition);
-    doc.text(`R$ ${item.unitPrice.toFixed(2)}`, 130, yPosition);
-    doc.text(`R$ ${item.total.toFixed(2)}`, 165, yPosition);
-    yPosition += 7;
+  const empresaInfo = [
+    'Razão Social: Rocha Comércio e Instalação de Grama Sintética',
+    'CNPJ: 36.347.491/0001-99',
+    'Endereço: QNN 24 Conjunto E Lote 14, Ceilândia Sul - DF',
+    'Telefone: (61) 99415-3101',
+    'E-mail: mastergreendf@gmail.com'
+  ];
+  
+  empresaInfo.forEach(info => {
+    const textWidth = doc.getTextWidth(info);
+    doc.text(info, (pageWidth - textWidth) / 2, yPosition);
+    yPosition += 6;
   });
   
   yPosition += 10;
   
-  // Totais
+  // Título da proposta centralizado
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Subtotal: R$ ${data.subtotal.toFixed(2)}`, 130, yPosition);
-  
-  if (data.discount && data.discount > 0) {
-    yPosition += 7;
-    doc.text(`Desconto (${data.discountPercent}%): -R$ ${data.discount.toFixed(2)}`, 130, yPosition);
-  }
-  
-  yPosition += 7;
-  doc.setFontSize(11);
-  doc.text(`TOTAL: R$ ${data.finalTotal.toFixed(2)}`, 130, yPosition);
+  const title = data.pdfTitle || 'PROPOSTA COMERCIAL';
+  const titleWidth = doc.getTextWidth(title);
+  doc.text(title, (pageWidth - titleWidth) / 2, yPosition);
   
   yPosition += 20;
   
-  // Informações adicionais
-  if (data.shippingIncluded) {
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text('✓ Frete incluso no valor', 20, yPosition);
-    yPosition += 7;
+  // Dados do cliente (estilo da segunda imagem)
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Ao ${data.customerName}`, 20, yPosition);
+  yPosition += 6;
+  doc.text(`A/C: ${data.customerName}`, 20, yPosition);
+  yPosition += 6;
+  if (data.customerPhone) {
+    doc.text(`Telefone: ${data.customerPhone}`, 20, yPosition);
+    yPosition += 6;
   }
-  
-  if (data.warrantyText) {
-    doc.text(`✓ Garantia: ${data.warrantyText}`, 20, yPosition);
-    yPosition += 7;
+  if (data.customerAddress) {
+    doc.text(`Endereço: ${data.customerAddress}`, 20, yPosition);
+    yPosition += 6;
   }
+  doc.text(`Data da Proposta: ${new Date().toLocaleDateString('pt-BR')}`, 20, yPosition);
   
+  yPosition += 20;
+  
+  // Tabela de itens (estilo da segunda imagem)
+  const tableStartY = yPosition;
+  const tableX = 20;
+  const tableWidth = 170;
+  const rowHeight = 12;
+  
+  // Cabeçalho da tabela com bordas
+  doc.setLineWidth(0.5);
+  doc.rect(tableX, tableStartY, tableWidth, rowHeight);
+  
+  // Dividir colunas
+  doc.line(tableX + 15, tableStartY, tableX + 15, tableStartY + rowHeight); // ITEM
+  doc.line(tableX + 35, tableStartY, tableX + 35, tableStartY + rowHeight); // QTD
+  doc.line(tableX + 100, tableStartY, tableX + 100, tableStartY + rowHeight); // DESCRIÇÃO
+  doc.line(tableX + 130, tableStartY, tableX + 130, tableStartY + rowHeight); // VALOR UNIT
+  
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('ITEM', tableX + 2, tableStartY + 8);
+  doc.text('QTD', tableX + 17, tableStartY + 8);
+  doc.text('DESCRIÇÃO DO PRODUTO', tableX + 37, tableStartY + 8);
+  doc.text('VALOR', tableX + 102, tableStartY + 8);
+  doc.text('VALOR', tableX + 132, tableStartY + 8);
+  doc.text('(m²)', tableX + 17, tableStartY + 4);
+  doc.text('UNIT.', tableX + 105, tableStartY + 4);
+  doc.text('TOTAL', tableX + 135, tableStartY + 4);
+  
+  yPosition = tableStartY + rowHeight;
+  
+  // Linhas dos itens
+  doc.setFont('helvetica', 'normal');
+  data.items.forEach((item, index) => {
+    // Desenhar linha da tabela
+    doc.rect(tableX, yPosition, tableWidth, rowHeight);
+    
+    // Dividir colunas
+    doc.line(tableX + 15, yPosition, tableX + 15, yPosition + rowHeight);
+    doc.line(tableX + 35, yPosition, tableX + 35, yPosition + rowHeight);
+    doc.line(tableX + 100, yPosition, tableX + 100, yPosition + rowHeight);
+    doc.line(tableX + 130, yPosition, tableX + 130, yPosition + rowHeight);
+    
+    // Conteúdo
+    doc.text((index + 1).toString(), tableX + 7, yPosition + 8);
+    doc.text(item.quantity.toString(), tableX + 22, yPosition + 8);
+    doc.text(item.productName, tableX + 37, yPosition + 8);
+    doc.text(`R$ ${item.unitPrice.toFixed(2)}`, tableX + 102, yPosition + 8);
+    doc.text(`R$ ${item.total.toFixed(2)}`, tableX + 132, yPosition + 8);
+    
+    yPosition += rowHeight;
+  });
+  
+  yPosition += 10;
+  
+  // Total em destaque verde (como na segunda imagem)
+  const totalBoxX = pageWidth - 70;
+  const totalBoxY = yPosition - 5;
+  doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
+  doc.rect(totalBoxX, totalBoxY, 50, 15, 'F');
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text(`R$ ${data.finalTotal.toFixed(2)}`, totalBoxX + 5, totalBoxY + 10);
+  
+  yPosition += 25;
+  
+  // Dados da Proposta (estilo da segunda imagem)
+  doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Dados da Proposta:', 20, yPosition);
+  yPosition += 8;
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const dadosProposta = [
+    'Descrição do produto: Grama sintética de 20mm Com instalação',
+    'Prazo de garantia: GARANTIA DE 10 ANOS',
+    'Forma de pagamento: 50% de entrada + 50% na entrega',
+    'Frete: Incluso',
+    'Tributos: Incluso no preço',
+    `Validade desta proposta: ${Math.ceil((new Date(data.validUntil).getTime() - new Date().getTime()) / (1000 * 3600 * 24))} dias`
+  ];
+  
+  dadosProposta.forEach(info => {
+    doc.text(info, 20, yPosition);
+    yPosition += 6;
+  });
+  
+  yPosition += 10;
+  
+  // Dados para pagamento
+  doc.setFont('helvetica', 'bold');
+  doc.text('Dados para pagamento:', 20, yPosition);
+  yPosition += 8;
+  
+  doc.setFont('helvetica', 'normal');
+  doc.text('PIX: 36.347.491/0001-99 - CNPJ em nome da Rocha Comércio e Instalação de Grama Sintética', 20, yPosition);
+  
+  yPosition += 15;
+  
+  // Assinatura (estilo da segunda imagem)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text(`${data.responsibleName || 'José Newton'}`, 20, yPosition);
+  yPosition += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`${data.responsiblePosition || 'Administrador'}`, 20, yPosition);
+  
+  // Observações no final se existirem
   if (data.notes) {
-    yPosition += 10;
+    yPosition += 15;
     doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
     doc.text('OBSERVAÇÕES:', 20, yPosition);
-    yPosition += 7;
+    yPosition += 8;
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
     
     // Quebrar texto das observações em múltiplas linhas
     const splitNotes = doc.splitTextToSize(data.notes, 170);
     doc.text(splitNotes, 20, yPosition);
-    yPosition += splitNotes.length * 5;
   }
-  
-  // Assinatura
-  yPosition += 20;
-  doc.setFont('helvetica', 'bold');
-  doc.text('RESPONSÁVEL PELA PROPOSTA', 20, yPosition);
-  yPosition += 10;
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${data.responsibleName || 'MG MasterGreen'}`, 20, yPosition);
-  if (data.responsiblePosition) {
-    yPosition += 7;
-    doc.text(data.responsiblePosition, 20, yPosition);
-  }
-  
-  // Rodapé
-  yPosition = 280;
-  doc.setTextColor(grayColor[0], grayColor[1], grayColor[2]);
-  doc.setFontSize(8);
-  doc.text('Esta proposta é válida por 7 dias a partir da data de emissão.', 20, yPosition);
-  doc.text('MG MasterGreen - Transformando espaços com qualidade e inovação', 20, yPosition + 5);
   
   // Gerar blob e nome do arquivo
   const pdfBlob = doc.output('blob');
