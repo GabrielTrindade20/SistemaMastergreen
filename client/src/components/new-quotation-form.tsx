@@ -128,53 +128,50 @@ export default function NewQuotationForm({
   }, [items, costs]);
 
   const calculateTotals = () => {
-    // 1. Calcular subtotal (valor total da venda)
-    const subtotal = items.reduce((sum, item) => {
+    // 1. Total Final ao Cliente: quantidade do produto * valor do metro do produto
+    const totalFinalCliente = items.reduce((sum, item) => {
       return sum + (item.quantity * item.unitPrice);
     }, 0);
 
-    // 2. Calcular total de custos
+    // 2. Total de Custos: soma de todos os custos
     const totalCosts = costs.reduce((sum, cost) => {
       return sum + cost.totalValue;
     }, 0);
 
-    // 3. Total sem nota fiscal = total de custos
-    const totalWithoutInvoice = totalCosts;
+    // 3. Valor Total dos Produtos: soma de todos os custos, incluindo a grama (produto escolhido)
+    const valorTotalProdutos = totalCosts + totalFinalCliente;
 
-    // 4. Valor da nota fiscal = 5% do valor da venda
+    // 4. Valor da Nota Fiscal (5%): Total Final ao Cliente * 5%
     const invoicePercent = 5.00;
-    const invoiceAmount = subtotal * (invoicePercent / 100);
+    const invoiceAmount = totalFinalCliente * (invoicePercent / 100);
 
-    // 5. Total com nota fiscal = custos + 5% da venda
-    const totalWithInvoice = totalWithoutInvoice + invoiceAmount;
+    // 5. Total com Nota Fiscal: Total de Custos + Valor da Nota Fiscal
+    const totalWithInvoice = totalCosts + invoiceAmount;
 
-    // 6. Lucro da empresa = valor da venda - total com NF
-    const companyProfit = subtotal - totalWithInvoice;
+    // 6. Lucro da Empresa: Total Final ao Cliente - Total com Nota Fiscal
+    const companyProfit = totalFinalCliente - totalWithInvoice;
 
-    // 7. Porcentagem de lucro
-    const profitPercent = totalWithInvoice > 0 ? (companyProfit * 100) / totalWithInvoice : 0;
+    // 7. Porcentagem de Lucro: Lucro da Empresa * 100 / Total Final ao Cliente
+    const profitPercent = totalFinalCliente > 0 ? (companyProfit * 100) / totalFinalCliente : 0;
 
-    // 8. Dízimo = 10% do lucro da empresa
+    // 8. Dízimo (10%): Lucro da Empresa * 10%
     const tithe = companyProfit * 0.10;
 
-    // 9. Lucro líquido = lucro da empresa - dízimo
+    // 9. Lucro Líquido: Lucro da Empresa - Dízimo
     const netProfit = companyProfit - tithe;
 
-    // 10. Total final ao cliente = subtotal (valor da venda)
-    const total = subtotal;
-
     setCalculations({
-      subtotal,
-      totalCosts,
-      totalWithoutInvoice,
+      subtotal: valorTotalProdutos, // Valor Total dos Produtos
+      totalCosts, // Total de Custos
+      totalWithoutInvoice: totalCosts, // Total sem nota fiscal = total de custos
       invoicePercent,
-      invoiceAmount,
-      totalWithInvoice,
-      companyProfit,
-      profitPercent,
-      tithe,
-      netProfit,
-      total,
+      invoiceAmount, // Valor da Nota Fiscal (5%)
+      totalWithInvoice, // Total com Nota Fiscal
+      companyProfit, // Lucro da Empresa
+      profitPercent, // Porcentagem de Lucro
+      tithe, // Dízimo (10%)
+      netProfit, // Lucro Líquido
+      total: totalFinalCliente, // Total Final ao Cliente
     });
   };
 
