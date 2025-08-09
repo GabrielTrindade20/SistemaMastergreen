@@ -35,14 +35,17 @@ export const quotations = pgTable("quotations", {
   customerId: uuid("customer_id").references(() => customers.id).notNull(),
   userId: uuid("user_id").references(() => users.id).notNull(),
   quotationNumber: text("quotation_number").notNull().unique(),
-  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
-  discountPercent: decimal("discount_percent", { precision: 5, scale: 2 }).notNull().default("0.00"),
-  discountAmount: decimal("discount_amount", { precision: 10, scale: 2 }).notNull().default("0.00"),
-  taxPercent: decimal("tax_percent", { precision: 5, scale: 2 }).notNull().default("4.50"),
-  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).notNull(),
-  totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull().default("0.00"),
-  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
-  netProfit: decimal("net_profit", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(), // Total dos produtos
+  totalCosts: decimal("total_costs", { precision: 10, scale: 2 }).notNull().default("0.00"), // Total dos custos
+  totalWithoutInvoice: decimal("total_without_invoice", { precision: 10, scale: 2 }).notNull().default("0.00"), // Total custos
+  invoicePercent: decimal("invoice_percent", { precision: 5, scale: 2 }).notNull().default("5.00"), // 5%
+  invoiceAmount: decimal("invoice_amount", { precision: 10, scale: 2 }).notNull().default("0.00"), // 5% sobre venda
+  totalWithInvoice: decimal("total_with_invoice", { precision: 10, scale: 2 }).notNull().default("0.00"), // Total com NF
+  companyProfit: decimal("company_profit", { precision: 10, scale: 2 }).notNull().default("0.00"), // Lucro empresa
+  profitPercent: decimal("profit_percent", { precision: 5, scale: 2 }).notNull().default("0.00"), // % lucro
+  tithe: decimal("tithe", { precision: 10, scale: 2 }).notNull().default("0.00"), // Dízimo (10%)
+  netProfit: decimal("net_profit", { precision: 10, scale: 2 }).notNull().default("0.00"), // Lucro líquido
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(), // Total final ao cliente
   status: text("status").notNull().default("pending"), // pending, approved, rejected
   validUntil: timestamp("valid_until").notNull(),
   notes: text("notes"),
@@ -80,7 +83,9 @@ export const quotationCosts = pgTable("quotation_costs", {
   quotationId: uuid("quotation_id").references(() => quotations.id).notNull(),
   costId: uuid("cost_id").references(() => costs.id),
   name: text("name").notNull(), // For variable costs or copy of cost name
-  value: decimal("value", { precision: 10, scale: 2 }).notNull(),
+  unitValue: decimal("unit_value", { precision: 10, scale: 2 }).notNull(),
+  quantity: decimal("quantity", { precision: 10, scale: 2 }).notNull().default("1.00"),
+  totalValue: decimal("total_value", { precision: 10, scale: 2 }).notNull(),
   supplier: text("supplier"),
   description: text("description"),
 });

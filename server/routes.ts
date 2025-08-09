@@ -377,20 +377,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.session.user!;
       console.log("Received quotation data:", JSON.stringify(req.body, null, 2));
       
-      const { quotation, items, costs } = createQuotationSchema.parse(req.body);
+      const { customerId, validUntil, notes, items, costs, calculations } = req.body;
       
-      // Adicionar userId e branch do usuário logado
-      const quotationWithUser = {
-        ...quotation,
+      // Criar dados do orçamento com nova estrutura
+      const quotationData = {
+        customerId,
         userId: user.id,
-        branch: user.branch
+        branch: user.branch,
+        validUntil: new Date(validUntil),
+        notes: notes || null,
+        subtotal: calculations.subtotal.toString(),
+        totalCosts: calculations.totalCosts.toString(),
+        totalWithoutInvoice: calculations.totalWithoutInvoice.toString(),
+        invoicePercent: calculations.invoicePercent.toString(),
+        invoiceAmount: calculations.invoiceAmount.toString(),
+        totalWithInvoice: calculations.totalWithInvoice.toString(),
+        companyProfit: calculations.companyProfit.toString(),
+        profitPercent: calculations.profitPercent.toString(),
+        tithe: calculations.tithe.toString(),
+        netProfit: calculations.netProfit.toString(),
+        total: calculations.total.toString(),
+        shippingIncluded: req.body.shippingIncluded ? 1 : 0,
+        warrantyText: req.body.warrantyText || "1 ano de garantia de fábrica",
+        pdfTitle: req.body.pdfTitle || null,
+        responsibleName: req.body.responsibleName || user.name,
+        responsiblePosition: req.body.responsiblePosition || "Administrador",
       };
       
-      console.log("Processed quotation:", quotationWithUser);
-      console.log("Processed items:", items);
-      console.log("Processed costs:", costs);
+      // Mapear itens
+      const itemsData = items.map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity.toString(),
+        unitPrice: item.unitPrice.toString(),
+        unitCost: "0.00", // Será calculado se necessário
+        subtotal: (item.quantity * item.unitPrice).toString(),
+        totalCost: "0.00",
+      }));
       
-      const newQuotation = await storage.createQuotation(quotationWithUser, items, costs);
+      // Mapear custos
+      const costsData = costs ? costs.map((cost: any) => ({
+        costId: cost.costId === 'manual' ? null : cost.costId,
+        name: cost.name,
+        unitValue: cost.unitValue.toString(),
+        quantity: cost.quantity.toString(),
+        totalValue: cost.totalValue.toString(),
+        supplier: cost.supplier || null,
+        description: cost.description || null,
+      })) : [];
+      
+      console.log("Processed quotation:", quotationData);
+      console.log("Processed items:", itemsData);
+      console.log("Processed costs:", costsData);
+      
+      const newQuotation = await storage.createQuotation(quotationData, itemsData, costsData);
       res.status(201).json(newQuotation);
     } catch (error) {
       if (error instanceof z.ZodError) {
