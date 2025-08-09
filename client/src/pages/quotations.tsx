@@ -137,7 +137,7 @@ export default function Quotations() {
         customerPhone: quotation.customer.phone || undefined,
         customerEmail: quotation.customer.email || undefined,
         customerAddress: quotation.customer.address || undefined,
-        validUntil: quotation.validUntil.toISOString(),
+        validUntil: quotation.validUntil instanceof Date ? quotation.validUntil.toISOString() : quotation.validUntil,
         items: quotation.items.map(item => ({
           productName: item.product.name,
           quantity: parseFloat(item.quantity),
@@ -189,7 +189,7 @@ export default function Quotations() {
         customerPhone: quotation.customer.phone || undefined,
         customerEmail: quotation.customer.email || undefined,
         customerAddress: quotation.customer.address || undefined,
-        validUntil: quotation.validUntil.toISOString(),
+        validUntil: quotation.validUntil instanceof Date ? quotation.validUntil.toISOString() : quotation.validUntil,
         items: quotation.items.map(item => ({
           productName: item.product.name,
           quantity: parseFloat(item.quantity),
