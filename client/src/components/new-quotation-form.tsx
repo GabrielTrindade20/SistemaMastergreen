@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import logoSemFundo from '../imagem/logoSemFundo.png';
 
 export interface PDFQuotationData {
   quotationNumber: string;
@@ -33,7 +34,7 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   let yPosition = 20;
 
   // Logo no topo
-  const logo = await loadImage('./imagem/logoSemFundo.png');
+  const logo = await loadImage(logoSemFundo);
   const logoWidth = 40;
   const logoHeight = 40;
   doc.addImage(logo, 'PNG', (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
