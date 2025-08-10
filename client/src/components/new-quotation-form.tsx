@@ -30,16 +30,16 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const greenColor = [45, 138, 29]; // #2d8a1d
-  const PAGE_MARGIN = 15;
+  const PAGE_MARGIN = 10;
 
-  let yPosition = 20;
+  let yPosition = 10;
 
   // Logo no topo
   const logo = await loadImage(logoSemFundo);
   const logoWidth = 40;
   const logoHeight = 40;
   doc.addImage(logo, 'PNG', (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
-  yPosition += logoHeight + 10;
+  yPosition += logoHeight;
 
   // Informações da empresa
   doc.setTextColor(0, 0, 0);
@@ -58,12 +58,13 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
     yPosition += 6;
   });
 
-  yPosition += 10;
+  yPosition += 5;
 
   // Título da proposta
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
+  doc.setFillColor(255, 255, 255);
   doc.text(data.pdfTitle || 'PROPOSTA COMERCIAL', pageWidth / 2, yPosition + 8, { align: 'center' });
   yPosition += 20;
 
@@ -71,7 +72,7 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
-  doc.text(`Ao ${data.customerName}`, 20, yPosition);
+  doc.text(`Ao: ${data.customerName}`, 20, yPosition);
   yPosition += 6;
   if (data.customerPhone) {
     doc.text(`Telefone: ${data.customerPhone}`, 20, yPosition);
@@ -85,31 +86,86 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
 
   yPosition += 10;
 
-  // Tabela - Cabeçalho com borda
+  // Configuração da tabela
+  const tableStartY = yPosition;
+  const tableWidth = pageWidth - PAGE_MARGIN * 2;
+  const tableX = PAGE_MARGIN;
+  const rowHeight = 8;
+  
+  // Larguras das colunas
+  const colWidths = [20, 25, 80, 35, 35]; // ITEM, QTD, DESCRIÇÃO, VALOR UNIT, VALOR TOTAL
+  let colX = tableX;
+  
+  // Cabeçalho da tabela
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setDrawColor(0);
+  doc.setLineWidth(0.5);
   doc.setFillColor(230, 230, 230);
-  doc.rect(PAGE_MARGIN, yPosition, pageWidth - PAGE_MARGIN * 2, 8, 'FD');
+  
+  // Desenhar fundo do cabeçalho
+  doc.rect(tableX, yPosition, tableWidth, rowHeight, 'FD');
+  
+  // Desenhar bordas verticais do cabeçalho
+  colX = tableX;
+  for (let i = 0; i <= colWidths.length; i++) {
+    doc.line(colX, yPosition, colX, yPosition + rowHeight);
+    if (i < colWidths.length) colX += colWidths[i];
+  }
+  
+  // Texto do cabeçalho
+  doc.text('ITEM', tableX + 10, yPosition + 6);
+  doc.text('QTD.', tableX + colWidths[0] + 8, yPosition + 6);
+  doc.text('DESCRIÇÃO DO PRODUTO', tableX + colWidths[0] + colWidths[1] + 5, yPosition + 6);
+  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 8, yPosition + 6);
+  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 8, yPosition + 6);
+  
+  // Segunda linha do cabeçalho
+  yPosition += rowHeight;
+  doc.rect(tableX, yPosition, tableWidth, rowHeight, 'FD');
+  
+  // Bordas verticais da segunda linha
+  colX = tableX;
+  for (let i = 0; i <= colWidths.length; i++) {
+    doc.line(colX, yPosition, colX, yPosition + rowHeight);
+    if (i < colWidths.length) colX += colWidths[i];
+  }
+  
+  doc.text('', tableX + 10, yPosition + 6);
+  doc.text('(m²)', tableX + colWidths[0] + 8, yPosition + 6);
+  doc.text('', tableX + colWidths[0] + colWidths[1] + 5, yPosition + 6);
+  doc.text('UNIT.', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 8, yPosition + 6);
+  doc.text('TOTAL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 8, yPosition + 6);
 
-  doc.text('ITEM', 20, yPosition + 6);
-  doc.text('QTD.', 40, yPosition + 6);
-  doc.text('DESCRIÇÃO', 70, yPosition + 6);
-  doc.text('VALOR UNIT.', 150, yPosition + 6, { align: 'right' });
-  doc.text('VALOR TOTAL', 185, yPosition + 6, { align: 'right' });
+  yPosition += rowHeight;
 
-  yPosition += 10;
-
-  // Itens
+  // Linhas dos itens
   doc.setFont('helvetica', 'normal');
   data.items.forEach((item, index) => {
-    doc.rect(PAGE_MARGIN, yPosition - 6, pageWidth - PAGE_MARGIN * 2, 8); // Borda linha
-    doc.text((index + 1).toString(), 20, yPosition);
-    doc.text(item.quantity.toString(), 40, yPosition);
-    doc.text(item.productName, 70, yPosition);
-    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, 150, yPosition, { align: 'right' });
-    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, 185, yPosition, { align: 'right' });
-    yPosition += 10;
+    // Preenchimento alternado das linhas
+    if (index % 2 === 1) {
+      doc.setFillColor(248, 248, 248);
+      doc.rect(tableX, yPosition, tableWidth, rowHeight, 'F');
+    }
+    
+    // Borda da linha
+    doc.rect(tableX, yPosition, tableWidth, rowHeight, 'D');
+    
+    // Bordas verticais da linha
+    colX = tableX;
+    for (let i = 0; i <= colWidths.length; i++) {
+      doc.line(colX, yPosition, colX, yPosition + rowHeight);
+      if (i < colWidths.length) colX += colWidths[i];
+    }
+    
+    // Texto da linha
+    doc.text((index + 1).toString(), tableX + 10, yPosition + 6);
+    doc.text(item.quantity.toString(), tableX + colWidths[0] + 8, yPosition + 6);
+    doc.text(item.productName, tableX + colWidths[0] + colWidths[1] + 5, yPosition + 6);
+    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 25, yPosition + 6, { align: 'right' });
+    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 30, yPosition + 6, { align: 'right' });
+    
+    yPosition += rowHeight;
   });
 
   // Total - fundo verde e letra branca
