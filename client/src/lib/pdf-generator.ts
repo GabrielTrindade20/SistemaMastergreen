@@ -100,11 +100,11 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFont("helvetica", "normal");
   doc.text(`Ao ${quotation.customer.name}`, leftMargin, yPosition);
   
-  // A/C line (if there's a contact person)
-  if (quotation.customer.name) {
-    yPosition += 5;
-    doc.text(`A/C: ${quotation.customer.name}`, leftMargin, yPosition);
-  }
+  // // A/C line (if there's a contact person)
+  // if (quotation.customer.name) {
+  //   yPosition += 5;
+  //   doc.text(`A/C: ${quotation.customer.name}`, leftMargin, yPosition);
+  // }
   
   yPosition += 5;
   doc.text(`Telefone: ${quotation.customer.phone || 'Não informado'}`, leftMargin, yPosition);

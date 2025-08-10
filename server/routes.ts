@@ -326,6 +326,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Cost deleted successfully" });
     } catch (error) {
       console.error("Error deleting cost:", error);
+      
+      // Se é um erro de validação de negócio (custo em uso), retornar 400
+      if (error instanceof Error && error.message.includes("está sendo usado")) {
+        return res.status(400).json({ message: error.message });
+      }
+      
+      // Outros erros retornam 500
       res.status(500).json({ message: "Failed to delete cost" });
     }
   });

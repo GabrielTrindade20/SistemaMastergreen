@@ -81,6 +81,10 @@ export default function CostsPage() {
   const deleteCostMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await apiRequest("DELETE", `/api/costs/${id}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Erro ao excluir custo");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -111,7 +115,7 @@ export default function CostsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.value || !formData.supplier) {
+    if (!formData.name || !formData.value) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha todos os campos obrigatórios",
@@ -307,10 +311,10 @@ export default function CostsPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="supplier">Fornecedor *</Label>
+                <Label htmlFor="supplier">Fornecedor</Label>
                 <Input
                   id="supplier"
-                  value={formData.supplier}
+                  value={formData.supplier || ""}
                   onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
                   placeholder="Nome do fornecedor"
                   data-testid="input-cost-supplier"
