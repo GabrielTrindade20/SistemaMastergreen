@@ -89,37 +89,39 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   // Configuração da tabela
   const tableWidth = pageWidth - PAGE_MARGIN * 2;
   const tableX = PAGE_MARGIN;
-  const rowHeight = 12;
+  const rowHeight = 10;
   
-  // Larguras das colunas baseadas na imagem
-  const colWidths = [25, 30, 85, 35, 40]; // ITEM, QTD, DESCRIÇÃO, VALOR UNIT, VALOR TOTAL
+  // Larguras das colunas otimizadas
+  const colWidths = [22, 28, 82, 32, 36]; // ITEM, QTD, DESCRIÇÃO, VALOR UNIT, VALOR TOTAL
   
   // Cabeçalho da tabela
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setDrawColor(0);
-  doc.setLineWidth(1);
+  doc.setLineWidth(0.8);
+  doc.setTextColor(0, 0, 0);
   
   // Primeira linha do cabeçalho
-  doc.setFillColor(245, 245, 245);
+  doc.setFillColor(240, 240, 240);
   doc.rect(tableX, yPosition, tableWidth, rowHeight, 'FD');
   
   // Texto do cabeçalho - primeira linha
-  doc.text('ITEM', tableX + 12, yPosition + 4);
-  doc.text('QTD.', tableX + colWidths[0] + 12, yPosition + 4);
-  doc.text('DESCRIÇÃO DO PRODUTO', tableX + colWidths[0] + colWidths[1] + 20, yPosition + 4);
-  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 10, yPosition + 4);
-  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 12, yPosition + 4);
+  doc.text('ITEM', tableX + 10, yPosition + 7);
+  doc.text('QTD.', tableX + colWidths[0] + 10, yPosition + 7);
+  doc.text('DESCRIÇÃO DO PRODUTO', tableX + colWidths[0] + colWidths[1] + 15, yPosition + 7);
+  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 8, yPosition + 7);
+  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 10, yPosition + 7);
   
   // Segunda linha do cabeçalho  
   yPosition += rowHeight;
+  doc.setFillColor(240, 240, 240);
   doc.rect(tableX, yPosition, tableWidth, rowHeight, 'FD');
   
-  doc.text('', tableX + 12, yPosition + 4);
-  doc.text('(m²)', tableX + colWidths[0] + 10, yPosition + 4);
-  doc.text('', tableX + colWidths[0] + colWidths[1] + 20, yPosition + 4);
-  doc.text('UNIT.', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 8, yPosition + 4);
-  doc.text('TOTAL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 8, yPosition + 4);
+  doc.text('', tableX + 10, yPosition + 7);
+  doc.text('(m²)', tableX + colWidths[0] + 8, yPosition + 7);
+  doc.text('', tableX + colWidths[0] + colWidths[1] + 15, yPosition + 7);
+  doc.text('UNIT.', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 6, yPosition + 7);
+  doc.text('TOTAL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 6, yPosition + 7);
 
   // Desenhar bordas verticais do cabeçalho
   let currentX = tableX;
@@ -132,7 +134,7 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
 
   // Linhas dos itens
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   
   data.items.forEach((item, index) => {
     // Preenchimento alternado das linhas
@@ -153,23 +155,24 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
     
     // Texto da linha
     doc.setTextColor(0, 0, 0);
-    doc.text((index + 1).toString(), tableX + 12, yPosition + 8);
-    doc.text(item.quantity.toString(), tableX + colWidths[0] + 12, yPosition + 8);
-    doc.text(item.productName, tableX + colWidths[0] + colWidths[1] + 5, yPosition + 8);
-    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 30, yPosition + 8, { align: 'right' });
-    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 35, yPosition + 8, { align: 'right' });
+    doc.text((index + 1).toString(), tableX + 10, yPosition + 7);
+    doc.text(item.quantity.toString(), tableX + colWidths[0] + 10, yPosition + 7);
+    doc.text(item.productName, tableX + colWidths[0] + colWidths[1] + 3, yPosition + 7);
+    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 28, yPosition + 7, { align: 'right' });
+    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 32, yPosition + 7, { align: 'right' });
     
     yPosition += rowHeight;
   });
 
   // Linha do total integrada na tabela (última linha)
-  doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
   
   // Células vazias até a coluna do total
   const totalCellX = tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
+  doc.setFillColor(255, 255, 255);
   doc.rect(tableX, yPosition, totalCellX - tableX, rowHeight, 'FD');
   
   // Célula do total com fundo verde
+  doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
   doc.rect(totalCellX, yPosition, colWidths[4], rowHeight, 'FD');
   
   // Bordas da linha do total
@@ -185,8 +188,8 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   // Texto do total
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text(`R$ ${data.finalTotal.toFixed(2).replace('.', ',')}`, totalCellX + colWidths[4] - 5, yPosition + 8, { align: 'right' });
+  doc.setFontSize(9);
+  doc.text(`R$ ${data.finalTotal.toFixed(2).replace('.', ',')}`, totalCellX + colWidths[4] - 3, yPosition + 7, { align: 'right' });
 
   yPosition += 20;
 
