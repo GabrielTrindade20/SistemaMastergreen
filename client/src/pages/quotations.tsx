@@ -128,7 +128,7 @@ export default function Quotations() {
     }
   };
 
-  const handleGeneratePDF = (quotation: QuotationWithDetails) => {
+  const handleGeneratePDF = async (quotation: QuotationWithDetails) => {
     try {
       const pdfData = {
         quotationNumber: quotation.quotationNumber,
@@ -148,14 +148,14 @@ export default function Quotations() {
         discount: 0,
         discountPercent: 0,
         finalTotal: parseFloat(quotation.total),
-        shippingIncluded: quotation.shippingIncluded,
+        shippingIncluded: quotation.shippingIncluded ? true : false,
         warrantyText: quotation.warrantyText || undefined,
         responsibleName: quotation.responsibleName || undefined,
         responsiblePosition: quotation.responsiblePosition || undefined,
         notes: quotation.notes || undefined,
       };
       
-      const { blob, filename } = generateQuotationPDF(pdfData);
+      const { blob, filename } = await generateQuotationPDF(pdfData);
       
       // Download direto
       const url = URL.createObjectURL(blob);
@@ -200,14 +200,14 @@ export default function Quotations() {
         discount: 0,
         discountPercent: 0,
         finalTotal: parseFloat(quotation.total),
-        shippingIncluded: quotation.shippingIncluded,
+        shippingIncluded: quotation.shippingIncluded ? true : false,
         warrantyText: quotation.warrantyText || undefined,
         responsibleName: quotation.responsibleName || undefined,
         responsiblePosition: quotation.responsiblePosition || undefined,
         notes: quotation.notes || undefined,
       };
       
-      const { blob, filename } = generateQuotationPDF(pdfData);
+      const { blob, filename } = await generateQuotationPDF(pdfData);
       
       if (navigator.share && navigator.canShare) {
         const file = new File([blob], filename, { type: 'application/pdf' });
