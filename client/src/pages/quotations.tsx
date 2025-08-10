@@ -25,8 +25,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2 } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
-import { generateQuotationPDF } from "@/components/new-quotation-form";
-import QuotationForm from "@/components/quotation-form";
+import NewQuotationForm from "@/components/new-quotation-form";
+import { generateProposalPDF } from "@/lib/pdf-generator";
 import { formatCurrency, formatDate } from "@/lib/calculations";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -130,42 +130,8 @@ export default function Quotations() {
 
   const handleGeneratePDF = async (quotation: QuotationWithDetails) => {
     try {
-      const pdfData = {
-        quotationNumber: quotation.quotationNumber,
-        pdfTitle: quotation.pdfTitle || undefined,
-        customerName: quotation.customer.name,
-        customerPhone: quotation.customer.phone || undefined,
-        customerEmail: quotation.customer.email || undefined,
-        customerAddress: quotation.customer.address || undefined,
-        validUntil: quotation.validUntil instanceof Date ? quotation.validUntil.toISOString() : quotation.validUntil,
-        items: quotation.items.map(item => ({
-          productName: item.product.name,
-          quantity: parseFloat(item.quantity),
-          unitPrice: parseFloat(item.unitPrice),
-          total: parseFloat(item.subtotal)
-        })),
-        subtotal: parseFloat(quotation.subtotal),
-        discount: 0,
-        discountPercent: 0,
-        finalTotal: parseFloat(quotation.total),
-        shippingIncluded: quotation.shippingIncluded ? true : false,
-        warrantyText: quotation.warrantyText || undefined,
-        responsibleName: quotation.responsibleName || undefined,
-        responsiblePosition: quotation.responsiblePosition || undefined,
-        notes: quotation.notes || undefined,
-      };
-      
-      const { blob, filename } = await generateQuotationPDF(pdfData);
-      
-      // Download direto
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const fileName = `Proposta_${quotation.quotationNumber}.pdf`;
+      await generateProposalPDF(quotation, fileName);
       
       toast({
         title: "Sucesso",
@@ -182,79 +148,13 @@ export default function Quotations() {
 
   const handleSharePDF = async (quotation: QuotationWithDetails) => {
     try {
-      const pdfData = {
-        quotationNumber: quotation.quotationNumber,
-        pdfTitle: quotation.pdfTitle || undefined,
-        customerName: quotation.customer.name,
-        customerPhone: quotation.customer.phone || undefined,
-        customerEmail: quotation.customer.email || undefined,
-        customerAddress: quotation.customer.address || undefined,
-        validUntil: quotation.validUntil instanceof Date ? quotation.validUntil.toISOString() : quotation.validUntil,
-        items: quotation.items.map(item => ({
-          productName: item.product.name,
-          quantity: parseFloat(item.quantity),
-          unitPrice: parseFloat(item.unitPrice),
-          total: parseFloat(item.subtotal)
-        })),
-        subtotal: parseFloat(quotation.subtotal),
-        discount: 0,
-        discountPercent: 0,
-        finalTotal: parseFloat(quotation.total),
-        shippingIncluded: quotation.shippingIncluded ? true : false,
-        warrantyText: quotation.warrantyText || undefined,
-        responsibleName: quotation.responsibleName || undefined,
-        responsiblePosition: quotation.responsiblePosition || undefined,
-        notes: quotation.notes || undefined,
-      };
+      const fileName = `Proposta_${quotation.quotationNumber}.pdf`;
+      await generateProposalPDF(quotation, fileName);
       
-      const { blob, filename } = await generateQuotationPDF(pdfData);
-      
-      if (navigator.share && navigator.canShare) {
-        const file = new File([blob], filename, { type: 'application/pdf' });
-        
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: pdfData.pdfTitle || 'Proposta Comercial',
-            text: `Proposta ${quotation.quotationNumber} - MG MasterGreen`,
-            files: [file]
-          });
-          
-          toast({
-            title: "Compartilhado",
-            description: "PDF compartilhado com sucesso!",
-          });
-        } else {
-          // Fallback para download se não pode compartilhar arquivos
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          
-          toast({
-            title: "Download",
-            description: "PDF baixado. Compartilhe o arquivo manualmente.",
-          });
-        }
-      } else {
-        // Fallback para download direto
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        toast({
-          title: "Download",
-          description: "PDF baixado. Compartilhe o arquivo manualmente.",
-        });
-      }
+      toast({
+        title: "Sucesso",
+        description: "PDF gerado com sucesso!",
+      });
     } catch (error) {
       toast({
         title: "Erro",
@@ -289,7 +189,7 @@ export default function Quotations() {
           <h1 className="text-3xl font-bold text-gray-900">Nova Proposta</h1>
         </div>
 
-        <QuotationForm
+        <NewQuotationForm
           customers={customers}
           products={products}
           onSubmit={handleCreateQuotation}
