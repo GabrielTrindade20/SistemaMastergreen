@@ -732,12 +732,12 @@ export default function NewQuotationForm({
                     <FormLabel>Cargo do Responsável</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Ex: Administrador, Vendedor"
-                        {...field}
-                        data-testid="input-responsible-position"
+                        value={user?.type || ''}
+                        readOnly
+                        className="bg-gray-100"
+                        data-testid="input-responsible-name"
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
