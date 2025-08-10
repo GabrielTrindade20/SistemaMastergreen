@@ -25,8 +25,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2 } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
-import NewQuotationForm from "@/components/new-quotation-form";
-import { generateQuotationPDF } from "@/lib/pdf-generator";
+import { generateQuotationPDF } from "@/components/new-quotation-form";
+import QuotationForm from "@/components/quotation-form";
 import { formatCurrency, formatDate } from "@/lib/calculations";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -289,7 +289,7 @@ export default function Quotations() {
           <h1 className="text-3xl font-bold text-gray-900">Nova Proposta</h1>
         </div>
 
-        <NewQuotationForm
+        <QuotationForm
           customers={customers}
           products={products}
           onSubmit={handleCreateQuotation}
