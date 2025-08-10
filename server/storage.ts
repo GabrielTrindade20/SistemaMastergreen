@@ -395,6 +395,8 @@ export class DatabaseStorage implements IStorage {
   async deleteQuotation(id: string): Promise<void> {
     // First delete all quotation items
     await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+    // Delete all quotation costs
+    await db.delete(quotationCosts).where(eq(quotationCosts.quotationId, id));
     // Then delete the quotation
     await db.delete(quotations).where(eq(quotations.id, id));
   }
