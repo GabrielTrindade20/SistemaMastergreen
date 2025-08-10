@@ -30,6 +30,7 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.width;
   const greenColor = [45, 138, 29]; // #2d8a1d
+  const PAGE_MARGIN = 15;
 
   let yPosition = 20;
 
@@ -60,11 +61,9 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   yPosition += 10;
 
   // Título da proposta
-  doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
-  doc.rect(0, yPosition, pageWidth, 12, 'F');
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(0, 0, 0);
   doc.text(data.pdfTitle || 'PROPOSTA COMERCIAL', pageWidth / 2, yPosition + 8, { align: 'center' });
   yPosition += 20;
 
@@ -91,38 +90,41 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   doc.setFontSize(10);
   doc.setDrawColor(0);
   doc.setFillColor(230, 230, 230);
-  doc.rect(15, yPosition, pageWidth - 30, 8, 'FD');
+  doc.rect(PAGE_MARGIN, yPosition, pageWidth - PAGE_MARGIN * 2, 8, 'FD');
+
   doc.text('ITEM', 20, yPosition + 6);
   doc.text('QTD.', 40, yPosition + 6);
   doc.text('DESCRIÇÃO', 70, yPosition + 6);
-  doc.text('VALOR UNIT.', 140, yPosition + 6);
-  doc.text('VALOR TOTAL', 170, yPosition + 6, { align: 'right' });
+  doc.text('VALOR UNIT.', 150, yPosition + 6, { align: 'right' });
+  doc.text('VALOR TOTAL', 185, yPosition + 6, { align: 'right' });
 
   yPosition += 10;
 
   // Itens
   doc.setFont('helvetica', 'normal');
   data.items.forEach((item, index) => {
-    doc.rect(15, yPosition - 6, pageWidth - 30, 8); // Borda da linha
+    doc.rect(PAGE_MARGIN, yPosition - 6, pageWidth - PAGE_MARGIN * 2, 8); // Borda linha
     doc.text((index + 1).toString(), 20, yPosition);
-    doc.text(item.quantity.toString(), 42, yPosition);
+    doc.text(item.quantity.toString(), 40, yPosition);
     doc.text(item.productName, 70, yPosition);
-    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, 140, yPosition);
-    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, 170, yPosition, { align: 'right' });
+    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, 150, yPosition, { align: 'right' });
+    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, 185, yPosition, { align: 'right' });
     yPosition += 10;
   });
 
-  yPosition += 5;
-
   // Total - fundo verde e letra branca
+  const totalBoxWidth = 75;
+  const totalBoxX = pageWidth - totalBoxWidth - PAGE_MARGIN;
   doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
-  doc.rect(120, yPosition, 75, 10, 'F');
+  doc.rect(totalBoxX, yPosition, totalBoxWidth, 10, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.text(`TOTAL: R$ ${data.finalTotal.toFixed(2).replace('.', ',')}`, 122, yPosition + 7);
+  doc.text(`TOTAL: R$ ${data.finalTotal.toFixed(2).replace('.', ',')}`, totalBoxX + 5, yPosition + 7);
 
   yPosition += 20;
 
+  doc.setTextColor(0, 0, 0);
+  
   // Dados da proposta
   doc.setTextColor(0, 0, 0);
   doc.setFont('helvetica', 'bold');
