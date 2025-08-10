@@ -87,95 +87,106 @@ export async function generateQuotationPDF(data: PDFQuotationData): Promise<{ bl
   yPosition += 10;
 
   // Configuração da tabela
-  const tableStartY = yPosition;
   const tableWidth = pageWidth - PAGE_MARGIN * 2;
   const tableX = PAGE_MARGIN;
-  const rowHeight = 8;
+  const rowHeight = 12;
   
-  // Larguras das colunas
-  const colWidths = [20, 25, 80, 35, 35]; // ITEM, QTD, DESCRIÇÃO, VALOR UNIT, VALOR TOTAL
-  let colX = tableX;
+  // Larguras das colunas baseadas na imagem
+  const colWidths = [25, 30, 85, 35, 40]; // ITEM, QTD, DESCRIÇÃO, VALOR UNIT, VALOR TOTAL
   
   // Cabeçalho da tabela
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setDrawColor(0);
-  doc.setLineWidth(0.5);
-  doc.setFillColor(230, 230, 230);
+  doc.setLineWidth(1);
   
-  // Desenhar fundo do cabeçalho
+  // Primeira linha do cabeçalho
+  doc.setFillColor(245, 245, 245);
   doc.rect(tableX, yPosition, tableWidth, rowHeight, 'FD');
   
-  // Desenhar bordas verticais do cabeçalho
-  colX = tableX;
-  for (let i = 0; i <= colWidths.length; i++) {
-    doc.line(colX, yPosition, colX, yPosition + rowHeight);
-    if (i < colWidths.length) colX += colWidths[i];
-  }
+  // Texto do cabeçalho - primeira linha
+  doc.text('ITEM', tableX + 12, yPosition + 4);
+  doc.text('QTD.', tableX + colWidths[0] + 12, yPosition + 4);
+  doc.text('DESCRIÇÃO DO PRODUTO', tableX + colWidths[0] + colWidths[1] + 20, yPosition + 4);
+  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 10, yPosition + 4);
+  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 12, yPosition + 4);
   
-  // Texto do cabeçalho
-  doc.text('ITEM', tableX + 10, yPosition + 6);
-  doc.text('QTD.', tableX + colWidths[0] + 8, yPosition + 6);
-  doc.text('DESCRIÇÃO DO PRODUTO', tableX + colWidths[0] + colWidths[1] + 5, yPosition + 6);
-  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 8, yPosition + 6);
-  doc.text('VALOR', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 8, yPosition + 6);
-  
-  // Segunda linha do cabeçalho
+  // Segunda linha do cabeçalho  
   yPosition += rowHeight;
   doc.rect(tableX, yPosition, tableWidth, rowHeight, 'FD');
   
-  // Bordas verticais da segunda linha
-  colX = tableX;
+  doc.text('', tableX + 12, yPosition + 4);
+  doc.text('(m²)', tableX + colWidths[0] + 10, yPosition + 4);
+  doc.text('', tableX + colWidths[0] + colWidths[1] + 20, yPosition + 4);
+  doc.text('UNIT.', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 8, yPosition + 4);
+  doc.text('TOTAL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 8, yPosition + 4);
+
+  // Desenhar bordas verticais do cabeçalho
+  let currentX = tableX;
   for (let i = 0; i <= colWidths.length; i++) {
-    doc.line(colX, yPosition, colX, yPosition + rowHeight);
-    if (i < colWidths.length) colX += colWidths[i];
+    doc.line(currentX, yPosition - rowHeight, currentX, yPosition + rowHeight);
+    if (i < colWidths.length) currentX += colWidths[i];
   }
-  
-  doc.text('', tableX + 10, yPosition + 6);
-  doc.text('(m²)', tableX + colWidths[0] + 8, yPosition + 6);
-  doc.text('', tableX + colWidths[0] + colWidths[1] + 5, yPosition + 6);
-  doc.text('UNIT.', tableX + colWidths[0] + colWidths[1] + colWidths[2] + 8, yPosition + 6);
-  doc.text('TOTAL', tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 8, yPosition + 6);
 
   yPosition += rowHeight;
 
   // Linhas dos itens
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  
   data.items.forEach((item, index) => {
     // Preenchimento alternado das linhas
     if (index % 2 === 1) {
-      doc.setFillColor(248, 248, 248);
+      doc.setFillColor(250, 250, 250);
       doc.rect(tableX, yPosition, tableWidth, rowHeight, 'F');
     }
     
-    // Borda da linha
-    doc.rect(tableX, yPosition, tableWidth, rowHeight, 'D');
+    // Borda horizontal superior
+    doc.line(tableX, yPosition, tableX + tableWidth, yPosition);
     
-    // Bordas verticais da linha
-    colX = tableX;
+    // Bordas verticais
+    currentX = tableX;
     for (let i = 0; i <= colWidths.length; i++) {
-      doc.line(colX, yPosition, colX, yPosition + rowHeight);
-      if (i < colWidths.length) colX += colWidths[i];
+      doc.line(currentX, yPosition, currentX, yPosition + rowHeight);
+      if (i < colWidths.length) currentX += colWidths[i];
     }
     
     // Texto da linha
-    doc.text((index + 1).toString(), tableX + 10, yPosition + 6);
-    doc.text(item.quantity.toString(), tableX + colWidths[0] + 8, yPosition + 6);
-    doc.text(item.productName, tableX + colWidths[0] + colWidths[1] + 5, yPosition + 6);
-    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 25, yPosition + 6, { align: 'right' });
-    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 30, yPosition + 6, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+    doc.text((index + 1).toString(), tableX + 12, yPosition + 8);
+    doc.text(item.quantity.toString(), tableX + colWidths[0] + 12, yPosition + 8);
+    doc.text(item.productName, tableX + colWidths[0] + colWidths[1] + 5, yPosition + 8);
+    doc.text(`R$ ${item.unitPrice.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + 30, yPosition + 8, { align: 'right' });
+    doc.text(`R$ ${item.total.toFixed(2).replace('.', ',')}`, tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + 35, yPosition + 8, { align: 'right' });
     
     yPosition += rowHeight;
   });
 
-  // Total - fundo verde e letra branca
-  const totalBoxWidth = 75;
-  const totalBoxX = pageWidth - totalBoxWidth - PAGE_MARGIN;
+  // Linha do total integrada na tabela (última linha)
   doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
-  doc.rect(totalBoxX, yPosition, totalBoxWidth, 10, 'F');
+  
+  // Células vazias até a coluna do total
+  const totalCellX = tableX + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3];
+  doc.rect(tableX, yPosition, totalCellX - tableX, rowHeight, 'FD');
+  
+  // Célula do total com fundo verde
+  doc.rect(totalCellX, yPosition, colWidths[4], rowHeight, 'FD');
+  
+  // Bordas da linha do total
+  currentX = tableX;
+  for (let i = 0; i <= colWidths.length; i++) {
+    doc.line(currentX, yPosition, currentX, yPosition + rowHeight);
+    if (i < colWidths.length) currentX += colWidths[i];
+  }
+  
+  // Borda horizontal final
+  doc.line(tableX, yPosition + rowHeight, tableX + tableWidth, yPosition + rowHeight);
+  
+  // Texto do total
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
-  doc.text(`TOTAL: R$ ${data.finalTotal.toFixed(2).replace('.', ',')}`, totalBoxX + 5, yPosition + 7);
+  doc.setFontSize(10);
+  doc.text(`R$ ${data.finalTotal.toFixed(2).replace('.', ',')}`, totalCellX + colWidths[4] - 5, yPosition + 8, { align: 'right' });
 
   yPosition += 20;
 
