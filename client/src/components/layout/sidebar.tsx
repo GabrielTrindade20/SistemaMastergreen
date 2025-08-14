@@ -24,9 +24,7 @@ const baseNavigation = [
   { name: "Produtos", href: "/produtos", icon: Package, adminOnly: true },
   { name: "Custos", href: "/custos", icon: DollarSign, adminOnly: true },
   { name: "Relatórios", href: "/relatorios", icon: BarChart3, adminOnly: true },
-  { name: "Funcionários", href: "/funcionarios", icon: Users, adminOnly: true },
-  { name: "Usuários", href: "/usuarios", icon: User, adminOnly: true },
-];
+  { name: "Funcionários", href: "/funcionarios", icon: Users, adminOnly: true }];
 
 export default function Sidebar() {
   const [location] = useLocation();

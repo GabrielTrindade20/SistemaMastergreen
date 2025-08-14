@@ -1,0 +1,427 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Eye, Users, Search, Filter } from "lucide-react";
+
+// Types
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  type: string;
+  branch: string;
+  commissionPercent: string;
+  createdAt: string;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+}
+
+interface QuotationItem {
+  id: string;
+  productId: string;
+  quantity: string;
+  unitPrice: string;
+  subtotal: string;
+  product: {
+    id: string;
+    name: string;
+    price: string;
+    cost: string;
+  };
+}
+
+interface Quotation {
+  id: string;
+  customerId: string;
+  userId: string;
+  responsibleId?: string;
+  status: string;
+  total: string;
+  discountPercent: string;
+  notes?: string;
+  freightIncluded: boolean;
+  warrantyText: string;
+  responsibleName: string;
+  responsibleRole: string;
+  createdAt?: string;
+  customer: Customer;
+  items: QuotationItem[];
+  costs?: Array<{
+    name: string;
+    supplier: string;
+    quantity: string;
+    unitValue: string;
+    totalValue: string;
+  }>;
+}
+
+// Utility functions
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(value);
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('pt-BR');
+};
+
+export default function Employees() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+
+  // Fetch users (employees)
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ['/api/users']
+  });
+
+  // Fetch quotations
+  const { data: quotations = [] } = useQuery<Quotation[]>({
+    queryKey: ['/api/quotations']
+  });
+
+  // Filter employees only
+  const employees = users.filter(user => user.type === 'funcionario');
+
+  // Helper functions
+  const getEmployeeName = (quotation: Quotation) => {
+    const employeeId = quotation.responsibleId || quotation.userId;
+    const employee = users.find(u => u.id === employeeId);
+    return employee ? employee.name : 'N/A';
+  };
+
+  const getEmployeeCommissionPercent = (employeeId: string) => {
+    const employee = users.find(u => u.id === employeeId);
+    return employee ? parseFloat(employee.commissionPercent) : 0;
+  };
+
+  const calculateCommission = (total: string, employeeId: string) => {
+    const commissionPercent = getEmployeeCommissionPercent(employeeId);
+    return parseFloat(total) * (commissionPercent / 100);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      'pending': { label: 'Pendente', variant: 'secondary' as const },
+      'approved': { label: 'Aprovado', variant: 'default' as const },
+      'rejected': { label: 'Rejeitado', variant: 'destructive' as const },
+    };
+    
+    const config = statusConfig[status as keyof typeof statusConfig] || { label: status, variant: 'secondary' as const };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  // Filter quotations
+  const filteredQuotations = quotations.filter(quotation => {
+    const employeeId = quotation.responsibleId || quotation.userId || "";
+    const employee = users.find(u => u.id === employeeId);
+    
+    const matchesSearch = searchTerm === "" || 
+      employee?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quotation.customer.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesEmployee = selectedEmployee === "all" || employeeId === selectedEmployee;
+    const matchesStatus = selectedStatus === "all" || quotation.status === selectedStatus;
+    
+    return matchesSearch && matchesEmployee && matchesStatus;
+  });
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Users className="h-8 w-8 text-master-green" />
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Gestão de Funcionários</h1>
+          <p className="text-gray-600">Visualize e gerencie as propostas de todos os funcionários</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Filtros
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Buscar por funcionário ou cliente..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search"
+                />
+              </div>
+            </div>
+            
+            <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+              <SelectTrigger className="w-full md:w-[200px]" data-testid="select-employee">
+                <SelectValue placeholder="Todos os funcionários" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os funcionários</SelectItem>
+                {employees.map((employee) => (
+                  <SelectItem key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-full md:w-[200px]" data-testid="select-status">
+                <SelectValue placeholder="Todas as situações" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as situações</SelectItem>
+                <SelectItem value="pending">Pendente</SelectItem>
+                <SelectItem value="approved">Aprovado</SelectItem>
+                <SelectItem value="rejected">Rejeitado</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Employee Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {employees.map((employee) => {
+          const employeeQuotations = quotations.filter(q => 
+            (q.responsibleId === employee.id || q.userId === employee.id)
+          );
+          const totalValue = employeeQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          const totalCommission = employeeQuotations.reduce((sum, q) => 
+            sum + calculateCommission(q.total, employee.id), 0
+          );
+          
+          return (
+            <Card key={employee.id}>
+              <CardContent className="p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-lg">{employee.name}</h3>
+                  <Badge variant="outline">{employee.commissionPercent}%</Badge>
+                </div>
+                <p className="text-sm text-gray-600 mb-1">{employee.branch}</p>
+                <p className="text-sm text-gray-600 mb-3">{employee.email}</p>
+                
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>Propostas:</span>
+                    <span className="font-medium">{employeeQuotations.length}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Valor Total:</span>
+                    <span className="font-medium">{formatCurrency(totalValue)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Comissão Total:</span>
+                    <span className="font-medium text-green-600">{formatCurrency(totalCommission)}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Quotations Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Propostas dos Funcionários</CardTitle>
+          <CardDescription>
+            {filteredQuotations.length} proposta(s) encontrada(s)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {filteredQuotations.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500 mb-4">
+                {searchTerm || selectedEmployee !== "all" || selectedStatus !== "all" 
+                  ? "Nenhuma proposta encontrada com os filtros aplicados" 
+                  : "Nenhuma proposta cadastrada"}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Funcionário</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Situação</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Valor Bruto</TableHead>
+                    <TableHead>% Comissão</TableHead>
+                    <TableHead>Valor Comissão</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredQuotations.map((quotation) => {
+                    const employeeId = quotation.responsibleId || quotation.userId || "";
+                    const commissionPercent = getEmployeeCommissionPercent(employeeId);
+                    const commissionValue = calculateCommission(quotation.total, employeeId);
+                    
+                    return (
+                      <TableRow key={quotation.id}>
+                        <TableCell className="font-medium">
+                          {getEmployeeName(quotation)}
+                        </TableCell>
+                        <TableCell>{quotation.customer.name}</TableCell>
+                        <TableCell>{getStatusBadge(quotation.status)}</TableCell>
+                        <TableCell>{formatDate(quotation.createdAt!)}</TableCell>
+                        <TableCell className="font-semibold">
+                          {formatCurrency(parseFloat(quotation.total))}
+                        </TableCell>
+                        <TableCell className="font-semibold">
+                          {commissionPercent}%
+                        </TableCell>
+                        <TableCell className="font-semibold text-green-600">
+                          {formatCurrency(commissionValue)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedQuotation(quotation)}
+                            data-testid={`button-view-proposal-${quotation.id}`}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quotation Details Modal */}
+      {selectedQuotation && (
+        <Dialog open={!!selectedQuotation} onOpenChange={() => setSelectedQuotation(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detalhes da Proposta</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p><strong>Cliente:</strong> {selectedQuotation.customer.name}</p>
+                  <p><strong>Funcionário:</strong> {getEmployeeName(selectedQuotation)}</p>
+                  <p><strong>Status:</strong> {getStatusBadge(selectedQuotation.status)}</p>
+                  <p><strong>Data:</strong> {formatDate(selectedQuotation.createdAt!)}</p>
+                </div>
+                <div>
+                  <p><strong>Total:</strong> {formatCurrency(parseFloat(selectedQuotation.total))}</p>
+                  <p><strong>Desconto:</strong> {selectedQuotation.discountPercent}%</p>
+                  <p><strong>Comissão:</strong> {getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "")}%</p>
+                  <p><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, selectedQuotation.responsibleId || selectedQuotation.userId || ""))}</p>
+                </div>
+              </div>
+
+              {/* Products */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Produtos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produto</TableHead>
+                        <TableHead>Qtd</TableHead>
+                        <TableHead>Preço Unit.</TableHead>
+                        <TableHead>Subtotal</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedQuotation.items.map((item, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{item.product.name}</TableCell>
+                          <TableCell>{parseFloat(item.quantity).toFixed(2)}</TableCell>
+                          <TableCell>{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
+                          <TableCell>{formatCurrency(parseFloat(item.subtotal))}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Costs if available */}
+              {selectedQuotation.costs && selectedQuotation.costs.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Custos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>Fornecedor</TableHead>
+                          <TableHead>Qtd</TableHead>
+                          <TableHead>Valor Unit.</TableHead>
+                          <TableHead>Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedQuotation.costs.map((cost, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{cost.name}</TableCell>
+                            <TableCell>{cost.supplier || '-'}</TableCell>
+                            <TableCell>{parseFloat(cost.quantity || '0').toFixed(2)}</TableCell>
+                            <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
+                            <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Additional Info */}
+              {selectedQuotation.notes && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Observações</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p>{selectedQuotation.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
