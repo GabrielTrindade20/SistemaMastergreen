@@ -137,25 +137,29 @@ export default function Quotations() {
       const response = await apiRequest("GET", `/api/quotations/${quotation.id}`);
       const fullQuotation = await response.json();
       
-      // Preparar dados para duplicação
+      // Calcular nova data de validade (7 dias a partir de hoje)
+      const validUntil = new Date();
+      validUntil.setDate(validUntil.getDate() + 7);
+      
+      // Preparar dados para duplicação com TODOS os campos preenchidos
       const duplicateFormData = {
         customerId: fullQuotation.customerId,
-        validUntil: '', // Deixar vazio para o usuário definir nova data
+        validUntil: validUntil.toISOString().split('T')[0], // Formato YYYY-MM-DD
         notes: fullQuotation.notes || '',
-        shippingIncluded: fullQuotation.shippingIncluded,
+        shippingIncluded: fullQuotation.shippingIncluded || false,
         warrantyText: fullQuotation.warrantyText || '1 ano de garantia de fábrica',
-        pdfTitle: `${fullQuotation.pdfTitle} - Cópia`,
+        pdfTitle: fullQuotation.pdfTitle ? `${fullQuotation.pdfTitle} - Cópia` : 'Proposta Duplicada',
         responsibleName: fullQuotation.responsibleName || user?.name || '',
         responsiblePosition: fullQuotation.responsiblePosition || 'Administrador',
-        discountPercent: '',
+        discountPercent: fullQuotation.discountPercent || '',
         items: fullQuotation.items.map((item: any) => ({
           productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          salePrice: item.unitCost, // Usar unitCost como salePrice
-          originalUnitPrice: item.unitPrice
+          quantity: parseFloat(item.quantity),
+          unitPrice: parseFloat(item.unitPrice),
+          salePrice: parseFloat(item.unitCost || item.unitPrice),
+          originalUnitPrice: parseFloat(item.unitPrice)
         })),
-        costs: fullQuotation.costs.map((cost: any) => ({
+        costs: fullQuotation.costs?.map((cost: any) => ({
           costId: cost.costId,
           name: cost.name,
           unitValue: parseFloat(cost.unitValue),
@@ -163,9 +167,9 @@ export default function Quotations() {
           totalValue: parseFloat(cost.totalValue),
           supplier: cost.supplier || '',
           description: cost.description || '',
-          calculationType: 'fixed', // Padrão para valor fixo
-          percentageValue: 0
-        }))
+          calculationType: cost.calculationType || 'fixed',
+          percentageValue: parseFloat(cost.percentageValue) || 0
+        })) || []
       };
       
       setDuplicateData(duplicateFormData);
@@ -173,9 +177,10 @@ export default function Quotations() {
       
       toast({
         title: "Sucesso",
-        description: "Proposta duplicada! Ajuste os dados conforme necessário.",
+        description: "Proposta duplicada com todos os dados originais. Você pode editar conforme necessário.",
       });
     } catch (error) {
+      console.error('Erro ao duplicar proposta:', error);
       toast({
         title: "Erro",
         description: "Erro ao duplicar proposta",
@@ -459,7 +464,7 @@ export default function Quotations() {
         )}
 
         {/* Seção de Cálculos - Apenas para Administradores */}
-        {user?.type === "admin" && selectedQuotation.calculations && (
+        {user?.type === "admin" && (
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Análise Financeira</CardTitle>
@@ -472,12 +477,7 @@ export default function Quotations() {
                     <span>Valor da Venda:</span>
                     <span className="font-semibold">{formatCurrency(parseFloat(selectedQuotation.total))}</span>
                   </div>
-                  {selectedQuotation.discount && parseFloat(selectedQuotation.discount) > 0 && (
-                    <div className="flex justify-between text-red-600">
-                      <span>Desconto:</span>
-                      <span>-{formatCurrency(parseFloat(selectedQuotation.discount))}</span>
-                    </div>
-                  )}
+                  {/* Mostrar desconto se houver */}
                 </div>
                 
                 <div className="space-y-3">
