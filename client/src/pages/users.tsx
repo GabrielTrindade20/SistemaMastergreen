@@ -65,18 +65,6 @@ export default function Users() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Verificar se é admin
-  if (user?.type !== "admin") {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h1>
-          <p className="text-gray-600">Apenas administradores podem acessar esta página.</p>
-        </div>
-      </div>
-    );
-  }
-
   const { data: users = [], isLoading } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
   });
@@ -196,6 +184,18 @@ export default function Users() {
       <Badge variant="secondary">Funcionário</Badge>
     );
   };
+
+  // Verificar se é admin após todos os hooks
+  if (user?.type !== "admin") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h1>
+          <p className="text-gray-600">Apenas administradores podem acessar esta página.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-6">
