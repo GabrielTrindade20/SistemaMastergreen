@@ -185,8 +185,16 @@ export default function NewQuotationForm({
         console.log('Carregando custos:', initialData.costs);
         setCosts(initialData.costs);
       }
+      
+      // Carregar o cliente selecionado para o campo de pesquisa
+      if (initialData.customerId && customers.length > 0) {
+        const selectedCustomer = customers.find(c => c.id === initialData.customerId);
+        if (selectedCustomer) {
+          setCustomerSearchValue(selectedCustomer.name);
+        }
+      }
     }
-  }, [initialData, form]);
+  }, [initialData, form, customers]);
 
   // Recalcular automaticamente quando items, costs ou desconto mudarem
   useEffect(() => {
@@ -338,12 +346,17 @@ export default function NewQuotationForm({
   };
 
   const handleSubmit = (formData: QuotationFormData) => {
+    console.log('Dados do formulário antes do envio:', formData);
+    console.log('Items antes do envio:', items);
+    console.log('Costs antes do envio:', costs);
+    console.log('Calculations antes do envio:', calculations);
+    
     const quotationData = {
       ...formData,
       items: items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
+        unitPrice: item.salePrice || item.unitPrice, // Usar salePrice como unitPrice
       })),
       costs: costs.map(cost => ({
         costId: cost.costId === 'manual' ? null : cost.costId,
@@ -357,6 +370,7 @@ export default function NewQuotationForm({
       calculations,
     };
     
+    console.log('Dados finais sendo enviados:', quotationData);
     onSubmit(quotationData);
   };
 

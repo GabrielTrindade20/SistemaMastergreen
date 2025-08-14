@@ -156,7 +156,7 @@ export default function Quotations() {
           productId: item.productId,
           quantity: parseFloat(item.quantity),
           unitPrice: parseFloat(item.unitPrice),
-          salePrice: parseFloat(item.unitCost || item.unitPrice),
+          salePrice: parseFloat(item.subtotal) / parseFloat(item.quantity) || parseFloat(item.unitPrice),
           originalUnitPrice: parseFloat(item.unitPrice)
         })),
         costs: fullQuotation.costs?.map((cost: any) => ({
