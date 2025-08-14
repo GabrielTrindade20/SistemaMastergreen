@@ -22,9 +22,7 @@ export default function Dashboard() {
     ? quotations 
     : quotations.filter(q => q.userId === user?.id);
   
-  const userCustomers = user?.type === "admin" 
-    ? customers 
-    : customers.filter(c => c.userId === user?.id);
+  const userCustomers = customers; // Already filtered by backend
 
   // Calculate metrics using filtered data
   const totalRevenue = userQuotations
@@ -35,6 +33,17 @@ export default function Dashboard() {
   const activeCustomers = userCustomers.length;
   const conversionRate = userQuotations.length > 0 
     ? (userQuotations.filter(q => q.status === 'approved').length / userQuotations.length) * 100 
+    : 0;
+
+  // Calculate commission for employees
+  const totalCommission = user?.type === "funcionario" 
+    ? userQuotations
+        .filter(q => q.status === 'approved')
+        .reduce((sum, q) => {
+          const commissionPercent = parseFloat(user.commissionPercent || '0');
+          const netProfit = parseFloat(q.netProfit || '0');
+          return sum + (netProfit * commissionPercent / 100);
+        }, 0)
     : 0;
 
   // Recent activities using filtered data
@@ -73,101 +82,117 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           {user?.type === "admin" ? (
             <>
+              {/* Admin Cards */}
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Faturamento Mensal</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        R$ {totalRevenue.toFixed(2)}
-                      </p>
-                    </div>
-                    <DollarSign className="h-8 w-8 text-green-600" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {userQuotations.filter(q => q.status === 'approved').length} vendas aprovadas
+                  </p>
                 </CardContent>
               </Card>
+
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Orçamentos Pendentes</p>
-                      <p className="text-2xl font-bold text-gray-900">{pendingQuotations.length}</p>
-                    </div>
-                    <FileText className="h-8 w-8 text-blue-600" />
-                  </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Propostas Pendentes</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{pendingQuotations.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Aguardando aprovação
+                  </p>
                 </CardContent>
               </Card>
+
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Clientes Ativos</p>
-                      <p className="text-2xl font-bold text-gray-900">{activeCustomers}</p>
-                    </div>
-                    <Users className="h-8 w-8 text-purple-600" />
-                  </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{activeCustomers}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Total de clientes
+                  </p>
                 </CardContent>
               </Card>
+
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Taxa de Conversão</p>
-                      <p className="text-2xl font-bold text-gray-900">{conversionRate.toFixed(1)}%</p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-orange-600" />
-                  </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{conversionRate.toFixed(1)}%</div>
+                  <p className="text-xs text-muted-foreground">
+                    Propostas aprovadas
+                  </p>
                 </CardContent>
               </Card>
             </>
           ) : (
             <>
+              {/* Employee Cards */}
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Meus Orçamentos Fechados</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {userQuotations.filter(q => q.status === 'approved').length}
-                      </p>
-                    </div>
-                    <FileText className="h-8 w-8 text-green-600" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Minhas Comissões</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    R$ {totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    {user?.commissionPercent}% dos lucros líquidos
+                  </p>
                 </CardContent>
               </Card>
+
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Orçamentos Pendentes/Rejeitados</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {userQuotations.filter(q => q.status === 'pending' || q.status === 'rejected').length}
-                      </p>
-                    </div>
-                    <Clock className="h-8 w-8 text-orange-600" />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Vendas Aprovadas</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {userQuotations.filter(q => q.status === 'approved').length}
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Total de propostas fechadas
+                  </p>
                 </CardContent>
               </Card>
+
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Meus Clientes</p>
-                      <p className="text-2xl font-bold text-gray-900">{userCustomers.length}</p>
-                    </div>
-                    <Users className="h-8 w-8 text-purple-600" />
-                  </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Propostas Pendentes</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{pendingQuotations.length}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Aguardando aprovação
+                  </p>
                 </CardContent>
               </Card>
+
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Minha Taxa de Conversão</p>
-                      <p className="text-2xl font-bold text-gray-900">{conversionRate.toFixed(1)}%</p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-blue-600" />
-                  </div>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Meus Clientes</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{activeCustomers}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Total de clientes
+                  </p>
                 </CardContent>
               </Card>
             </>
