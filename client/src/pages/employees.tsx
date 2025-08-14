@@ -64,8 +64,12 @@ export default function Employees() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      // Atualizar a proposta selecionada se estiver visualizando
+      if (selectedQuotation && data.id === selectedQuotation.id) {
+        setSelectedQuotation({ ...selectedQuotation, commission: data.commission });
+      }
       toast({
         title: "Sucesso",
         description: "Comissão salva com sucesso!",
@@ -237,8 +241,31 @@ export default function Employees() {
                 <p><strong>Válida até:</strong> {formatDate(selectedQuotation.validUntil!)}</p>
               </div>
               <div>
-                <p><strong>Comissão:</strong> {selectedQuotation.commission || "0"}%</p>
-                <p><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, selectedQuotation.commission || "0"))}</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <span><strong>Comissão:</strong></span>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder="0.0"
+                    value={commissionData[selectedQuotation.id] !== undefined ? commissionData[selectedQuotation.id] : (selectedQuotation.commission || "")}
+                    onChange={(e) => handleCommissionChange(selectedQuotation.id, e.target.value)}
+                    className="w-20"
+                    data-testid={`input-commission-detail-${selectedQuotation.id}`}
+                  />
+                  <span>%</span>
+                  <Button
+                    size="sm"
+                    onClick={() => saveCommission(selectedQuotation.id)}
+                    disabled={updateCommissionMutation.isPending}
+                    data-testid={`button-save-commission-detail-${selectedQuotation.id}`}
+                  >
+                    <Save className="w-4 h-4 mr-1" />
+                    Salvar
+                  </Button>
+                </div>
+                <p><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, commissionData[selectedQuotation.id] !== undefined ? commissionData[selectedQuotation.id] : (selectedQuotation.commission || "0")))}</p>
               </div>
             </div>
           </CardContent>
