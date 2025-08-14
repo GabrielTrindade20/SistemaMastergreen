@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, Users, Search, Filter } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 // Types
 interface User {
@@ -80,6 +81,7 @@ const formatDate = (dateString: string) => {
 };
 
 export default function Employees() {
+  const { user: currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -97,6 +99,12 @@ export default function Employees() {
 
   // Filter employees only
   const employees = users.filter(user => user.type === 'funcionario');
+
+  // Filter quotations to exclude current admin's proposals
+  const filteredQuotationsExcludingCurrentAdmin = quotations.filter(quotation => {
+    const employeeId = quotation.responsibleId || quotation.userId;
+    return employeeId !== currentUser?.id; // Exclude current admin's own proposals
+  });
 
   // Helper functions
   const getEmployeeName = (quotation: Quotation) => {
@@ -126,8 +134,8 @@ export default function Employees() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  // Filter quotations
-  const filteredQuotations = quotations.filter(quotation => {
+  // Filter quotations (excluding current admin's proposals)
+  const filteredQuotations = filteredQuotationsExcludingCurrentAdmin.filter(quotation => {
     const employeeId = quotation.responsibleId || quotation.userId || "";
     const employee = users.find(u => u.id === employeeId);
     
@@ -207,7 +215,7 @@ export default function Employees() {
       {/* Employee Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {employees.map((employee) => {
-          const employeeQuotations = quotations.filter(q => 
+          const employeeQuotations = filteredQuotationsExcludingCurrentAdmin.filter(q => 
             (q.responsibleId === employee.id || q.userId === employee.id)
           );
           const totalValue = employeeQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
