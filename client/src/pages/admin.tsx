@@ -220,6 +220,11 @@ export default function Admin() {
                         {user.type === "admin" ? "Administrador" : "Funcionário"}
                       </Badge>
                       <Badge variant="outline">{user.branch}</Badge>
+                      {user.type === "funcionario" && user.commissionPercent && (
+                        <Badge variant="outline" className="text-green-600 border-green-300">
+                          Comissão: {user.commissionPercent}%
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -289,6 +294,7 @@ function UserForm({ user, onSubmit, isLoading }: UserFormProps) {
     password: "",
     type: user?.type || "funcionario",
     branch: user?.branch || "",
+    commissionPercent: user?.commissionPercent || "0",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -364,6 +370,28 @@ function UserForm({ user, onSubmit, isLoading }: UserFormProps) {
           disabled={isLoading}
         />
       </div>
+      
+      {/* Campo de comissão apenas para funcionários */}
+      {formData.type === "funcionario" && (
+        <div>
+          <Label htmlFor="commissionPercent">Percentual de Comissão (%)</Label>
+          <Input
+            id="commissionPercent"
+            type="number"
+            min="0"
+            max="100"
+            step="0.1"
+            value={formData.commissionPercent}
+            onChange={(e) => setFormData({ ...formData, commissionPercent: e.target.value })}
+            placeholder="Ex: 5.0"
+            disabled={isLoading}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Percentual de comissão sobre o valor total das vendas
+          </p>
+        </div>
+      )}
+      
       <Button type="submit" disabled={isLoading} className="w-full">
         {isLoading ? (
           "Salvando..."

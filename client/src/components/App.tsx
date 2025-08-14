@@ -13,7 +13,7 @@ import Products from "@/pages/products";
 import Costs from "@/pages/costs";
 import Reports from "@/pages/reports";
 import Employees from "@/pages/employees";
-import Users from "@/pages/users";
+
 import Admin from "@/pages/admin";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -50,7 +50,7 @@ function Router() {
           <Route path="/custos" component={Costs} />
           <Route path="/relatorios" component={Reports} />
           {user.type === "admin" && <Route path="/funcionarios" component={Employees} />}
-          {user.type === "admin" && <Route path="/usuarios" component={Users} />}
+
           {user.type === "admin" && <Route path="/admin" component={Admin} />}
           <Route component={NotFound} />
         </Switch>
