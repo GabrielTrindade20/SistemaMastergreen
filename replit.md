@@ -4,6 +4,12 @@
 
 MasterGreen is a full-stack business management system for a company specializing in synthetic grass, vinyl mats, and tactile flooring. The application is built as a Single Page Application (SPA) with a modern React frontend and Express.js backend, designed to handle quotations, customer management, reporting, and WhatsApp integration.
 
+**Recent Updates (August 2025):**
+- Implemented client base separation: employees have isolated customer bases, admins see all customers
+- Added commission tracking in employee dashboard with automatic calculations from approved quotations
+- Enhanced reports page with monthly filtering and role-based data access for both admins and employees
+- Added PDF report generation with personalized data for each user type
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -38,9 +44,11 @@ Preferred communication style: Simple, everyday language.
 
 ### Database Schema
 - **Customers**: Complete customer information including contact details and addresses
+  - Added `createdById` field for client base separation by employee
 - **Products**: Product catalog with pricing per square meter
 - **Quotations**: Main quotation records with status tracking
 - **Quotation Items**: Line items linking products to quotations with quantities
+- **Users**: Employee and admin accounts with role-based permissions and commission tracking
 
 ### Core Modules
 
@@ -61,9 +69,11 @@ Preferred communication style: Simple, everyday language.
    - Recent activity feed
 
 4. **Reports** (`/relatorios`)
-   - Financial analysis and profit calculations
+   - Monthly financial analysis with date filtering
+   - Role-based data access (employees see only their data)
+   - Commission calculations for employees
    - Product performance metrics
-   - Export capabilities
+   - PDF report generation with personalized content
 
 5. **WhatsApp Integration** (`/whatsapp`)
    - Automated response configuration
