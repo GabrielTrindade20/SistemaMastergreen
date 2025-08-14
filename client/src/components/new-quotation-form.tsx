@@ -71,6 +71,7 @@ interface NewQuotationFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
   isLoading: boolean;
+  initialData?: any;
 }
 
 export default function NewQuotationForm({ 
@@ -78,7 +79,8 @@ export default function NewQuotationForm({
   products, 
   onSubmit, 
   onCancel, 
-  isLoading 
+  isLoading,
+  initialData 
 }: NewQuotationFormProps) {
   const { user } = useAuth();
   
@@ -609,10 +611,10 @@ export default function NewQuotationForm({
           <CardContent>
             <div className="space-y-3">
               {/* Valores para todos */}
-              <div className="flex justify-between">
+              {/* <div className="flex justify-between">
                 <span>Valor Total dos Produtos:</span>
                 <span className="font-semibold">{formatCurrency(calculations.subtotal)}</span>
-              </div>
+              </div> */}
               
               {calculations.discount > 0 && (
                 <div className="flex justify-between">

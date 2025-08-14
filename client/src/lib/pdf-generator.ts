@@ -28,7 +28,7 @@ async function getImageAsBase64(imagePath: string): Promise<string> {
   }
 }
 
-export async function generateProposalPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
+export async function generateProposalPDF(quotation: QuotationWithDetails, fileName?: string): Promise<Blob> {
   try {
     const doc = new jsPDF();
 
@@ -288,10 +288,17 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFont("helvetica", "normal");
   doc.text(responsiblePosition, leftMargin, yPosition + 5);
 
-    // Generate and download PDF
-    const dateForFile = new Date().toISOString().split('T')[0];
-    const pdfFileName = fileName || `Proposta-${dateForFile}.pdf`;
-    doc.save(pdfFileName);
+    // Generate and return PDF as Blob
+    const pdfBlob = doc.output('blob');
+    
+    // If fileName is provided, also trigger download
+    if (fileName) {
+      const dateForFile = new Date().toISOString().split('T')[0];
+      const pdfFileName = fileName || `Proposta-${dateForFile}.pdf`;
+      doc.save(pdfFileName);
+    }
+    
+    return pdfBlob;
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw new Error('Erro ao gerar PDF. Tente novamente.');
@@ -324,7 +331,7 @@ export async function shareProposalPDF(quotation: QuotationWithDetails, method: 
 }
 
 // Keep the old function name for backward compatibility
-export async function generateQuotationPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
+export async function generateQuotationPDF(quotation: QuotationWithDetails, fileName?: string): Promise<Blob> {
   return generateProposalPDF(quotation, fileName);
 }
 

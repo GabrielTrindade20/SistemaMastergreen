@@ -23,19 +23,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2 } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
 import NewQuotationForm from "@/components/new-quotation-form";
 import { generateProposalPDF } from "@/lib/pdf-generator";
 import { formatCurrency, formatDate } from "@/lib/calculations";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Quotations() {
   const [showForm, setShowForm] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<QuotationWithDetails | null>(null);
+  const [duplicateData, setDuplicateData] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
     queryKey: ["/api/quotations"],
@@ -128,6 +131,59 @@ export default function Quotations() {
     }
   };
 
+  const handleDuplicateQuotation = async (quotation: QuotationWithDetails) => {
+    try {
+      // Buscar detalhes completos da proposta
+      const response = await apiRequest("GET", `/api/quotations/${quotation.id}`);
+      const fullQuotation = await response.json();
+      
+      // Preparar dados para duplicação
+      const duplicateFormData = {
+        customerId: fullQuotation.customerId,
+        validUntil: '', // Deixar vazio para o usuário definir nova data
+        notes: fullQuotation.notes || '',
+        shippingIncluded: fullQuotation.shippingIncluded,
+        warrantyText: fullQuotation.warrantyText || '1 ano de garantia de fábrica',
+        pdfTitle: `${fullQuotation.pdfTitle} - Cópia`,
+        responsibleName: fullQuotation.responsibleName || user?.name || '',
+        responsiblePosition: fullQuotation.responsiblePosition || 'Administrador',
+        discountPercent: '',
+        items: fullQuotation.items.map((item: any) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          salePrice: item.unitCost, // Usar unitCost como salePrice
+          originalUnitPrice: item.unitPrice
+        })),
+        costs: fullQuotation.costs.map((cost: any) => ({
+          costId: cost.costId,
+          name: cost.name,
+          unitValue: parseFloat(cost.unitValue),
+          quantity: parseFloat(cost.quantity) || 0,
+          totalValue: parseFloat(cost.totalValue),
+          supplier: cost.supplier || '',
+          description: cost.description || '',
+          calculationType: 'fixed', // Padrão para valor fixo
+          percentageValue: 0
+        }))
+      };
+      
+      setDuplicateData(duplicateFormData);
+      setShowForm(true);
+      
+      toast({
+        title: "Sucesso",
+        description: "Proposta duplicada! Ajuste os dados conforme necessário.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao duplicar proposta",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleGeneratePDF = async (quotation: QuotationWithDetails) => {
     try {
       const fileName = `Proposta_${quotation.quotationNumber}.pdf`;
@@ -148,13 +204,38 @@ export default function Quotations() {
 
   const handleSharePDF = async (quotation: QuotationWithDetails) => {
     try {
-      const fileName = `Proposta_${quotation.quotationNumber}.pdf`;
-      await generateProposalPDF(quotation, fileName);
+      const fileName = `proposta-${quotation.quotationNumber}.pdf`;
+      const pdfBlob = await generateProposalPDF(quotation, fileName);
+      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
       
-      toast({
-        title: "Sucesso",
-        description: "PDF gerado com sucesso!",
-      });
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        // Usar Web Share API se disponível
+        await navigator.share({
+          title: `Proposta ${quotation.quotationNumber}`,
+          text: `Proposta para ${quotation.customer.name}`,
+          files: [pdfFile]
+        });
+        
+        toast({
+          title: "Sucesso",
+          description: "PDF compartilhado com sucesso!",
+        });
+      } else {
+        // Fallback: download do arquivo
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = pdfUrl;
+        link.download = `proposta-${quotation.quotationNumber}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(pdfUrl);
+        
+        toast({
+          title: "Download iniciado",
+          description: "PDF baixado. Use o compartilhamento do seu dispositivo para enviar.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Erro",
@@ -193,8 +274,12 @@ export default function Quotations() {
           customers={customers}
           products={products}
           onSubmit={handleCreateQuotation}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => {
+            setShowForm(false);
+            setDuplicateData(null);
+          }}
           isLoading={createMutation.isPending}
+          initialData={duplicateData}
         />
       </div>
     );
@@ -412,7 +497,11 @@ export default function Quotations() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleSharePDF(quotation)}>
                             <Share2 className="mr-2 h-4 w-4" />
-                            Compartilhar PDF
+                            Compartilhar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDuplicateQuotation(quotation)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplicar e Editar
                           </DropdownMenuItem>
                           {quotation.status === "pending" && (
                             <>
@@ -426,13 +515,15 @@ export default function Quotations() {
                               </DropdownMenuItem>
                             </>
                           )}
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteQuotation(quotation.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
+                          {user?.type === "admin" && (
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteQuotation(quotation.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -489,8 +580,15 @@ export default function Quotations() {
                             onClick={() => handleSharePDF(quotation)}
                           >
                             <Share2 className="mr-2 h-4 w-4" />
-                            Compartilhar PDF
+                            Compartilhar
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleDuplicateQuotation(quotation)}
+                          >
+                            <Copy className="mr-2 h-4 w-4" />
+                            Duplicar e Editar
+                          </DropdownMenuItem>
+                          {/* Aprovar/Rejeitar - Funcionários não podem alterar após aprovar/rejeitar */}
                           {quotation.status === "pending" && (
                             <>
                               <DropdownMenuItem
@@ -507,13 +605,16 @@ export default function Quotations() {
                               </DropdownMenuItem>
                             </>
                           )}
-                          <DropdownMenuItem
-                            onClick={() => handleDeleteQuotation(quotation.id)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
-                          </DropdownMenuItem>
+                          {/* Excluir - Apenas admins podem excluir */}
+                          {user?.type === "admin" && (
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteQuotation(quotation.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
