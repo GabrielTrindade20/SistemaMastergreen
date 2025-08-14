@@ -98,6 +98,7 @@ export default function NewQuotationForm({
   const [costs, setCosts] = useState<QuotationCost[]>([]);
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearchValue, setCustomerSearchValue] = useState("");
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -142,6 +143,25 @@ export default function NewQuotationForm({
     }
   }, [user, form, initialData]);
 
+  // Inicializar lista de clientes filtrados
+  useEffect(() => {
+    setFilteredCustomers(customers);
+  }, [customers]);
+
+  // Filtrar clientes conforme digitação
+  useEffect(() => {
+    if (customerSearchValue.trim() === '') {
+      setFilteredCustomers(customers);
+    } else {
+      const filtered = customers.filter(customer =>
+        customer.name.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+        customer.email?.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+        customer.phone?.includes(customerSearchValue)
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [customerSearchValue, customers]);
+
   // Carregar dados duplicados quando initialData for fornecido
   useEffect(() => {
     if (initialData) {
@@ -165,16 +185,8 @@ export default function NewQuotationForm({
         console.log('Carregando custos:', initialData.costs);
         setCosts(initialData.costs);
       }
-      
-      // Atualizar o cliente selecionado para a pesquisa
-      if (initialData.customerId) {
-        const selectedCustomer = customers.find(c => c.id === initialData.customerId);
-        if (selectedCustomer) {
-          setCustomerSearchValue(selectedCustomer.name);
-        }
-      }
     }
-  }, [initialData, form, customers]);
+  }, [initialData, form]);
 
   // Recalcular automaticamente quando items, costs ou desconto mudarem
   useEffect(() => {
@@ -354,80 +366,74 @@ export default function NewQuotationForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente com Pesquisa */}
+          {/* Cliente com Pesquisa Melhorada */}
           <FormField
             control={form.control}
             name="customerId"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem>
                 <FormLabel>Cliente</FormLabel>
-                <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={customerSearchOpen}
-                        className={cn(
-                          "w-full justify-between",
-                          !field.value && "text-muted-foreground"
-                        )}
-                        data-testid="button-select-customer"
-                      >
-                        {field.value
-                          ? customers.find((customer) => customer.id === field.value)?.name
-                          : "Selecione um cliente"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput 
-                        placeholder="Pesquisar cliente..."
-                        value={customerSearchValue}
-                        onValueChange={setCustomerSearchValue}
-                      />
-                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                      <CommandGroup>
-                        {customers
-                          .filter((customer) =>
-                            customer.name.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
-                            customer.email?.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
-                            customer.phone?.includes(customerSearchValue)
-                          )
-                          .map((customer) => (
-                            <CommandItem
-                              key={customer.id}
-                              value={customer.id}
-                              onSelect={(currentValue) => {
-                                field.onChange(currentValue === field.value ? "" : currentValue);
-                                setCustomerSearchOpen(false);
-                                setCustomerSearchValue("");
-                              }}
-                              data-testid={`option-customer-${customer.id}`}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  field.value === customer.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <div className="flex flex-col">
-                                <span className="font-medium">{customer.name}</span>
-                                {customer.email && (
-                                  <span className="text-sm text-muted-foreground">{customer.email}</span>
-                                )}
-                                {customer.phone && (
-                                  <span className="text-sm text-muted-foreground">{customer.phone}</span>
-                                )}
-                              </div>
-                            </CommandItem>
-                          ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <div className="relative">
+                  <FormControl>
+                    <Input
+                      placeholder="Digite o nome do cliente ou clique para ver todos"
+                      value={customerSearchValue}
+                      onChange={(e) => {
+                        setCustomerSearchValue(e.target.value);
+                        setCustomerSearchOpen(true);
+                      }}
+                      onFocus={() => setCustomerSearchOpen(true)}
+                      data-testid="input-customer-search"
+                      className="pr-10"
+                    />
+                  </FormControl>
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+                
+                {customerSearchOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map((customer) => (
+                        <div
+                          key={customer.id}
+                          className={cn(
+                            "px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0",
+                            field.value === customer.id && "bg-blue-50"
+                          )}
+                          onClick={() => {
+                            field.onChange(customer.id);
+                            setCustomerSearchValue(customer.name);
+                            setCustomerSearchOpen(false);
+                          }}
+                          data-testid={`option-customer-${customer.id}`}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{customer.name}</span>
+                            {customer.email && (
+                              <span className="text-sm text-gray-500">{customer.email}</span>
+                            )}
+                            {customer.phone && (
+                              <span className="text-sm text-gray-500">{customer.phone}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-gray-500 text-center">
+                        Nenhum cliente encontrado
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Campo oculto para clique fora fechar dropdown */}
+                {customerSearchOpen && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setCustomerSearchOpen(false)}
+                  />
+                )}
+                
                 <FormMessage />
               </FormItem>
             )}
