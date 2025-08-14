@@ -54,19 +54,32 @@ export default function Quotations() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('🚀 Enviando dados para o servidor:', data);
       const response = await apiRequest("POST", "/api/quotations", data);
-      return response.json();
+      const result = await response.json();
+      console.log('✅ Resposta do servidor:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      console.log('🎉 Sucesso na criação da proposta:', result);
+      console.log('🔄 Invalidando queries e fechando formulário...');
+      
+      // Invalidar queries para recarregar a lista
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      
+      // Fechar formulário e limpar dados
       setShowForm(false);
-      setDuplicateData(null); // Limpar dados duplicados após sucesso
+      setDuplicateData(null);
+      
+      console.log('📝 Estado após fechamento - showForm:', false);
+      
       toast({
         title: "Sucesso",
         description: "Proposta criada com sucesso!",
       });
     },
     onError: (error: any) => {
+      console.error('❌ Erro na criação da proposta:', error);
       toast({
         title: "Erro",
         description: error.message || "Erro ao criar proposta",
@@ -118,7 +131,12 @@ export default function Quotations() {
   });
 
   const handleCreateQuotation = (data: any) => {
-    console.log('Criando nova proposta com dados:', data);
+    console.log('📝 Iniciando criação de nova proposta com dados:', data);
+    console.log('🔄 Status da mutação antes:', {
+      isLoading: createMutation.isPending,
+      isError: createMutation.isError,
+      isSuccess: createMutation.isSuccess
+    });
     createMutation.mutate(data);
   };
 
@@ -263,12 +281,17 @@ export default function Quotations() {
   };
 
   if (showForm) {
+    console.log('🖥️ Renderizando formulário - showForm:', showForm);
     return (
       <div className="container mx-auto p-6">
         <div className="mb-6">
           <Button
             variant="outline"
-            onClick={() => setShowForm(false)}
+            onClick={() => {
+              console.log('🔙 Botão voltar clicado');
+              setShowForm(false);
+              setDuplicateData(null);
+            }}
             className="mb-4"
           >
             ← Voltar
