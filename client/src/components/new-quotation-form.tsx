@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown } from "lucide-react";
+import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const quotationSchema = z.object({
   customerId: z.string().min(1, "Selecione um cliente"),
@@ -86,6 +87,7 @@ export default function NewQuotationForm({
   initialData 
 }: NewQuotationFormProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   
   const [items, setItems] = useState<QuotationItem[]>([{
     productId: '',
@@ -402,6 +404,123 @@ export default function NewQuotationForm({
     console.log('Dados finais sendo enviados:', quotationData);
     console.log('=== FIM DO ENVIO ===');
     onSubmit(quotationData);
+  };
+
+  const handleShareQuotation = async () => {
+    console.log('📤 Gerando PDF para compartilhamento...');
+    
+    // Verificar se há itens
+    if (items.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Adicione pelo menos um produto para compartilhar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const formData = form.getValues();
+      
+      // Obter dados do cliente selecionado
+      const selectedCustomer = customers.find(c => c.id === formData.customerId);
+      if (!selectedCustomer) {
+        toast({
+          title: "Erro",
+          description: "Selecione um cliente para compartilhar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preparar dados temporários para o PDF (sem salvar)
+      const tempQuotationData = {
+        id: 'temp-' + Date.now(),
+        quotationNumber: '#PREVIEW',
+        customerId: selectedCustomer.id,
+        userId: user?.id || '',
+        branch: user?.branch || 'Matriz',
+        status: 'pending',
+        customer: selectedCustomer,
+        user: user,
+        validUntil: new Date(formData.validUntil),
+        notes: formData.notes || null,
+        warrantyText: formData.warrantyText || null,
+        pdfTitle: formData.pdfTitle || null,
+        responsibleName: formData.responsibleName || null,
+        responsiblePosition: formData.responsiblePosition || null,
+        items: items.map(item => {
+          const product = products.find(p => p.id === item.productId);
+          return {
+            product: product,
+            quantity: item.quantity.toString(),
+            unitPrice: (Number(item.salePrice) || Number(item.unitPrice)).toString(),
+            subtotal: (Number(item.quantity) * (Number(item.salePrice) || Number(item.unitPrice))).toString()
+          };
+        }),
+        costs: costs,
+        ...calculations,
+        subtotal: calculations.subtotal.toString(),
+        total: calculations.finalTotal.toString(),
+        shippingIncluded: formData.shippingIncluded ? 1 : 0,
+        createdAt: new Date().toISOString()
+      };
+
+      console.log('📋 Dados temporários para PDF:', tempQuotationData);
+
+      // Gerar PDF
+      const { generateQuotationPDF } = await import("@/lib/pdf-generator");
+      const pdfBlob = await generateQuotationPDF(tempQuotationData);
+      
+      // Verificar se o navegador suporta compartilhamento
+      if (navigator.share && navigator.canShare) {
+        const pdfFile = new File([pdfBlob], `proposta-preview-${Date.now()}.pdf`, {
+          type: 'application/pdf'
+        });
+        
+        if (navigator.canShare({ files: [pdfFile] })) {
+          await navigator.share({
+            title: formData.pdfTitle || 'Proposta MasterGreen',
+            text: 'Confira nossa proposta de grama sintética',
+            files: [pdfFile]
+          });
+          
+          toast({
+            title: "Sucesso",
+            description: "PDF compartilhado com sucesso!",
+          });
+        } else {
+          // Fallback: download direto
+          downloadPDF(pdfBlob, formData.pdfTitle || 'proposta-preview');
+        }
+      } else {
+        // Fallback: download direto
+        downloadPDF(pdfBlob, formData.pdfTitle || 'proposta-preview');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao gerar PDF:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao gerar PDF para compartilhamento",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const downloadPDF = (pdfBlob: Blob, filename: string) => {
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `${filename}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(pdfUrl);
+    
+    toast({
+      title: "Download iniciado",
+      description: "PDF baixado. Use o compartilhamento do seu dispositivo para enviar.",
+    });
   };
 
   const isAdmin = user?.type === "admin";
@@ -972,7 +1091,7 @@ export default function NewQuotationForm({
         />
 
         {/* Botões */}
-        <div className="flex justify-end gap-4">
+        <div className="flex justify-between">
           <Button 
             type="button" 
             variant="outline" 
@@ -981,13 +1100,26 @@ export default function NewQuotationForm({
           >
             Cancelar
           </Button>
-          <Button 
-            type="submit" 
-            disabled={isLoading}
-            data-testid="button-submit"
-          >
-            {isLoading ? "Salvando..." : "Salvar Proposta"}
-          </Button>
+          
+          <div className="flex gap-4">
+            <Button 
+              type="button" 
+              variant="secondary"
+              onClick={handleShareQuotation}
+              data-testid="button-share"
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Compartilhar PDF
+            </Button>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              data-testid="button-submit"
+            >
+              {isLoading ? "Salvando..." : "Salvar Proposta"}
+            </Button>
+          </div>
         </div>
       </form>
     </Form>
