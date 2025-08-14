@@ -277,6 +277,7 @@ export default function NewQuotationForm({
   };
 
   const updateItem = (index: number, field: keyof QuotationItem, value: any) => {
+    console.log(`🔄 Atualizando item ${index}, campo ${field}:`, value);
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
     
@@ -287,9 +288,11 @@ export default function NewQuotationForm({
         newItems[index].unitPrice = parseFloat(product.pricePerM2); // Custo
         newItems[index].salePrice = parseFloat(product.pricePerM2); // Preço de venda inicial igual ao custo
         newItems[index].originalUnitPrice = parseFloat(product.pricePerM2);
+        console.log(`📦 Produto selecionado:`, product.name, `- Preço: R$ ${product.pricePerM2}`);
       }
     }
     
+    console.log(`📝 Estado atualizado do item ${index}:`, newItems[index]);
     setItems(newItems);
   };
 
@@ -317,6 +320,7 @@ export default function NewQuotationForm({
   };
 
   const updateCost = (index: number, field: keyof QuotationCost, value: any) => {
+    console.log(`💰 Atualizando custo ${index}, campo ${field}:`, value);
     const newCosts = [...costs];
     newCosts[index] = { ...newCosts[index], [field]: value };
     
@@ -328,6 +332,7 @@ export default function NewQuotationForm({
         newCosts[index].unitValue = parseFloat(cost.value);
         newCosts[index].supplier = cost.supplier || '';
         newCosts[index].description = cost.description || '';
+        console.log(`📊 Custo selecionado:`, cost.name, `- Valor: R$ ${cost.value}`);
       }
     }
     
@@ -340,16 +345,31 @@ export default function NewQuotationForm({
         // Para valor fixo, calcula normalmente
         newCosts[index].totalValue = newCosts[index].unitValue * newCosts[index].quantity;
       }
+      console.log(`🧮 Total recalculado:`, newCosts[index].totalValue);
     }
     
+    console.log(`💸 Estado atualizado do custo ${index}:`, newCosts[index]);
     setCosts(newCosts);
   };
 
   const handleSubmit = (formData: QuotationFormData) => {
+    console.log('=== INÍCIO DO ENVIO ===');
     console.log('Dados do formulário antes do envio:', formData);
     console.log('Items antes do envio:', items);
     console.log('Costs antes do envio:', costs);
     console.log('Calculations antes do envio:', calculations);
+    
+    // Verificar se há mudanças nos valores
+    console.log('Verificando mudanças:');
+    items.forEach((item, index) => {
+      console.log(`Item ${index}:`, {
+        produto: item.productId,
+        quantidade: item.quantity,
+        precoOriginal: item.unitPrice,
+        precoVenda: item.salePrice,
+        precoFinal: item.salePrice || item.unitPrice
+      });
+    });
     
     const quotationData = {
       ...formData,
@@ -371,6 +391,7 @@ export default function NewQuotationForm({
     };
     
     console.log('Dados finais sendo enviados:', quotationData);
+    console.log('=== FIM DO ENVIO ===');
     onSubmit(quotationData);
   };
 
