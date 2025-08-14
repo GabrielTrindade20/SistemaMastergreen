@@ -83,11 +83,12 @@ export default function Employees() {
   // Filter quotations
   const filteredQuotations = quotations.filter(quotation => {
     const matchesSearch = searchTerm === "" || 
-      quotation.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      quotation.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       quotation.quotationNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesEmployee = selectedEmployee === "all" || 
-      quotation.responsibleId === selectedEmployee;
+      quotation.responsibleId === selectedEmployee ||
+      quotation.userId === selectedEmployee; // também busca pelo userId caso responsibleId seja null
     
     const matchesStatus = selectedStatus === "all" || 
       quotation.status === selectedStatus;
@@ -131,10 +132,13 @@ export default function Employees() {
     );
   };
 
-  const getEmployeeName = (employeeId: string | null) => {
+  const getEmployeeName = (quotation: QuotationWithDetails) => {
+    // Primeiro tenta buscar pelo responsibleId, depois pelo userId
+    const employeeId = quotation.responsibleId || quotation.userId;
     if (!employeeId) return "Não informado";
+    
     const employee = users.find(u => u.id === employeeId);
-    return employee?.name || "Não informado";
+    return employee?.name || quotation.responsibleName || "Não informado";
   };
 
   // Calculate totals
@@ -328,7 +332,7 @@ export default function Employees() {
                       return (
                         <TableRow key={quotation.id}>
                           <TableCell className="font-medium">
-                            {getEmployeeName(quotation.responsibleId)}
+                            {getEmployeeName(quotation)}
                           </TableCell>
                           <TableCell>{quotation.customer.name}</TableCell>
                           <TableCell>{getStatusBadge(quotation.status)}</TableCell>
@@ -365,6 +369,7 @@ export default function Employees() {
                               <Button
                                 variant="outline"
                                 size="sm"
+                                onClick={() => window.open(`/orcamentos?view=${quotation.id}`, '_blank')}
                                 data-testid={`button-view-proposal-${quotation.id}`}
                               >
                                 <Eye className="w-4 h-4" />
