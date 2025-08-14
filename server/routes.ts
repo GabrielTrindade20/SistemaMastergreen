@@ -409,6 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pdfTitle: req.body.pdfTitle || null,
         responsibleName: req.body.responsibleName || user.name,
         responsiblePosition: req.body.responsiblePosition || "Administrador",
+        responsibleId: user.id,
       };
       
       // Mapear itens
@@ -460,6 +461,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating quotation status:", error);
       res.status(500).json({ message: "Failed to update quotation status" });
+    }
+  });
+
+  // Update quotation commission (admin only)
+  app.patch("/api/quotations/:id/commission", requireAdmin, async (req, res) => {
+    try {
+      const { commission } = req.body;
+      
+      if (typeof commission !== 'number' || commission < 0 || commission > 100) {
+        return res.status(400).json({ message: "Commission must be a number between 0 and 100" });
+      }
+      
+      const quotation = await storage.updateQuotationCommission(req.params.id, commission);
+      res.json(quotation);
+    } catch (error) {
+      console.error("Error updating quotation commission:", error);
+      res.status(500).json({ message: "Failed to update quotation commission" });
     }
   });
 
