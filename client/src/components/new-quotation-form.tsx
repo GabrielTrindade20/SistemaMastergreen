@@ -132,10 +132,32 @@ export default function NewQuotationForm({
 
   // Atualizar o nome do responsável quando o usuário for carregado
   useEffect(() => {
-    if (user?.name) {
+    if (user?.name && !initialData) {
       form.setValue('responsibleName', user.name);
     }
-  }, [user, form]);
+  }, [user, form, initialData]);
+
+  // Carregar dados duplicados quando initialData for fornecido
+  useEffect(() => {
+    if (initialData) {
+      // Preencher todos os campos do formulário
+      Object.keys(initialData).forEach(key => {
+        if (key !== 'items' && key !== 'costs') {
+          form.setValue(key as keyof QuotationFormData, initialData[key]);
+        }
+      });
+      
+      // Carregar itens duplicados
+      if (initialData.items && initialData.items.length > 0) {
+        setItems(initialData.items);
+      }
+      
+      // Carregar custos duplicados
+      if (initialData.costs && initialData.costs.length > 0) {
+        setCosts(initialData.costs);
+      }
+    }
+  }, [initialData, form]);
 
   // Recalcular automaticamente quando items, costs ou desconto mudarem
   useEffect(() => {
