@@ -54,6 +54,8 @@ export const quotations = pgTable("quotations", {
   pdfTitle: text("pdf_title"),
   responsibleName: text("responsible_name"),
   responsiblePosition: text("responsible_position").default("Administrador"),
+  responsibleId: uuid("responsible_id").references(() => users.id), // funcionário responsável
+  commission: decimal("commission", { precision: 5, scale: 2 }).default("0.00"), // percentual de comissão
   branch: text("branch").notNull(), // filial do orçamento
   createdAt: timestamp("created_at").defaultNow(),
 });

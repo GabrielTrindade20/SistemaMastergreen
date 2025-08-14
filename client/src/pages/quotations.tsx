@@ -646,7 +646,7 @@ export default function Quotations() {
                   <Card key={quotation.id} className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <p className="font-medium">#{quotation.quotationNumber}</p>
+                        <p className="font-medium">{quotation.quotationNumber}</p>
                         <p className="text-sm text-gray-600">{quotation.customer.name}</p>
                       </div>
                       {getStatusBadge(quotation.status)}

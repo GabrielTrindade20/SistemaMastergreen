@@ -51,9 +51,11 @@ export interface IStorage {
 
   // Quotations
   getQuotations(branch?: string): Promise<QuotationWithDetails[]>;
+  getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]>;
   getQuotation(id: string): Promise<QuotationWithDetails | undefined>;
   createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[], costs?: InsertQuotationCost[]): Promise<QuotationWithDetails>;
-  updateQuotationStatus(id: string, status: string): Promise<Quotation>;
+  updateQuotationStatus(id: string, status: string): Promise<QuotationWithDetails>;
+  updateQuotationCommission(id: string, commission: number): Promise<QuotationWithDetails>;
   deleteQuotation(id: string): Promise<void>;
 
   // Users
@@ -253,50 +255,7 @@ export class DatabaseStorage implements IStorage {
     return quotationsWithDetails;
   }
 
-  async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
-    const result = await db
-      .select()
-      .from(quotations)
-      .leftJoin(customers, eq(quotations.customerId, customers.id))
-      .leftJoin(users, eq(quotations.userId, users.id))
-      .where(eq(quotations.userId, userId))
-      .orderBy(quotations.createdAt);
 
-    const quotationsWithDetails: QuotationWithDetails[] = [];
-
-    for (const row of result) {
-      if (row.quotations && row.customers && row.users) {
-        const items = await db
-          .select()
-          .from(quotationItems)
-          .leftJoin(products, eq(quotationItems.productId, products.id))
-          .where(eq(quotationItems.quotationId, row.quotations.id));
-
-        // Get costs for this quotation
-        const quotationCostsData = await db
-          .select()
-          .from(quotationCosts)
-          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
-          .where(eq(quotationCosts.quotationId, row.quotations.id));
-
-        quotationsWithDetails.push({
-          ...row.quotations,
-          customer: row.customers,
-          user: row.users,
-          items: items.map(item => ({
-            ...item.quotation_items!,
-            product: item.products!
-          })),
-          costs: quotationCostsData.map(costData => ({
-            ...costData.quotation_costs!,
-            cost: costData.costs || undefined
-          }))
-        });
-      }
-    }
-
-    return quotationsWithDetails;
-  }
 
   async getQuotation(id: string): Promise<QuotationWithDetails | undefined> {
     const [quotationRow] = await db
@@ -390,6 +349,68 @@ export class DatabaseStorage implements IStorage {
     // Return complete quotation with details
     const result = await this.getQuotation(id);
     return result!;
+  }
+
+  async updateQuotationCommission(id: string, commission: number): Promise<QuotationWithDetails> {
+    // Update quotation commission
+    const [updatedQuotation] = await db
+      .update(quotations)
+      .set({ commission: commission.toString() })
+      .where(eq(quotations.id, id))
+      .returning();
+    
+    if (!updatedQuotation) {
+      throw new Error("Quotation not found");
+    }
+
+    // Return complete quotation with details
+    const result = await this.getQuotation(id);
+    return result!;
+  }
+
+  async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(eq(quotations.userId, userId))
+      .orderBy(desc(quotations.createdAt));
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
   }
 
   async deleteQuotation(id: string): Promise<void> {
