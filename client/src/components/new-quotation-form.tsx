@@ -273,13 +273,8 @@ export default function NewQuotationForm({
     // Recalcular total do custo baseado no tipo de cálculo
     if (field === 'unitValue' || field === 'quantity' || field === 'calculationType' || field === 'percentageValue') {
       if (newCosts[index].calculationType === 'percentage' && newCosts[index].percentageValue) {
-        // Para porcentagem, calcula baseado no valor total da venda
-        const subtotal = items.reduce((sum, item) => {
-          const quantity = Number(item.quantity) || 0;
-          const salePrice = Number(item.salePrice) || 0;
-          return sum + (quantity * salePrice);
-        }, 0);
-        newCosts[index].totalValue = subtotal * (newCosts[index].percentageValue / 100);
+        // Para porcentagem, calcula baseado no valor unitário do custo com a porcentagem
+        newCosts[index].totalValue = newCosts[index].unitValue * (newCosts[index].percentageValue / 100);
       } else {
         // Para valor fixo, calcula normalmente
         newCosts[index].totalValue = newCosts[index].unitValue * newCosts[index].quantity;
@@ -474,7 +469,7 @@ export default function NewQuotationForm({
                 {costs.map((cost, index) => (
                   <Card key={index} className="border-l-4 border-l-red-500">
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
                     <div>
                       <label className="text-sm font-medium">Custo</label>
                       <Select 
@@ -519,6 +514,18 @@ export default function NewQuotationForm({
                       </div>
                     </div>
                     
+                    <div>
+                      <label className="text-sm font-medium">Valor Unitário</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={cost.unitValue || ''}
+                        onChange={(e) => updateCost(index, 'unitValue', parseFloat(e.target.value) || 0)}
+                        data-testid={`input-cost-unit-value-${index}`}
+                      />
+                    </div>
+
                     {cost.calculationType === 'percentage' ? (
                       <div>
                         <label className="text-sm font-medium">Porcentagem (%)</label>
@@ -533,31 +540,17 @@ export default function NewQuotationForm({
                         />
                       </div>
                     ) : (
-                      <>
-                        <div>
-                          <label className="text-sm font-medium">Valor Unitário</label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={cost.unitValue || ''}
-                            onChange={(e) => updateCost(index, 'unitValue', parseFloat(e.target.value) || 0)}
-                            data-testid={`input-cost-unit-value-${index}`}
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="text-sm font-medium">Quantidade</label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={cost.quantity || ''}
-                            onChange={(e) => updateCost(index, 'quantity', parseFloat(e.target.value) || 0)}
-                            data-testid={`input-cost-quantity-${index}`}
-                          />
-                        </div>
-                      </>
+                      <div>
+                        <label className="text-sm font-medium">Quantidade</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={cost.quantity || ''}
+                          onChange={(e) => updateCost(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          data-testid={`input-cost-quantity-${index}`}
+                        />
+                      </div>
                     )}
                     
                     <div>
