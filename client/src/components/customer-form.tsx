@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertCustomerSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Save } from "lucide-react";
 import type { Customer } from "@shared/schema";
 import { z } from "zod";
+import { usePhoneMask, useCPFCNPJMask, useCEPMask } from "@/hooks/useFormat";
 
 const formSchema = insertCustomerSchema.extend({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -37,6 +39,10 @@ export default function CustomerForm({
   onCancel, 
   isLoading 
 }: CustomerFormProps) {
+  const phoneMask = usePhoneMask();
+  const cpfCnpjMask = useCPFCNPJMask();
+  const cepMask = useCEPMask();
+
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -53,9 +59,27 @@ export default function CustomerForm({
     },
   });
 
+  // Inicializar máscaras com dados existentes
+  useState(() => {
+    if (initialData?.phone) phoneMask.setValue(initialData.phone);
+    if (initialData?.cpfCnpj) cpfCnpjMask.setValue(initialData.cpfCnpj);
+    if (initialData?.zipCode) cepMask.setValue(initialData.zipCode);
+  });
+
+  const handleSubmitWithFormat = (data: CustomerFormData) => {
+    // Remover formatação antes de enviar
+    const cleanedData = {
+      ...data,
+      phone: data.phone?.replace(/\D/g, '') || '',
+      cpfCnpj: data.cpfCnpj?.replace(/\D/g, '') || '',
+      zipCode: data.zipCode?.replace(/\D/g, '') || '',
+    };
+    onSubmit(cleanedData);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmitWithFormat)} className="space-y-6">
         {/* Personal Information */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações Pessoais</h3>
@@ -82,7 +106,15 @@ export default function CustomerForm({
                 <FormItem>
                   <FormLabel>CPF/CNPJ *</FormLabel>
                   <FormControl>
-                    <Input placeholder="000.000.000-00" {...field} />
+                    <Input 
+                      placeholder="000.000.000-00" 
+                      {...field}
+                      value={cpfCnpjMask.value || field.value}
+                      onChange={(e) => {
+                        const formatted = cpfCnpjMask.handleChange(e.target.value);
+                        field.onChange(formatted);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -95,7 +127,16 @@ export default function CustomerForm({
                 <FormItem>
                   <FormLabel>Telefone *</FormLabel>
                   <FormControl>
-                    <Input type="tel" placeholder="(00) 0 0000-0000" {...field} />
+                    <Input 
+                      type="tel" 
+                      placeholder="(00) 0 0000-0000" 
+                      {...field}
+                      value={phoneMask.value || field.value}
+                      onChange={(e) => {
+                        const formatted = phoneMask.handleChange(e.target.value);
+                        field.onChange(formatted);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -130,7 +171,15 @@ export default function CustomerForm({
                 <FormItem>
                   <FormLabel>CEP</FormLabel>
                   <FormControl>
-                    <Input placeholder="00000-000" {...field} />
+                    <Input 
+                      placeholder="00000-000" 
+                      {...field}
+                      value={cepMask.value || field.value}
+                      onChange={(e) => {
+                        const formatted = cepMask.handleChange(e.target.value);
+                        field.onChange(formatted);
+                      }}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

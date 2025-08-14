@@ -75,3 +75,83 @@ export function formatDate(date: string | Date): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   return dateObj.toLocaleDateString('pt-BR');
 }
+
+export function formatPhone(phone: string): string {
+  if (!phone) return '';
+  
+  // Remove todos os caracteres não numéricos
+  const numbers = phone.replace(/\D/g, '');
+  
+  // Formato: (xx) xxxxx-xxxx
+  if (numbers.length === 11) {
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+  }
+  
+  // Formato: (xx) xxxx-xxxx para telefones fixos
+  if (numbers.length === 10) {
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+  }
+  
+  return phone; // Retorna original se não conseguir formatar
+}
+
+export function formatCPF(cpf: string): string {
+  if (!cpf) return '';
+  
+  // Remove todos os caracteres não numéricos
+  const numbers = cpf.replace(/\D/g, '');
+  
+  // Formato: xxx.xxx.xxx-xx
+  if (numbers.length === 11) {
+    return `${numbers.slice(0, 3)}.${numbers.slice(3, 6)}.${numbers.slice(6, 9)}-${numbers.slice(9)}`;
+  }
+  
+  return cpf; // Retorna original se não conseguir formatar
+}
+
+export function formatCNPJ(cnpj: string): string {
+  if (!cnpj) return '';
+  
+  // Remove todos os caracteres não numéricos
+  const numbers = cnpj.replace(/\D/g, '');
+  
+  // Formato: xx.xxx.xxx/xxxx-xx
+  if (numbers.length === 14) {
+    return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}/${numbers.slice(8, 12)}-${numbers.slice(12)}`;
+  }
+  
+  return cnpj; // Retorna original se não conseguir formatar
+}
+
+export function formatCEP(cep: string): string {
+  if (!cep) return '';
+  
+  // Remove todos os caracteres não numéricos
+  const numbers = cep.replace(/\D/g, '');
+  
+  // Formato: xxxxx-xxx
+  if (numbers.length === 8) {
+    return `${numbers.slice(0, 5)}-${numbers.slice(5)}`;
+  }
+  
+  return cep; // Retorna original se não conseguir formatar
+}
+
+export function formatDocument(document: string): string {
+  if (!document) return '';
+  
+  // Remove todos os caracteres não numéricos
+  const numbers = document.replace(/\D/g, '');
+  
+  // Se tem 11 dígitos, é CPF
+  if (numbers.length === 11) {
+    return formatCPF(document);
+  }
+  
+  // Se tem 14 dígitos, é CNPJ
+  if (numbers.length === 14) {
+    return formatCNPJ(document);
+  }
+  
+  return document; // Retorna original se não conseguir identificar
+}

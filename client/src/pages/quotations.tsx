@@ -27,7 +27,7 @@ import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy } f
 import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
 import NewQuotationForm from "@/components/new-quotation-form";
 import { generateProposalPDF } from "@/lib/pdf-generator";
-import { formatCurrency, formatDate } from "@/lib/calculations";
+import { formatCurrency, formatDate, formatPhone, formatDocument } from "@/lib/calculations";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
