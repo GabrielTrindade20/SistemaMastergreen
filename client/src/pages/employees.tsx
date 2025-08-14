@@ -48,18 +48,6 @@ export default function Employees() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  // Redirect if not admin
-  if (user?.type !== "admin") {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h1>
-          <p className="text-gray-600">Apenas administradores podem acessar esta página.</p>
-        </div>
-      </div>
-    );
-  }
-
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
     queryKey: ["/api/quotations"],
   });
@@ -157,6 +145,18 @@ export default function Employees() {
     const commission = parseFloat(q.commission || "0") || commissionData[q.id] || 0;
     return sum + calculateCommission(q.total, commission);
   }, 0);
+
+  // Redirect if not admin
+  if (user?.type !== "admin") {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h1>
+          <p className="text-gray-600">Apenas administradores podem acessar esta página.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (quotationsLoading || usersLoading) {
     return (
