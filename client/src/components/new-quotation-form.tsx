@@ -363,7 +363,7 @@ export default function NewQuotationForm({
           <CardContent>
             <div className="space-y-4">
               {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+                <div key={index} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
                   <div>
                     <label className="text-sm font-medium">Produto</label>
                     <Select 
@@ -421,6 +421,13 @@ export default function NewQuotationForm({
                       className="bg-green-50 border-green-200"
                       title="Valor por metro que será cobrado do cliente"
                     />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm font-medium">Custo Total</label>
+                    <div className="text-lg font-semibold text-red-600">
+                      {formatCurrency((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))}
+                    </div>
                   </div>
                   
                   <div>
