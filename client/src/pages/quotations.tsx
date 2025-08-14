@@ -165,7 +165,7 @@ export default function Quotations() {
         customerId: fullQuotation.customerId,
         validUntil: validUntil.toISOString().split('T')[0], // Formato YYYY-MM-DD
         notes: fullQuotation.notes || '',
-        shippingIncluded: fullQuotation.shippingIncluded || false,
+        shippingIncluded: Boolean(fullQuotation.shippingIncluded),
         warrantyText: fullQuotation.warrantyText || '1 ano de garantia de fábrica',
         pdfTitle: fullQuotation.pdfTitle ? `${fullQuotation.pdfTitle} - Cópia` : 'Proposta Duplicada',
         responsibleName: fullQuotation.responsibleName || user?.name || '',
