@@ -9,7 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Calculator } from "lucide-react";
+import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
@@ -93,6 +96,8 @@ export default function NewQuotationForm({
   }]);
   
   const [costs, setCosts] = useState<QuotationCost[]>([]);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearchValue, setCustomerSearchValue] = useState("");
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -140,6 +145,8 @@ export default function NewQuotationForm({
   // Carregar dados duplicados quando initialData for fornecido
   useEffect(() => {
     if (initialData) {
+      console.log('Carregando dados duplicados:', initialData);
+      
       // Preencher todos os campos do formulário
       Object.keys(initialData).forEach(key => {
         if (key !== 'items' && key !== 'costs') {
@@ -149,15 +156,25 @@ export default function NewQuotationForm({
       
       // Carregar itens duplicados
       if (initialData.items && initialData.items.length > 0) {
+        console.log('Carregando itens:', initialData.items);
         setItems(initialData.items);
       }
       
       // Carregar custos duplicados
       if (initialData.costs && initialData.costs.length > 0) {
+        console.log('Carregando custos:', initialData.costs);
         setCosts(initialData.costs);
       }
+      
+      // Atualizar o cliente selecionado para a pesquisa
+      if (initialData.customerId) {
+        const selectedCustomer = customers.find(c => c.id === initialData.customerId);
+        if (selectedCustomer) {
+          setCustomerSearchValue(selectedCustomer.name);
+        }
+      }
     }
-  }, [initialData, form]);
+  }, [initialData, form, customers]);
 
   // Recalcular automaticamente quando items, costs ou desconto mudarem
   useEffect(() => {
@@ -337,27 +354,80 @@ export default function NewQuotationForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente */}
+          {/* Cliente com Pesquisa */}
           <FormField
             control={form.control}
             name="customerId"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="flex flex-col">
                 <FormLabel>Cliente</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-customer">
-                      <SelectValue placeholder="Selecione um cliente" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={customerSearchOpen}
+                        className={cn(
+                          "w-full justify-between",
+                          !field.value && "text-muted-foreground"
+                        )}
+                        data-testid="button-select-customer"
+                      >
+                        {field.value
+                          ? customers.find((customer) => customer.id === field.value)?.name
+                          : "Selecione um cliente"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Pesquisar cliente..."
+                        value={customerSearchValue}
+                        onValueChange={setCustomerSearchValue}
+                      />
+                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {customers
+                          .filter((customer) =>
+                            customer.name.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+                            customer.email?.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+                            customer.phone?.includes(customerSearchValue)
+                          )
+                          .map((customer) => (
+                            <CommandItem
+                              key={customer.id}
+                              value={customer.id}
+                              onSelect={(currentValue) => {
+                                field.onChange(currentValue === field.value ? "" : currentValue);
+                                setCustomerSearchOpen(false);
+                                setCustomerSearchValue("");
+                              }}
+                              data-testid={`option-customer-${customer.id}`}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  field.value === customer.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium">{customer.name}</span>
+                                {customer.email && (
+                                  <span className="text-sm text-muted-foreground">{customer.email}</span>
+                                )}
+                                {customer.phone && (
+                                  <span className="text-sm text-muted-foreground">{customer.phone}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
