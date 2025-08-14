@@ -468,11 +468,10 @@ export default function NewQuotationForm({
         </Card>
 
         {/* Custos - Apenas para Admin */}
-        {isAdmin && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Custos</CardTitle>
-            </CardHeader>
+        <Card>
+          <CardHeader>
+            <CardTitle>Custos</CardTitle>
+          </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 {costs.map((cost, index) => (
@@ -598,7 +597,6 @@ export default function NewQuotationForm({
               </div>
             </CardContent>
           </Card>
-        )}
 
         {/* Resumo dos Cálculos */}
         <Card>

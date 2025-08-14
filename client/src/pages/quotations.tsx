@@ -353,7 +353,9 @@ export default function Quotations() {
               <div className="space-y-2">
                 <p><strong>Data:</strong> {formatDate(selectedQuotation.createdAt!)}</p>
                 <p><strong>Válido até:</strong> {formatDate(selectedQuotation.validUntil)}</p>
-                <p><strong>Status:</strong> {getStatusBadge(selectedQuotation.status)}</p>
+                <div className="flex items-center gap-2">
+                  <strong>Status:</strong> {getStatusBadge(selectedQuotation.status)}
+                </div>
                 <p><strong>Frete:</strong> {selectedQuotation.shippingIncluded ? 'Incluso' : 'Não incluso'}</p>
                 <p><strong>Garantia:</strong> {selectedQuotation.warrantyText}</p>
               </div>
@@ -371,7 +373,15 @@ export default function Quotations() {
                 <TableRow>
                   <TableHead>Produto</TableHead>
                   <TableHead>Quantidade</TableHead>
-                  <TableHead>Valor Unitário</TableHead>
+                  {user?.type === "admin" && (
+                    <>
+                      <TableHead>Custo Unit.</TableHead>
+                      <TableHead>Valor Venda</TableHead>
+                    </>
+                  )}
+                  {user?.type === "funcionario" && (
+                    <TableHead>Valor Unit.</TableHead>
+                  )}
                   <TableHead>Subtotal</TableHead>
                 </TableRow>
               </TableHeader>
@@ -380,7 +390,15 @@ export default function Quotations() {
                   <TableRow key={item.id}>
                     <TableCell>{item.product.name}</TableCell>
                     <TableCell>{parseFloat(item.quantity).toFixed(2)} m²</TableCell>
-                    <TableCell>{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
+                    {user?.type === "admin" && (
+                      <>
+                        <TableCell>{formatCurrency(parseFloat(item.unitPrice))}</TableCell>
+                        <TableCell>{formatCurrency(parseFloat(item.unitCost || item.unitPrice))}</TableCell>
+                      </>
+                    )}
+                    {user?.type === "funcionario" && (
+                      <TableCell>{formatCurrency(parseFloat(item.unitCost || item.unitPrice))}</TableCell>
+                    )}
                     <TableCell>{formatCurrency(parseFloat(item.subtotal))}</TableCell>
                   </TableRow>
                 ))}
@@ -389,7 +407,7 @@ export default function Quotations() {
 
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
               <div className="flex justify-between items-center text-lg font-semibold">
-                <span>Total:</span>
+                <span>Total da Venda:</span>
                 <span className="text-master-green">
                   {formatCurrency(parseFloat(selectedQuotation.total))}
                 </span>
@@ -397,6 +415,140 @@ export default function Quotations() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Seção de Custos */}
+        {selectedQuotation.costs && selectedQuotation.costs.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Custos da Proposta</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Fornecedor</TableHead>
+                    <TableHead>Qtd</TableHead>
+                    <TableHead>Valor Unit.</TableHead>
+                    <TableHead>Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedQuotation.costs.map((cost: any, index: number) => (
+                    <TableRow key={index}>
+                      <TableCell>{cost.name}</TableCell>
+                      <TableCell>{cost.supplier || '-'}</TableCell>
+                      <TableCell>{parseFloat(cost.quantity || 0).toFixed(2)}</TableCell>
+                      <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
+                      <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex justify-between items-center text-lg font-semibold">
+                  <span>Total dos Custos:</span>
+                  <span className="text-red-600">
+                    {formatCurrency(selectedQuotation.costs.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0))}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Seção de Cálculos - Apenas para Administradores */}
+        {user?.type === "admin" && selectedQuotation.calculations && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Análise Financeira</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-700">Receitas</h4>
+                  <div className="flex justify-between">
+                    <span>Valor da Venda:</span>
+                    <span className="font-semibold">{formatCurrency(parseFloat(selectedQuotation.total))}</span>
+                  </div>
+                  {selectedQuotation.discount && parseFloat(selectedQuotation.discount) > 0 && (
+                    <div className="flex justify-between text-red-600">
+                      <span>Desconto:</span>
+                      <span>-{formatCurrency(parseFloat(selectedQuotation.discount))}</span>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-700">Custos e Impostos</h4>
+                  <div className="flex justify-between">
+                    <span>Total dos Custos:</span>
+                    <span className="font-semibold text-red-600">
+                      {formatCurrency(selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>NF (5%):</span>
+                    <span className="font-semibold text-red-600">
+                      {formatCurrency(parseFloat(selectedQuotation.total) * 0.05)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6 pt-4 border-t">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-700">Lucro da Empresa</h4>
+                    <div className="flex justify-between">
+                      <span>Lucro Bruto:</span>
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(
+                          parseFloat(selectedQuotation.total) - 
+                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
+                          (parseFloat(selectedQuotation.total) * 0.05)
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Dízimo (10%):</span>
+                      <span className="font-semibold text-red-600">
+                        {formatCurrency(
+                          (parseFloat(selectedQuotation.total) - 
+                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
+                          (parseFloat(selectedQuotation.total) * 0.05)) * 0.1
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-700">Resultado Final</h4>
+                    <div className="flex justify-between text-lg">
+                      <span>Lucro Líquido:</span>
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(
+                          (parseFloat(selectedQuotation.total) - 
+                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
+                          (parseFloat(selectedQuotation.total) * 0.05)) * 0.9
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Margem de Lucro:</span>
+                      <span className="font-semibold">
+                        {(((parseFloat(selectedQuotation.total) - 
+                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
+                          (parseFloat(selectedQuotation.total) * 0.05)) * 0.9) / parseFloat(selectedQuotation.total) * 100).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {selectedQuotation.status === "pending" && (
           <div className="mt-6 flex gap-4">
