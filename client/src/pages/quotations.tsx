@@ -60,6 +60,7 @@ export default function Quotations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       setShowForm(false);
+      setDuplicateData(null); // Limpar dados duplicados após sucesso
       toast({
         title: "Sucesso",
         description: "Proposta criada com sucesso!",
@@ -117,8 +118,8 @@ export default function Quotations() {
   });
 
   const handleCreateQuotation = (data: any) => {
+    console.log('Criando nova proposta com dados:', data);
     createMutation.mutate(data);
-    setShowForm(false);
   };
 
   const handleStatusUpdate = (id: string, status: string) => {
