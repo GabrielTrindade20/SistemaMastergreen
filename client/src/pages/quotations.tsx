@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy } from "lucide-react";
-import type { QuotationWithDetails, Customer, Product } from "@shared/schema";
+import type { QuotationWithDetails, Customer, Product, User } from "@shared/schema";
 import NewQuotationForm from "@/components/new-quotation-form";
 import { generateProposalPDF } from "@/lib/pdf-generator";
 import { formatCurrency, formatDate, formatPhone, formatDocument } from "@/lib/calculations";
@@ -51,6 +51,25 @@ export default function Quotations() {
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ["/api/products"],
   });
+
+  const { data: users = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  // Função para calcular comissão baseada no funcionário
+  const calculateCommission = (total: string, employeeId: string | null) => {
+    if (!employeeId) return 0;
+    const totalValue = parseFloat(total);
+    const employee = users.find(u => u.id === employeeId);
+    const commissionPercent = parseFloat(employee?.commissionPercent || "0");
+    return (totalValue * commissionPercent) / 100;
+  };
+
+  const getEmployeeCommissionPercent = (employeeId: string | null) => {
+    if (!employeeId) return "0";
+    const employee = users.find(u => u.id === employeeId);
+    return employee?.commissionPercent || "0";
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -385,6 +404,9 @@ export default function Quotations() {
                 <div className="flex items-center gap-2">
                   <strong>Status:</strong> {getStatusBadge(selectedQuotation.status)}
                 </div>
+                <p><strong>Responsável:</strong> {selectedQuotation.responsibleName || selectedQuotation.user?.name}</p>
+                <p><strong>Comissão:</strong> {getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId)}%</p>
+                <p><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, selectedQuotation.responsibleId || selectedQuotation.userId))}</p>
                 <p><strong>Frete:</strong> {selectedQuotation.shippingIncluded ? 'Incluso' : 'Não incluso'}</p>
                 <p><strong>Garantia:</strong> {selectedQuotation.warrantyText}</p>
               </div>
@@ -441,6 +463,14 @@ export default function Quotations() {
                   {formatCurrency(parseFloat(selectedQuotation.total))}
                 </span>
               </div>
+              
+              {/* Mostrar comissão para funcionários na sua própria proposta */}
+              {user?.type === "funcionario" && (selectedQuotation.responsibleId === user.id || selectedQuotation.userId === user.id) && (
+                <div className="flex justify-between items-center text-sm text-green-600 mt-2 pt-2 border-t">
+                  <span>Sua Comissão ({getEmployeeCommissionPercent(user.id)}%):</span>
+                  <span className="font-semibold">{formatCurrency(calculateCommission(selectedQuotation.total, user.id))}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

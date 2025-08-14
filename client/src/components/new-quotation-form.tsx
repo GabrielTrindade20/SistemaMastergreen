@@ -449,6 +449,7 @@ export default function NewQuotationForm({
         pdfTitle: formData.pdfTitle || null,
         responsibleName: formData.responsibleName || null,
         responsiblePosition: formData.responsiblePosition || null,
+        responsibleId: user?.id || null,
         items: items.map(item => {
           const product = products.find(p => p.id === item.productId);
           return {

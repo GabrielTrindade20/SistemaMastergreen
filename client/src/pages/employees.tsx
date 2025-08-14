@@ -43,7 +43,6 @@ export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
-  const [commissionData, setCommissionData] = useState<Record<string, number>>({});
   const [selectedQuotation, setSelectedQuotation] = useState<QuotationWithDetails | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -55,34 +54,6 @@ export default function Employees() {
 
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
-  });
-
-  const updateCommissionMutation = useMutation({
-    mutationFn: async ({ quotationId, commission }: { quotationId: string; commission: number }) => {
-      const response = await apiRequest("PATCH", `/api/quotations/${quotationId}/commission`, {
-        commission
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
-      // Atualizar a proposta selecionada se estiver visualizando
-      if (selectedQuotation && data.id === selectedQuotation.id) {
-        setSelectedQuotation({ ...selectedQuotation, commission: data.commission });
-      }
-      toast({
-        title: "Sucesso",
-        description: "Comissão salva com sucesso!",
-      });
-    },
-    onError: (error) => {
-      console.error("Error updating commission:", error);
-      toast({
-        title: "Erro",
-        description: "Erro ao salvar comissão. Tente novamente.",
-        variant: "destructive",
-      });
-    },
   });
 
   // Filter quotations
@@ -101,23 +72,16 @@ export default function Employees() {
     return matchesSearch && matchesEmployee && matchesStatus;
   });
 
-  const handleCommissionChange = (quotationId: string, percentage: string) => {
-    const numValue = parseFloat(percentage) || 0;
-    setCommissionData(prev => ({
-      ...prev,
-      [quotationId]: numValue
-    }));
-  };
-
-  const calculateCommission = (total: string, percentage: string | number) => {
+  const calculateCommission = (total: string, employeeId: string) => {
     const totalValue = parseFloat(total);
-    const commissionPercent = typeof percentage === 'string' ? parseFloat(percentage) : percentage;
+    const employee = users.find(u => u.id === employeeId);
+    const commissionPercent = parseFloat(employee?.commissionPercent || "0");
     return (totalValue * commissionPercent) / 100;
   };
 
-  const saveCommission = (quotationId: string) => {
-    const commission = commissionData[quotationId] || 0;
-    updateCommissionMutation.mutate({ quotationId, commission });
+  const getEmployeeCommissionPercent = (employeeId: string) => {
+    const employee = users.find(u => u.id === employeeId);
+    return employee?.commissionPercent || "0";
   };
 
   const getStatusBadge = (status: string) => {
@@ -151,8 +115,11 @@ export default function Employees() {
   const approvedProposals = filteredQuotations.filter(q => q.status === "approved").length;
   const totalValue = filteredQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
   const totalCommissions = filteredQuotations.reduce((sum, q) => {
-    const commission = parseFloat(q.commission || "0") || commissionData[q.id] || 0;
-    return sum + calculateCommission(q.total, commission);
+    const employeeId = q.responsibleId || q.userId;
+    if (employeeId) {
+      return sum + calculateCommission(q.total, employeeId);
+    }
+    return sum;
   }, 0);
 
   // Redirect if not admin
@@ -241,31 +208,8 @@ export default function Employees() {
                 <p><strong>Válida até:</strong> {formatDate(selectedQuotation.validUntil!)}</p>
               </div>
               <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span><strong>Comissão:</strong></span>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    placeholder="0.0"
-                    value={commissionData[selectedQuotation.id] !== undefined ? commissionData[selectedQuotation.id] : (selectedQuotation.commission || "")}
-                    onChange={(e) => handleCommissionChange(selectedQuotation.id, e.target.value)}
-                    className="w-20"
-                    data-testid={`input-commission-detail-${selectedQuotation.id}`}
-                  />
-                  <span>%</span>
-                  <Button
-                    size="sm"
-                    onClick={() => saveCommission(selectedQuotation.id)}
-                    disabled={updateCommissionMutation.isPending}
-                    data-testid={`button-save-commission-detail-${selectedQuotation.id}`}
-                  >
-                    <Save className="w-4 h-4 mr-1" />
-                    Salvar
-                  </Button>
-                </div>
-                <p><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, commissionData[selectedQuotation.id] !== undefined ? commissionData[selectedQuotation.id] : (selectedQuotation.commission || "0")))}</p>
+                <p><strong>Comissão:</strong> {getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "")}%</p>
+                <p><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, selectedQuotation.responsibleId || selectedQuotation.userId || ""))}</p>
               </div>
             </div>
           </CardContent>
@@ -608,8 +552,9 @@ export default function Employees() {
                   </TableHeader>
                   <TableBody>
                     {filteredQuotations.map((quotation) => {
-                      const currentCommission = parseFloat(quotation.commission || "0") || commissionData[quotation.id] || 0;
-                      const commissionValue = calculateCommission(quotation.total, currentCommission);
+                      const employeeId = quotation.responsibleId || quotation.userId || "";
+                      const commissionPercent = getEmployeeCommissionPercent(employeeId);
+                      const commissionValue = calculateCommission(quotation.total, employeeId);
                       
                       return (
                         <TableRow key={quotation.id}>
@@ -622,41 +567,21 @@ export default function Employees() {
                           <TableCell className="font-semibold">
                             {formatCurrency(parseFloat(quotation.total))}
                           </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              placeholder="0.0"
-                              value={currentCommission || ""}
-                              onChange={(e) => handleCommissionChange(quotation.id, e.target.value)}
-                              className="w-20"
-                              data-testid={`input-commission-${quotation.id}`}
-                            />
+                          <TableCell className="font-semibold">
+                            {commissionPercent}%
                           </TableCell>
                           <TableCell className="font-semibold text-green-600">
                             {formatCurrency(commissionValue)}
                           </TableCell>
                           <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                onClick={() => saveCommission(quotation.id)}
-                                disabled={updateCommissionMutation.isPending}
-                                data-testid={`button-save-commission-${quotation.id}`}
-                              >
-                                <Save className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSelectedQuotation(quotation)}
-                                data-testid={`button-view-proposal-${quotation.id}`}
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedQuotation(quotation)}
+                              data-testid={`button-view-proposal-${quotation.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       );
