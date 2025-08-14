@@ -145,9 +145,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Customer routes
-  app.get("/api/customers", async (req, res) => {
+  app.get("/api/customers", requireAuth, async (req, res) => {
     try {
-      const customers = await storage.getCustomers();
+      const user = req.session.user!;
+      const customers = await storage.getCustomers(user);
       res.json(customers);
     } catch (error) {
       console.error("Error fetching customers:", error);
@@ -168,10 +169,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
+  app.post("/api/customers", requireAuth, async (req, res) => {
     try {
+      const user = req.session.user!;
       const customerData = insertCustomerSchema.parse(req.body);
-      const customer = await storage.createCustomer(customerData);
+      // Add createdById to track who created the customer
+      const customerWithCreator = { ...customerData, createdById: user.id };
+      const customer = await storage.createCustomer(customerWithCreator);
       res.status(201).json(customer);
     } catch (error) {
       if (error instanceof z.ZodError) {

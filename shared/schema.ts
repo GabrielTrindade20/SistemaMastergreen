@@ -16,6 +16,7 @@ export const customers = pgTable("customers", {
   city: text("city").notNull(),
   zipCode: text("zip_code"),
   notes: text("notes"),
+  createdById: uuid("created_by_id").references(() => users.id), // ID do funcionário/admin que criou
   createdAt: timestamp("created_at").defaultNow(),
 });
 

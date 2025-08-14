@@ -28,7 +28,7 @@ import { eq, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
-  getCustomers(): Promise<Customer[]>;
+  getCustomers(user?: User): Promise<Customer[]>;
   getCustomer(id: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   updateCustomer(id: string, customer: Partial<InsertCustomer>): Promise<Customer>;
@@ -71,8 +71,22 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   // Customers
-  async getCustomers(): Promise<Customer[]> {
-    return await db.select().from(customers).orderBy(desc(customers.createdAt));
+  async getCustomers(user?: User): Promise<Customer[]> {
+    if (!user) {
+      return await db.select().from(customers).orderBy(desc(customers.createdAt));
+    }
+    
+    // Admin sees all customers
+    if (user.type === 'admin') {
+      return await db.select().from(customers).orderBy(desc(customers.createdAt));
+    }
+    
+    // Funcionário vê apenas seus próprios clientes
+    return await db
+      .select()
+      .from(customers)
+      .where(eq(customers.createdById, user.id))
+      .orderBy(desc(customers.createdAt));
   }
 
   async getCustomer(id: string): Promise<Customer | undefined> {
@@ -352,20 +366,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateQuotationCommission(id: string, commission: number): Promise<QuotationWithDetails> {
-    // Update quotation commission
-    const [updatedQuotation] = await db
-      .update(quotations)
-      .set({ commission: commission.toString() })
-      .where(eq(quotations.id, id))
-      .returning();
+    // Note: Commission is calculated based on user's commissionPercent, not stored in quotation
+    // This method could be used for other quotation updates if needed
     
-    if (!updatedQuotation) {
-      throw new Error("Quotation not found");
-    }
-
     // Return complete quotation with details
     const result = await this.getQuotation(id);
-    return result!;
+    if (!result) {
+      throw new Error("Quotation not found");
+    }
+    return result;
   }
 
   async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
