@@ -12,7 +12,7 @@ import Customers from "@/pages/customers";
 import Products from "@/pages/products";
 import Costs from "@/pages/costs";
 import Reports from "@/pages/reports";
-import Employees from "@/pages/employees";
+
 
 import Admin from "@/pages/admin";
 import Login from "@/pages/login";
@@ -49,7 +49,7 @@ function Router() {
           <Route path="/produtos" component={Products} />
           <Route path="/custos" component={Costs} />
           <Route path="/relatorios" component={Reports} />
-          {user.type === "admin" && <Route path="/funcionarios" component={Employees} />}
+
 
           {user.type === "admin" && <Route path="/admin" component={Admin} />}
           <Route component={NotFound} />

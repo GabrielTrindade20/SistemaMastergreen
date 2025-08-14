@@ -888,6 +888,25 @@ export default function NewQuotationForm({
                 <span className="font-bold text-lg text-green-600">{formatCurrency(calculations.finalTotal)}</span>
               </div>
 
+              {/* Mostrar comissão para funcionários */}
+              {!isAdmin && user && user.commissionPercent && parseFloat(user.commissionPercent) > 0 && (
+                <>
+                  <hr className="my-4" />
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Valor Bruto:</span>
+                      <span className="font-semibold">{formatCurrency(calculations.finalTotal)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Sua Comissão ({user.commissionPercent}%):</span>
+                      <span className="font-semibold text-green-600">
+                        {formatCurrency(calculations.finalTotal * parseFloat(user.commissionPercent) / 100)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
               {/* Valores apenas para Admin */}
               {isAdmin && (
                 <>
