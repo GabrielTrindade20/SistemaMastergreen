@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Search, Eye, Edit, User } from "lucide-react";
+import { formatPhone, formatDocument, formatCEP } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import CustomerForm from "@/components/customer-form";
 import type { Customer } from "@shared/schema";
@@ -192,11 +193,11 @@ export default function Customers() {
                         </div>
                         <div className="flex items-center text-gray-600">
                           <span className="w-4 mr-2">📞</span>
-                          {customer.phone}
+                          {customer.phone ? formatPhone(customer.phone) : 'Não informado'}
                         </div>
                         <div className="flex items-center text-gray-600">
                           <span className="w-4 mr-2">🆔</span>
-                          {customer.cpfCnpj}
+                          {customer.cpfCnpj ? formatDocument(customer.cpfCnpj) : 'Não informado'}
                         </div>
                       </div>
                       <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between">

@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import type { QuotationWithDetails } from '@shared/schema';
+import { formatCurrency, formatPhone, formatDocument, formatCEP } from './calculations';
 
 interface CompanyInfo {
   name: string;
@@ -107,13 +108,14 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   // }
   
   yPosition += 5;
-  doc.text(`Telefone: ${quotation.customer.phone || 'Não informado'}`, leftMargin, yPosition);
+  doc.text(`Telefone: ${formatPhone(quotation.customer.phone || '')}`, leftMargin, yPosition);
   yPosition += 5;
   doc.text(`Endereço: ${quotation.customer.address || 'Não informado'}`, leftMargin, yPosition);
   
   if (quotation.customer.cpfCnpj) {
     yPosition += 5;
-    doc.text(`CNPJ: ${quotation.customer.cpfCnpj}`, leftMargin, yPosition);
+    const docLabel = quotation.customer.cpfCnpj.replace(/\D/g, '').length === 14 ? 'CNPJ:' : 'CPF:';
+    doc.text(`${docLabel} ${formatDocument(quotation.customer.cpfCnpj)}`, leftMargin, yPosition);
   }
 
   const currentDate = new Date().toLocaleDateString('pt-BR');
@@ -195,14 +197,14 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
 
     // Unit price - right aligned
     doc.rect(xPosition, yPosition, columnWidths[3], rowHeight);
-    const unitPrice = `R$ ${parseFloat(item.unitPrice).toFixed(0)}`;
+    const unitPrice = formatCurrency(parseFloat(item.unitPrice));
     const unitPriceWidth = doc.getTextWidth(unitPrice);
     doc.text(unitPrice, xPosition + columnWidths[3] - unitPriceWidth - 2, yPosition + 8);
     xPosition += columnWidths[3];
 
     // Total price - right aligned
     doc.rect(xPosition, yPosition, columnWidths[4], rowHeight);
-    const totalPrice = `R$ ${parseFloat(item.subtotal).toFixed(2).replace('.', ',')}`;
+    const totalPrice = formatCurrency(parseFloat(item.subtotal));
     const totalPriceWidth = doc.getTextWidth(totalPrice);
     doc.text(totalPrice, xPosition + columnWidths[4] - totalPriceWidth - 2, yPosition + 8);
 
@@ -224,7 +226,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   
-  const totalText = `R$ ${parseFloat(quotation.total).toFixed(2).replace('.', ',')}`;
+  const totalText = formatCurrency(parseFloat(quotation.total));
   const totalTextWidth = doc.getTextWidth(totalText);
   doc.text(totalText, xPosition + (columnWidths[4] - totalTextWidth) / 2, yPosition + 10);
   
