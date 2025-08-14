@@ -165,24 +165,27 @@ export default function NewQuotationForm({
   // Carregar dados duplicados quando initialData for fornecido
   useEffect(() => {
     if (initialData) {
-      console.log('Carregando dados duplicados:', initialData);
+      console.log('🔄 Carregando dados duplicados:', initialData);
+      console.log('🚢 Valor shippingIncluded recebido:', initialData.shippingIncluded, typeof initialData.shippingIncluded);
       
       // Preencher todos os campos do formulário
       Object.keys(initialData).forEach(key => {
         if (key !== 'items' && key !== 'costs') {
-          form.setValue(key as keyof QuotationFormData, initialData[key]);
+          const value = initialData[key];
+          console.log(`📝 Definindo ${key}:`, value, typeof value);
+          form.setValue(key as keyof QuotationFormData, value);
         }
       });
       
       // Carregar itens duplicados
       if (initialData.items && initialData.items.length > 0) {
-        console.log('Carregando itens:', initialData.items);
+        console.log('📦 Carregando itens:', initialData.items);
         setItems(initialData.items);
       }
       
       // Carregar custos duplicados
       if (initialData.costs && initialData.costs.length > 0) {
-        console.log('Carregando custos:', initialData.costs);
+        console.log('💰 Carregando custos:', initialData.costs);
         setCosts(initialData.costs);
       }
       
@@ -191,8 +194,14 @@ export default function NewQuotationForm({
         const selectedCustomer = customers.find(c => c.id === initialData.customerId);
         if (selectedCustomer) {
           setCustomerSearchValue(selectedCustomer.name);
+          console.log('👤 Cliente selecionado:', selectedCustomer.name);
         }
       }
+      
+      // Verificar estado atual do formulário após carregamento
+      setTimeout(() => {
+        console.log('✅ Estado final do formulário:', form.getValues());
+      }, 100);
     }
   }, [initialData, form, customers]);
 
