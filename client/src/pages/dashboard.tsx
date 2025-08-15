@@ -35,8 +35,8 @@ export default function Dashboard() {
     ? (userQuotations.filter(q => q.status === 'approved').length / userQuotations.length) * 100 
     : 0;
 
-  // Calculate commission for employees based on gross value
-  const totalCommission = user?.type === "funcionario" 
+  // Calculate commission for sales representatives based on gross value
+  const totalCommission = user?.type === "vendedor" 
     ? userQuotations
         .filter(q => q.status === 'approved')
         .reduce((sum, q) => {
@@ -139,7 +139,7 @@ export default function Dashboard() {
             </>
           ) : (
             <>
-              {/* Employee Cards */}
+              {/* Sales Representative Cards */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Minhas Comissões</CardTitle>

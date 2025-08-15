@@ -55,7 +55,8 @@ export const quotations = pgTable("quotations", {
   pdfTitle: text("pdf_title"),
   responsibleName: text("responsible_name"),
   responsiblePosition: text("responsible_position").default("Administrador"),
-  responsibleId: uuid("responsible_id").references(() => users.id), // funcionário responsável
+  responsibleId: uuid("responsible_id").references(() => users.id), // vendedor responsável
+  adminCalculated: integer("admin_calculated").default(0), // 0=original, 1=calculado pelo admin
   branch: text("branch").notNull(), // filial do orçamento
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -97,7 +98,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
-  type: text("type").notNull(), // "admin" or "funcionario"
+  type: text("type").notNull(), // "admin" or "vendedor"
   branch: text("branch").notNull(), // filial
   commissionPercent: text("commission_percent").default("0"), // percentual de comissão do funcionário
   createdAt: timestamp("created_at").defaultNow(),

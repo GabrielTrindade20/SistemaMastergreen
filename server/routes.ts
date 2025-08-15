@@ -349,10 +349,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let quotations;
       if (user.type === "admin") {
-        // Admin sees all quotations
+        // Admin vê todas as propostas (para implementação futura de separação)
         quotations = await storage.getQuotations();
       } else {
-        // Funcionario sees only their own quotations
+        // Vendedor sees only their own quotations
         quotations = await storage.getQuotationsByUser(user.id);
       }
       
@@ -371,8 +371,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const user = req.session.user!;
-      // Funcionários só podem ver orçamentos da própria filial
-      if (user.type === "funcionario" && quotation.branch !== user.branch) {
+      // Vendedores só podem ver orçamentos da própria filial
+      if (user.type === "vendedor" && quotation.branch !== user.branch) {
         return res.status(403).json({ message: "Access denied" });
       }
       

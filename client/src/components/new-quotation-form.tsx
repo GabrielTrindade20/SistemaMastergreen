@@ -296,10 +296,10 @@ export default function NewQuotationForm({
     if (field === 'productId') {
       const product = products.find(p => p.id === value);
       if (product) {
-        // Para funcionários, definir unitPrice como 0 já que não veem custos
+        // Para vendedores, definir unitPrice como 0 já que não veem custos
         // Mas admin precisa ver o custo real
-        if (user?.type === 'funcionario') {
-          newItems[index].unitPrice = 0; // Funcionário não vê custos
+        if (user?.type === 'vendedor') {
+          newItems[index].unitPrice = 0; // Vendedor não vê custos
           newItems[index].salePrice = parseFloat(product.pricePerM2); // Preço de venda sugerido
         } else {
           newItems[index].unitPrice = parseFloat(product.pricePerM2); // Admin vê custos
@@ -707,7 +707,7 @@ export default function NewQuotationForm({
                   )}
                   
                   {/* Campo de valor de venda - sempre visível */}
-                  {user?.type === 'funcionario' && (
+                  {user?.type === 'vendedor' && (
                     <div>
                       <label className="text-sm font-medium">Valor por Metro (Venda)</label>
                       <Input
