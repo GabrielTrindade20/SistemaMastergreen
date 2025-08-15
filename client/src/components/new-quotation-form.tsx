@@ -759,10 +759,11 @@ export default function NewQuotationForm({
         </Card>
 
         {/* Custos - Apenas para Admin */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Custos</CardTitle>
-          </CardHeader>
+        {user?.type === 'admin' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Custos</CardTitle>
+            </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 {costs.map((cost, index) => (
@@ -888,6 +889,7 @@ export default function NewQuotationForm({
               </div>
             </CardContent>
           </Card>
+        )}
 
         {/* Resumo dos Cálculos */}
         <Card>
