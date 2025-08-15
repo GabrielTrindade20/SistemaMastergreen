@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Plus, Trash2, FileText } from "lucide-react";
 import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
-import { calculateQuotationTotals } from "@/lib/calculations";
+import { calculateQuotationTotals, calculateQuotationTotalsWithCosts } from "@/lib/calculations";
 import { generateQuotationPDF } from "@/lib/pdf-generator";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -79,17 +79,64 @@ export default function QuotationForm({
       discountPercent: parseFloat(initialData?.discountPercent || "0"),
       shippingIncluded: initialData?.shippingIncluded ?? true,
       warrantyText: initialData?.warrantyText || "1 ano de garantia de fábrica",
-      pdfTitle: "",
-      responsibleName: user?.name || "",
-      responsiblePosition: user?.type === "admin" ? "Administrador" : "Funcionário",
+      pdfTitle: initialData?.pdfTitle || "",
+      responsibleName: initialData?.responsibleName || user?.name || "",
+      responsiblePosition: initialData?.responsiblePosition || (user?.type === "admin" ? "Administrador" : "Funcionário"),
       items: quotationItems,
       costs: quotationCosts,
     },
   });
 
+  // Load initial data when editing
+  useEffect(() => {
+    if (initialData) {
+      console.log("Loading initial data:", initialData);
+      
+      // Set form values
+      form.reset({
+        customerId: initialData.customerId || "",
+        validUntil: initialData.validUntil ? new Date(initialData.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        notes: initialData.notes || "",
+        discountPercent: parseFloat(initialData.discountPercent || "0"),
+        shippingIncluded: initialData.shippingIncluded ?? true,
+        warrantyText: initialData.warrantyText || "1 ano de garantia de fábrica",
+        pdfTitle: initialData.pdfTitle || "",
+        responsibleName: initialData.responsibleName || user?.name || "",
+        responsiblePosition: initialData.responsiblePosition || (user?.type === "admin" ? "Administrador" : "Funcionário"),
+        items: [],
+        costs: [],
+      });
+
+      // Set quotation items from initial data
+      if (initialData.items && initialData.items.length > 0) {
+        const loadedItems = initialData.items.map((item: any) => ({
+          productId: item.productId || item.product?.id,
+          quantity: parseFloat(item.quantity || "0")
+        }));
+        console.log("Loading items:", loadedItems);
+        setQuotationItems(loadedItems);
+        form.setValue("items", loadedItems);
+      } else {
+        // Keep default empty item if no items
+        setQuotationItems([{ productId: "", quantity: 0 }]);
+      }
+
+      // Set quotation costs from initial data
+      if (initialData.costs && initialData.costs.length > 0) {
+        const loadedCosts = initialData.costs.map((cost: any) => ({
+          costId: cost.costId || cost.cost?.id,
+          adjustedValue: parseFloat(cost.unitValue || cost.totalValue || "0")
+        }));
+        console.log("Loading costs:", loadedCosts);
+        setQuotationCosts(loadedCosts);
+        form.setValue("costs", loadedCosts);
+      }
+    }
+  }, [initialData, form, user]);
+
   // Calculate totals with discount
   const discountPercent = form.watch("discountPercent") || 0;
-  const totals = calculateQuotationTotals(quotationItems, products, discountPercent);
+  const totals = calculateQuotationTotalsWithCosts(quotationItems, products, quotationCosts, discountPercent);
 
   const addProduct = () => {
     const newItems = [...quotationItems, { productId: "", quantity: 0 }];
@@ -263,20 +310,28 @@ export default function QuotationForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Cliente *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um cliente" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {customers.map(customer => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isAdminMode ? (
+                    <div className="p-3 bg-gray-100 border rounded-md">
+                      <span className="text-gray-900">
+                        {customers.find(c => c.id === field.value)?.name || 'Cliente não encontrado'}
+                      </span>
+                    </div>
+                  ) : (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um cliente" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {customers.map(customer => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -288,7 +343,15 @@ export default function QuotationForm({
                 <FormItem>
                   <FormLabel>Data de Validade *</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    {isAdminMode ? (
+                      <div className="p-3 bg-gray-100 border rounded-md">
+                        <span className="text-gray-900">
+                          {field.value ? new Date(field.value).toLocaleDateString('pt-BR') : 'Não definido'}
+                        </span>
+                      </div>
+                    ) : (
+                      <Input type="date" {...field} />
+                    )}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -301,10 +364,12 @@ export default function QuotationForm({
         <div>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Produtos</h3>
-            <Button type="button" className="btn-primary" onClick={addProduct}>
-              <Plus className="w-4 h-4 mr-1" />
-              Adicionar Produto
-            </Button>
+            {!isAdminMode && (
+              <Button type="button" className="btn-primary" onClick={addProduct}>
+                <Plus className="w-4 h-4 mr-1" />
+                Adicionar Produto
+              </Button>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -320,33 +385,49 @@ export default function QuotationForm({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Produto *
                         </label>
-                        <Select
-                          value={item.productId}
-                          onValueChange={(value) => updateItem(index, 'productId', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map(product => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.name} (R$ {parseFloat(product.pricePerM2).toFixed(2)}/m²)
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {isAdminMode ? (
+                          <div className="p-3 bg-gray-100 border rounded-md">
+                            <span className="text-gray-900">
+                              {product?.name || 'Produto não encontrado'}
+                            </span>
+                          </div>
+                        ) : (
+                          <Select
+                            value={item.productId}
+                            onValueChange={(value) => updateItem(index, 'productId', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.map(product => (
+                                <SelectItem key={product.id} value={product.id}>
+                                  {product.name} (R$ {parseFloat(product.pricePerM2).toFixed(2)}/m²)
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Metragem (m²) *
                         </label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={item.quantity || ""}
-                          onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                        />
+                        {isAdminMode ? (
+                          <div className="p-3 bg-gray-100 border rounded-md">
+                            <span className="text-gray-900">
+                              {item.quantity ? item.quantity.toFixed(2) : '0.00'}
+                            </span>
+                          </div>
+                        ) : (
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={item.quantity || ""}
+                            onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -368,18 +449,20 @@ export default function QuotationForm({
                           className="bg-gray-100"
                         />
                       </div>
-                      <div className="flex items-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeProduct(index)}
-                          disabled={quotationItems.length === 1}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      {!isAdminMode && (
+                        <div className="flex items-end">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeProduct(index)}
+                            disabled={quotationItems.length === 1}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -476,48 +559,73 @@ export default function QuotationForm({
         )}
 
         {/* Summary Section */}
-        <Card className="bg-gray-50">
+        <Card className="bg-gray-50 border-2">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumo do Orçamento</h3>
-            <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Resumo Financeiro</h3>
+            <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-gray-600">Valor Bruto:</span>
-                <span className="text-gray-900 font-medium">
-                  R$ {totals.subtotal.toFixed(2)}
+                <span className="text-gray-700 font-medium">Total Final ao Cliente:</span>
+                <span className="text-gray-900 font-bold text-lg">
+                  R$ {totals.finalTotal.toFixed(2)}
                 </span>
               </div>
-              {totals.discountAmount > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span>Desconto ({discountPercent}%):</span>
-                  <span>- R$ {totals.discountAmount.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-gray-600">Valor da Nota Fiscal (4,5%):</span>
-                <span className="text-gray-900 font-medium">
-                  R$ {totals.tax.toFixed(2)}
-                </span>
-              </div>
-              {user?.type === "admin" && (
+              
+              {(user?.type === "admin" || isAdminMode) && (
                 <>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Custo Total:</span>
-                    <span>R$ {totals.totalCost.toFixed(2)}</span>
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Total de Custos:</span>
+                    <span className="text-gray-900 font-medium">
+                      R$ {totals.totalCosts.toFixed(2)}
+                    </span>
                   </div>
-                  <div className="flex justify-between text-blue-600 border-t pt-2">
-                    <span className="font-medium">Lucro da Empresa:</span>
-                    <span className="font-bold">R$ {totals.netProfit.toFixed(2)}</span>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Valor da Nota Fiscal (5%):</span>
+                    <span className="text-gray-900 font-medium">
+                      R$ {totals.invoiceValue.toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Total com Nota Fiscal:</span>
+                    <span className="text-gray-900 font-medium">
+                      R$ {totals.totalWithInvoice.toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  <div className="border-t border-gray-300 pt-3">
+                    <div className="flex justify-between">
+                      <span className="text-blue-700 font-semibold">Lucro da Empresa:</span>
+                      <span className="text-blue-700 font-bold">
+                        R$ {totals.companyProfit.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Porcentagem de Lucro:</span>
+                    <span className="text-gray-900 font-medium">
+                      {totals.profitPercent.toFixed(2)}%
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-gray-700">Dízimo (10%):</span>
+                    <span className="text-gray-900 font-medium">
+                      R$ {totals.tithe.toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  <div className="border-t border-gray-300 pt-3">
+                    <div className="flex justify-between">
+                      <span className="text-green-700 font-semibold text-lg">Lucro Líquido:</span>
+                      <span className="text-green-700 font-bold text-lg">
+                        R$ {totals.netProfit.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </>
               )}
-              <div className="border-t border-gray-300 pt-2">
-                <div className="flex justify-between">
-                  <span className="text-lg font-semibold text-gray-900">Valor Final ao Cliente:</span>
-                  <span className="text-lg font-bold text-master-green">
-                    R$ {totals.total.toFixed(2)}
-                  </span>
-                </div>
-              </div>
             </div>
           </CardContent>
         </Card>

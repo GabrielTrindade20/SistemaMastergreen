@@ -63,6 +63,79 @@ export function calculateQuotationTotals(
   };
 }
 
+// Nova função que inclui custos adicionais
+export function calculateQuotationTotalsWithCosts(
+  items: Array<{ productId: string; quantity: number }>,
+  products: Product[],
+  costs: Array<{ adjustedValue: number }> = [],
+  discountPercent: number = 0
+) {
+  // 1. Calcular valor bruto dos produtos
+  const subtotal = items.reduce((sum, item) => {
+    const product = products.find(p => p.id === item.productId);
+    if (!product || !item.quantity) return sum;
+    
+    const productPrice = parseFloat(product.pricePerM2);
+    return sum + (productPrice * item.quantity);
+  }, 0);
+
+  // 2. Calcular desconto se aplicável
+  const discountAmount = subtotal * (discountPercent / 100);
+  const finalTotal = subtotal - discountAmount; // Total final ao cliente
+
+  // 3. Calcular custo total dos produtos
+  const productCosts = items.reduce((sum, item) => {
+    const product = products.find(p => p.id === item.productId);
+    if (!product || !item.quantity) return sum;
+    
+    const productCost = parseFloat(product.costPerM2 || "0");
+    return sum + (productCost * item.quantity);
+  }, 0);
+
+  // 4. Calcular custos adicionais
+  const additionalCosts = costs.reduce((sum, cost) => {
+    return sum + (cost.adjustedValue || 0);
+  }, 0);
+
+  // 5. Total de custos (produtos + custos adicionais)
+  const totalCosts = productCosts + additionalCosts;
+
+  // 6. Valor da Nota Fiscal (5% do valor final)
+  const invoiceValue = finalTotal * 0.05;
+
+  // 7. Total com Nota Fiscal
+  const totalWithInvoice = finalTotal + invoiceValue;
+
+  // 8. Lucro da Empresa (Total ao cliente - Custos totais)
+  const companyProfit = finalTotal - totalCosts;
+
+  // 9. Porcentagem de Lucro
+  const profitPercent = finalTotal > 0 ? (companyProfit / finalTotal) * 100 : 0;
+
+  // 10. Dízimo (10% do lucro da empresa)
+  const tithe = companyProfit * 0.10;
+
+  // 11. Lucro Líquido (Lucro da empresa - Dízimo)
+  const netProfit = companyProfit - tithe;
+
+  return {
+    subtotal, // Valor bruto
+    discountAmount,
+    finalTotal, // Total Final ao Cliente
+    totalCosts, // Total de Custos
+    invoiceValue, // Valor da Nota Fiscal (5%)
+    totalWithInvoice, // Total com Nota Fiscal
+    companyProfit, // Lucro da Empresa
+    profitPercent, // Porcentagem de Lucro
+    tithe, // Dízimo (10%)
+    netProfit, // Lucro Líquido
+    // Manter compatibilidade com a interface antiga
+    tax: invoiceValue,
+    total: finalTotal,
+    totalCost: totalCosts,
+  };
+}
+
 export function formatCurrency(value: number): string {
   return value.toLocaleString('pt-BR', {
     style: 'currency',
