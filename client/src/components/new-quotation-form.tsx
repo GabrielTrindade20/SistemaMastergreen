@@ -242,8 +242,8 @@ export default function NewQuotationForm({
     // 6. Lucro da Empresa: Valor Total da Venda - Total com Nota Fiscal
     const lucroEmpresa = valorTotalVenda - totalComNotaFiscal;
 
-    // 7. Porcentagem de Lucro: (lucro * 100) / Total com Nota Fiscal
-    const profitPercent = totalComNotaFiscal > 0 ? (lucroEmpresa * 100) / totalComNotaFiscal : 0;
+    // 7. Porcentagem de Lucro: (lucro * 100) / Valor Total da Venda
+    const profitPercent = valorTotalVenda > 0 ? (lucroEmpresa * 100) / valorTotalVenda : 0;
 
     // 8. Dízimo (10%): 10% do Lucro da Empresa
     const dizimo = lucroEmpresa * 0.10;

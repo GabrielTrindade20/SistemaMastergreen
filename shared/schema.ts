@@ -43,7 +43,7 @@ export const quotations = pgTable("quotations", {
   invoiceAmount: decimal("invoice_amount", { precision: 10, scale: 2 }).notNull().default("0.00"), // 5% sobre venda
   totalWithInvoice: decimal("total_with_invoice", { precision: 10, scale: 2 }).notNull().default("0.00"), // Total com NF
   companyProfit: decimal("company_profit", { precision: 10, scale: 2 }).notNull().default("0.00"), // Lucro empresa
-  profitPercent: decimal("profit_percent", { precision: 5, scale: 2 }).notNull().default("0.00"), // % lucro
+  profitPercent: decimal("profit_percent", { precision: 10, scale: 2 }).notNull().default("0.00"), // % lucro
   tithe: decimal("tithe", { precision: 10, scale: 2 }).notNull().default("0.00"), // Dízimo (10%)
   netProfit: decimal("net_profit", { precision: 10, scale: 2 }).notNull().default("0.00"), // Lucro líquido
   total: decimal("total", { precision: 10, scale: 2 }).notNull(), // Total final ao cliente
