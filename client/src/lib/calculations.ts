@@ -67,8 +67,13 @@ export function calculateQuotationTotals(
 export function calculateQuotationTotalsWithCosts(
   items: Array<{ productId: string; quantity: number }>,
   products: Product[],
-  costs: Array<{ adjustedValue: number }> = [],
-  discountPercent: number = 0
+  costs: Array<{ 
+    calculationType: 'fixed' | 'percentage';
+    unitValue: number;
+    quantity: number;
+  }> = [],
+  discountPercent: number = 0,
+  sellerCommissionPercent: number = 0
 ) {
   // 1. Calcular valor bruto dos produtos
   const subtotal = items.reduce((sum, item) => {
@@ -94,7 +99,11 @@ export function calculateQuotationTotalsWithCosts(
 
   // 4. Calcular custos adicionais
   const additionalCosts = costs.reduce((sum, cost) => {
-    return sum + (cost.adjustedValue || 0);
+    if (cost.calculationType === 'percentage') {
+      return sum + (subtotal * (cost.unitValue / 100)) * (cost.quantity || 1);
+    } else {
+      return sum + (cost.unitValue || 0) * (cost.quantity || 1);
+    }
   }, 0);
 
   // 5. Total de custos (produtos + custos adicionais)
@@ -115,8 +124,12 @@ export function calculateQuotationTotalsWithCosts(
   // 10. Dízimo (10% do lucro da empresa)
   const tithe = companyProfit * 0.10;
 
-  // 11. Lucro Líquido (Lucro da empresa - Dízimo)
-  const netProfit = companyProfit - tithe;
+  // 11. Comissão do Vendedor (% sobre o lucro após dízimo)
+  const profitAfterTithe = companyProfit - tithe;
+  const sellerCommission = profitAfterTithe * (sellerCommissionPercent / 100);
+
+  // 12. Lucro Líquido (Lucro da empresa - Dízimo - Comissão do Vendedor)
+  const netProfit = profitAfterTithe - sellerCommission;
 
   return {
     subtotal, // Valor bruto
@@ -128,6 +141,7 @@ export function calculateQuotationTotalsWithCosts(
     companyProfit, // Lucro da Empresa
     profitPercent, // Porcentagem de Lucro
     tithe, // Dízimo (10%)
+    sellerCommission, // Comissão do Vendedor
     netProfit, // Lucro Líquido
     // Manter compatibilidade com a interface antiga
     tax: invoiceValue,
