@@ -323,11 +323,31 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Quotation not found");
     }
 
+    // Generate unique quotation number
+    let adminNumber = `${original.quotationNumber}-ADM`;
+    let counter = 1;
+    
+    // Check if quotation number already exists and append counter if needed
+    while (true) {
+      const existing = await db
+        .select()
+        .from(quotations)
+        .where(eq(quotations.quotationNumber, adminNumber))
+        .limit(1);
+      
+      if (existing.length === 0) {
+        break;
+      }
+      
+      counter++;
+      adminNumber = `${original.quotationNumber}-ADM-${counter}`;
+    }
+
     // Create a duplicate with admin_calculated = true
     const duplicateData: any = {
       ...original,
       adminCalculated: 1,
-      quotationNumber: `${original.quotationNumber}-ADM`,
+      quotationNumber: adminNumber,
     };
 
     delete duplicateData.id;
@@ -376,6 +396,78 @@ export class DatabaseStorage implements IStorage {
     const result = await this.getQuotation(newQuotation.id);
     if (!result) {
       throw new Error("Failed to retrieve duplicated quotation");
+    }
+    return result;
+  }
+
+  async updateQuotation(id: string, quotationData: any): Promise<QuotationWithDetails> {
+    // Update the quotation
+    const [updatedQuotation] = await db
+      .update(quotations)
+      .set({
+        ...quotationData,
+        updatedAt: new Date(),
+      })
+      .where(eq(quotations.id, id))
+      .returning();
+
+    if (!updatedQuotation) {
+      throw new Error("Quotation not found");
+    }
+
+    // Update items if provided
+    if (quotationData.items) {
+      // Delete existing items
+      await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+      
+      // Insert new items
+      for (const item of quotationData.items) {
+        const product = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
+        if (product.length > 0) {
+          const unitPrice = parseFloat(product[0].pricePerM2);
+          const unitCost = parseFloat(product[0].costPerM2);
+          const subtotal = item.quantity * unitPrice;
+          const totalCost = item.quantity * unitCost;
+          
+          await db.insert(quotationItems).values({
+            quotationId: id,
+            productId: item.productId,
+            quantity: item.quantity.toString(),
+            unitPrice: unitPrice.toString(),
+            unitCost: unitCost.toString(),
+            subtotal: subtotal.toString(),
+            totalCost: totalCost.toString()
+          });
+        }
+      }
+    }
+
+    // Update costs if provided
+    if (quotationData.costs) {
+      // Delete existing costs
+      await db.delete(quotationCosts).where(eq(quotationCosts.quotationId, id));
+      
+      // Insert new costs
+      for (const cost of quotationData.costs) {
+        const costData = await db.select().from(costs).where(eq(costs.id, cost.costId)).limit(1);
+        if (costData.length > 0) {
+          await db.insert(quotationCosts).values({
+            quotationId: id,
+            costId: cost.costId,
+            name: costData[0].name,
+            supplier: costData[0].supplier,
+            quantity: "1",
+            unitValue: cost.adjustedValue.toString(),
+            totalValue: cost.adjustedValue.toString(),
+            description: costData[0].description
+          });
+        }
+      }
+    }
+
+    const result = await this.getQuotation(id);
+    if (!result) {
+      throw new Error("Failed to retrieve updated quotation");
     }
     return result;
   }

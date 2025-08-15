@@ -1,0 +1,101 @@
+Página: Gerência de Funcionários (Perfil Admin)
+Objetivo
+
+Permitir que o administrador acesse e edite diretamente as propostas criadas pelos vendedores, adicionando custos e visualizando automaticamente todos os cálculos de lucro, impostos e comissão — sem criar duplicatas.
+
+🔹 Funcionamento
+
+Listagem de Propostas
+
+Lista única com todas as propostas criadas pelos vendedores.
+
+Exibe:
+
+Nome do vendedor.
+
+Cliente.
+
+Situação (Em andamento, Fechada, etc.).
+
+Data.
+
+Valor bruto informado pelo vendedor.
+
+Acesso aos Detalhes
+
+Ao clicar numa proposta, o admin abre a mesma proposta original cadastrada pelo vendedor (não é criada uma cópia).
+
+Todos os dados do vendedor estarão carregados:
+
+Lista de produtos e serviços com seus valores.
+
+Dados do cliente.
+
+Valor bruto total da proposta.
+
+Edição para Admin
+
+Admin pode:
+
+Adicionar custos da empresa (materiais, mão de obra, etc.).
+
+Visualizar cálculo automático de:
+
+Lucro bruto.
+
+Impostos (nota fiscal – 4,5% do valor bruto).
+
+Lucro líquido.
+
+Informar % de comissão para o vendedor.
+
+Visualizar automaticamente o valor da comissão.
+
+Visualizar o lucro líquido final da empresa após descontar a comissão do vendedor.
+
+Cálculos Automáticos
+
+Fórmulas:
+
+Comissão = Valor Bruto × (% Comissão / 100)
+Lucro Líquido Empresa = (Valor Bruto − Custos − Imposto) − Comissão
+
+
+Atualiza os valores em tempo real conforme o admin digita.
+
+Salvar Alterações
+
+Ao salvar, as informações são atualizadas na mesma proposta que o vendedor cadastrou.
+
+O vendedor poderá ver no perfil dele que o admin adicionou custos e comissão.
+
+🔹 Layout Sugerido
+
+Tela de listagem
+
+Vendedor	Cliente	Data	Valor Bruto	Situação	Ações
+João	Maria	14/08/25	R$ 5.000	Aprovada	[Ver/Editar]
+
+Tela de edição (admin)
+
+Informações do cliente (nome, telefone, endereço).
+
+Produtos/Serviços da proposta (lista com valores).
+
+Valor Bruto (do vendedor, não editável pelo admin).
+
+Campo para custos (editável pelo admin).
+
+Campo para % de comissão (editável pelo admin).
+
+Exibição automática de:
+
+Impostos (4,5%).
+
+Lucro bruto.
+
+Valor da comissão.
+
+Lucro líquido final da empresa.
+
+Botão Salvar Alterações.

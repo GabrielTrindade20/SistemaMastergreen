@@ -468,6 +468,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update quotation (full update for admin editing)
+  app.put("/api/quotations/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const quotationData = insertQuotationSchema.parse(req.body);
+      console.log(`Updating quotation ${id}:`, quotationData);
+      
+      const updatedQuotation = await storage.updateQuotation(id, quotationData);
+      res.json(updatedQuotation);
+    } catch (error) {
+      console.error("Error updating quotation:", error);
+      res.status(500).json({ 
+        message: "Error updating quotation",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Update quotation commission (admin only)
   app.patch("/api/quotations/:id/commission", requireAdmin, async (req, res) => {
     try {
