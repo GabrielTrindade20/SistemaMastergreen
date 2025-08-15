@@ -143,14 +143,6 @@ export default function QuotationForm({
     }
   }, [initialData, form, user]);
 
-  const totals = calculateQuotationTotalsWithCosts(
-    quotationItems, 
-    products, 
-    quotationCosts, 
-    discountPercent,
-    sellerCommissionPercent
-  );
-
   const addProduct = () => {
     const newItems = [...quotationItems, { productId: "", quantity: 0 }];
     setQuotationItems(newItems);
@@ -199,6 +191,14 @@ export default function QuotationForm({
   // Calculate totals first (need this for percentage calculation)
   const discountPercent = form.watch("discountPercent") || 0;
   const sellerCommissionPercent = initialData?.user?.commissionPercent ? parseFloat(initialData.user.commissionPercent) : 0;
+  
+  const totals = calculateQuotationTotalsWithCosts(
+    quotationItems, 
+    products, 
+    quotationCosts, 
+    discountPercent,
+    sellerCommissionPercent
+  );
   
   const getCostTotal = (cost: typeof quotationCosts[0]) => {
     if (cost.calculationType === 'percentage') {
