@@ -36,7 +36,6 @@ export const quotations = pgTable("quotations", {
   customerId: uuid("customer_id").references(() => customers.id).notNull(),
   userId: uuid("user_id").references(() => users.id).notNull(),
   quotationNumber: text("quotation_number").notNull().unique(),
-  code: text("code"), // Código da proposta para exibição
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(), // Total dos produtos
   totalCosts: decimal("total_costs", { precision: 10, scale: 2 }).notNull().default("0.00"), // Total dos custos
   totalWithoutInvoice: decimal("total_without_invoice", { precision: 10, scale: 2 }).notNull().default("0.00"), // Total custos
