@@ -38,12 +38,12 @@ export default function Reports() {
   const totalCosts = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.totalCosts || '0'), 0);
   const netProfit = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.netProfit || '0'), 0);
 
-  // Calculate commission for employees
+  // Calculate commission for employees based on gross value
   const totalCommission = user?.type === "funcionario" 
     ? approvedQuotations.reduce((sum, q) => {
         const commissionPercent = parseFloat(user.commissionPercent || '0');
-        const quotationNetProfit = parseFloat(q.netProfit || '0');
-        return sum + (quotationNetProfit * commissionPercent / 100);
+        const grossValue = parseFloat(q.total);
+        return sum + (grossValue * commissionPercent / 100);
       }, 0)
     : 0;
 
@@ -90,7 +90,7 @@ export default function Reports() {
       doc.setFontSize(12);
       doc.text(`Vendas Aprovadas: ${quotationsApproved}`, 20, 80);
       doc.text(`Receita Total: R$ ${totalRevenue.toFixed(2)}`, 20, 90);
-      doc.text(`Comissão Total: R$ ${totalCommission.toFixed(2)}`, 20, 100);
+      doc.text(`Comissão Total: R$ ${totalCommission.toFixed(2)} (${user.commissionPercent}% do valor bruto)`, 20, 100);
       doc.text(`Taxa de Conversão: ${conversionRate.toFixed(1)}%`, 20, 110);
     } else {
       doc.setFontSize(12);
@@ -184,7 +184,7 @@ export default function Reports() {
                   R$ {totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {user.commissionPercent}% dos lucros líquidos
+                  {user.commissionPercent}% do valor bruto das vendas
                 </p>
               </CardContent>
             </Card>
@@ -288,6 +288,11 @@ export default function Reports() {
                         <p className="text-sm text-gray-500">
                           {new Date(quotation.createdAt!).toLocaleDateString('pt-BR')}
                         </p>
+                        {user?.type === "admin" && quotation.user && (
+                          <p className="text-sm text-blue-600">
+                            Criado por: {quotation.user.name} • Código: #{quotation.quotationNumber}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

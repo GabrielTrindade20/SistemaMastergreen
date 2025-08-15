@@ -35,14 +35,14 @@ export default function Dashboard() {
     ? (userQuotations.filter(q => q.status === 'approved').length / userQuotations.length) * 100 
     : 0;
 
-  // Calculate commission for employees
+  // Calculate commission for employees based on gross value
   const totalCommission = user?.type === "funcionario" 
     ? userQuotations
         .filter(q => q.status === 'approved')
         .reduce((sum, q) => {
           const commissionPercent = parseFloat(user.commissionPercent || '0');
-          const netProfit = parseFloat(q.netProfit || '0');
-          return sum + (netProfit * commissionPercent / 100);
+          const grossValue = parseFloat(q.total);
+          return sum + (grossValue * commissionPercent / 100);
         }, 0)
     : 0;
 
@@ -150,7 +150,7 @@ export default function Dashboard() {
                     R$ {totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {user?.commissionPercent}% dos lucros líquidos
+                    {user?.commissionPercent}% do valor bruto das vendas
                   </p>
                 </CardContent>
               </Card>
