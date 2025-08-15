@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Users, Search, Filter } from "lucide-react";
+import { Eye, Users, Search, Filter, Calculator } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 // Types
 interface User {
@@ -86,6 +89,10 @@ export default function Employees() {
   const [selectedEmployee, setSelectedEmployee] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
+  const [calculatingCosts, setCalculatingCosts] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   // Fetch users (employees)
   const { data: users = [] } = useQuery<User[]>({
@@ -99,6 +106,44 @@ export default function Employees() {
 
   // Filter employees only
   const employees = users.filter(user => user.type === 'vendedor');
+
+  // Handle calculate costs mutation
+  const calculateCostsMutation = useMutation({
+    mutationFn: async (quotationId: string) => {
+      return apiRequest(`/api/quotations/${quotationId}/calculate-costs`, {
+        method: 'POST',
+      });
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Sucesso",
+        description: "Proposta duplicada para cálculo de custos. Redirecionando...",
+      });
+      // Redirect to edit the duplicated quotation
+      navigate(`/orcamentos/novo?edit=${data.id}`);
+    },
+    onError: (error) => {
+      console.error('Error calculating costs:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao calcular custos da proposta",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleCalculateCosts = async (quotationId: string) => {
+    setCalculatingCosts(prev => new Set([...prev, quotationId]));
+    try {
+      await calculateCostsMutation.mutateAsync(quotationId);
+    } finally {
+      setCalculatingCosts(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(quotationId);
+        return newSet;
+      });
+    }
+  };
 
   // Filter quotations to exclude current admin's proposals
   const filteredQuotationsExcludingCurrentAdmin = quotations.filter(quotation => {
@@ -309,14 +354,26 @@ export default function Employees() {
                           {formatCurrency(commissionValue)}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedQuotation(quotation)}
-                            data-testid={`button-view-proposal-${quotation.id}`}
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedQuotation(quotation)}
+                              data-testid={`button-view-proposal-${quotation.id}`}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleCalculateCosts(quotation.id)}
+                              disabled={calculatingCosts.has(quotation.id)}
+                              data-testid={`button-calculate-costs-${quotation.id}`}
+                            >
+                              <Calculator className="w-4 h-4 mr-1" />
+                              {calculatingCosts.has(quotation.id) ? 'Calculando...' : 'Calcular Custos'}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
