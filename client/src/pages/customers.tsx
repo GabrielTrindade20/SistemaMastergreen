@@ -25,8 +25,7 @@ export default function Customers() {
 
   const createCustomerMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/customers", data);
-      return response.json();
+      return await apiRequest("/api/customers", { method: "POST", data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -49,8 +48,7 @@ export default function Customers() {
 
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const response = await apiRequest("PUT", `/api/customers/${id}`, data);
-      return response.json();
+      return await apiRequest(`/api/customers/${id}`, { method: "PUT", data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -74,7 +72,7 @@ export default function Customers() {
   // Filter customers
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (customer.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.phone.includes(searchTerm)
   );
 

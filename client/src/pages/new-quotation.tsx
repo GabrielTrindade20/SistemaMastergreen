@@ -23,8 +23,7 @@ export default function NewQuotation() {
 
   const createQuotationMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await apiRequest("POST", "/api/quotations", data);
-      return response.json();
+      return await apiRequest("/api/quotations", { method: "POST", data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
