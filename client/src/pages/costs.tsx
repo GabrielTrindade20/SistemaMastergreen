@@ -32,8 +32,7 @@ export default function CostsPage() {
   // Create cost mutation
   const createCostMutation = useMutation({
     mutationFn: async (data: InsertCost) => {
-      const response = await apiRequest("POST", "/api/costs", data);
-      return response.json();
+      return await apiRequest("/api/costs", { method: "POST", data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/costs"] });
@@ -56,8 +55,7 @@ export default function CostsPage() {
   // Update cost mutation
   const updateCostMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<InsertCost> }) => {
-      const response = await apiRequest("PUT", `/api/costs/${id}`, data);
-      return response.json();
+      return await apiRequest(`/api/costs/${id}`, { method: "PUT", data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/costs"] });
@@ -80,12 +78,7 @@ export default function CostsPage() {
   // Delete cost mutation
   const deleteCostMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/costs/${id}`);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Erro ao excluir custo");
-      }
-      return response.json();
+      return await apiRequest(`/api/costs/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/costs"] });

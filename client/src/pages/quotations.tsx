@@ -74,8 +74,7 @@ export default function Quotations() {
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log('🚀 Enviando dados para o servidor:', data);
-      const response = await apiRequest("POST", "/api/quotations", data);
-      const result = await response.json();
+      const result = await apiRequest("/api/quotations", { method: "POST", data });
       console.log('✅ Resposta do servidor:', result);
       return result;
     },
@@ -109,8 +108,7 @@ export default function Quotations() {
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const response = await apiRequest("PUT", `/api/quotations/${id}/status`, { status });
-      return response.json();
+      return await apiRequest(`/api/quotations/${id}/status`, { method: "PUT", data: { status } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
@@ -130,8 +128,7 @@ export default function Quotations() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/quotations/${id}`);
-      return response.json();
+      return await apiRequest(`/api/quotations/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
@@ -172,8 +169,7 @@ export default function Quotations() {
   const handleDuplicateQuotation = async (quotation: QuotationWithDetails) => {
     try {
       // Buscar detalhes completos da proposta
-      const response = await apiRequest("GET", `/api/quotations/${quotation.id}`);
-      const fullQuotation = await response.json();
+      const fullQuotation = await apiRequest(`/api/quotations/${quotation.id}`, { method: "GET" });
       
       // Calcular nova data de validade (7 dias a partir de hoje)
       const validUntil = new Date();
