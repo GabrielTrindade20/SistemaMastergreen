@@ -487,6 +487,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
 
+  // Duplicate quotation for admin to calculate costs
+  app.post("/api/quotations/:id/calculate-costs", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      if (user.type !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const duplicatedQuotation = await storage.duplicateQuotationForAdmin(req.params.id);
+      res.json(duplicatedQuotation);
+    } catch (error) {
+      console.error("Error duplicating quotation for admin:", error);
+      res.status(500).json({ message: "Failed to duplicate quotation" });
+    }
+  });
+
   app.delete("/api/quotations/:id", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
