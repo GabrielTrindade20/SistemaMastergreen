@@ -269,6 +269,162 @@ export class DatabaseStorage implements IStorage {
     return quotationsWithDetails;
   }
 
+  // Admin vê apenas propostas originais (não calculadas por admin)
+  async getOriginalQuotations(): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(eq(quotations.adminCalculated, 0)) // Apenas propostas originais - removido temporariamente
+      .orderBy(quotations.createdAt);
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
+
+  // Para o admin calcular custos: duplica a proposta marcando como calculada
+  async duplicateQuotationForAdmin(originalId: string): Promise<QuotationWithDetails> {
+    // Get the original quotation
+    const original = await this.getQuotation(originalId);
+    if (!original) {
+      throw new Error("Quotation not found");
+    }
+
+    // Create a duplicate with admin_calculated = true
+    const duplicateData: any = {
+      ...original,
+      adminCalculated: 1,
+      quotationNumber: `${original.quotationNumber}-ADM`,
+    };
+
+    delete duplicateData.id;
+    delete duplicateData.customer;
+    delete duplicateData.user;
+    delete duplicateData.items;
+    delete duplicateData.costs;
+    delete duplicateData.createdAt;
+
+    const [newQuotation] = await db
+      .insert(quotations)
+      .values(duplicateData)
+      .returning();
+
+    // Copy items
+    if (original.items) {
+      for (const item of original.items) {
+        await db.insert(quotationItems).values({
+          quotationId: newQuotation.id,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          unitCost: item.unitCost,
+          subtotal: item.subtotal,
+          totalCost: item.totalCost
+        });
+      }
+    }
+
+    // Copy costs
+    if (original.costs) {
+      for (const cost of original.costs) {
+        await db.insert(quotationCosts).values({
+          quotationId: newQuotation.id,
+          costId: cost.costId,
+          name: cost.name,
+          unitValue: cost.unitValue,
+          quantity: cost.quantity,
+          totalValue: cost.totalValue,
+          supplier: cost.supplier,
+          description: cost.description
+        });
+      }
+    }
+
+    const result = await this.getQuotation(newQuotation.id);
+    if (!result) {
+      throw new Error("Failed to retrieve duplicated quotation");
+    }
+    return result;
+  }
+
+  async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(and(eq(quotations.userId, userId), eq(quotations.adminCalculated, 0))) // Only original quotations by user
+      .orderBy(quotations.createdAt);
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
+
 
 
   async getQuotation(id: string): Promise<QuotationWithDetails | undefined> {
@@ -375,51 +531,6 @@ export class DatabaseStorage implements IStorage {
       throw new Error("Quotation not found");
     }
     return result;
-  }
-
-  async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
-    const result = await db
-      .select()
-      .from(quotations)
-      .leftJoin(customers, eq(quotations.customerId, customers.id))
-      .leftJoin(users, eq(quotations.userId, users.id))
-      .where(eq(quotations.userId, userId))
-      .orderBy(desc(quotations.createdAt));
-
-    const quotationsWithDetails: QuotationWithDetails[] = [];
-
-    for (const row of result) {
-      if (row.quotations && row.customers && row.users) {
-        const items = await db
-          .select()
-          .from(quotationItems)
-          .leftJoin(products, eq(quotationItems.productId, products.id))
-          .where(eq(quotationItems.quotationId, row.quotations.id));
-
-        // Get costs for this quotation
-        const quotationCostsData = await db
-          .select()
-          .from(quotationCosts)
-          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
-          .where(eq(quotationCosts.quotationId, row.quotations.id));
-
-        quotationsWithDetails.push({
-          ...row.quotations,
-          customer: row.customers,
-          user: row.users,
-          items: items.map(item => ({
-            ...item.quotation_items!,
-            product: item.products!
-          })),
-          costs: quotationCostsData.map(costData => ({
-            ...costData.quotation_costs!,
-            cost: costData.costs || undefined
-          }))
-        });
-      }
-    }
-
-    return quotationsWithDetails;
   }
 
   async deleteQuotation(id: string): Promise<void> {

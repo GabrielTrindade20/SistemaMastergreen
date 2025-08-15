@@ -98,7 +98,7 @@ export default function Employees() {
   });
 
   // Filter employees only
-  const employees = users.filter(user => user.type === 'funcionario');
+  const employees = users.filter(user => user.type === 'vendedor');
 
   // Filter quotations to exclude current admin's proposals
   const filteredQuotationsExcludingCurrentAdmin = quotations.filter(quotation => {
