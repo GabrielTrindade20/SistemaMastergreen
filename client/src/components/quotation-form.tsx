@@ -32,7 +32,9 @@ const quotationSchema = z.object({
   })).min(1, "Adicione pelo menos um produto"),
   costs: z.array(z.object({
     costId: z.string().min(1, "Selecione um custo"),
-    adjustedValue: z.number().min(0, "Valor deve ser maior ou igual a 0"),
+    calculationType: z.enum(['fixed', 'percentage']),
+    unitValue: z.number().min(0, "Valor deve ser maior ou igual a 0"),
+    quantity: z.number().min(0.01, "Quantidade deve ser maior que 0"),
   })).optional(),
 });
 
@@ -63,7 +65,12 @@ export default function QuotationForm({
   const [quotationItems, setQuotationItems] = useState([
     { productId: "", quantity: 0 }
   ]);
-  const [quotationCosts, setQuotationCosts] = useState<Array<{ costId: string; adjustedValue: number }>>([]);
+  const [quotationCosts, setQuotationCosts] = useState<Array<{ 
+    costId: string; 
+    calculationType: 'fixed' | 'percentage';
+    unitValue: number;
+    quantity: number;
+  }>>([]);
 
   // Fetch available costs
   const { data: costs = [] } = useQuery<Cost[]>({
@@ -125,7 +132,9 @@ export default function QuotationForm({
       if (initialData.costs && initialData.costs.length > 0) {
         const loadedCosts = initialData.costs.map((cost: any) => ({
           costId: cost.costId || cost.cost?.id,
-          adjustedValue: parseFloat(cost.unitValue || cost.totalValue || "0")
+          calculationType: (cost.calculationType || 'fixed') as 'fixed' | 'percentage',
+          unitValue: parseFloat(cost.unitValue || "0"),
+          quantity: parseFloat(cost.quantity || "1")
         }));
         console.log("Loading costs:", loadedCosts);
         setQuotationCosts(loadedCosts);
@@ -134,9 +143,13 @@ export default function QuotationForm({
     }
   }, [initialData, form, user]);
 
-  // Calculate totals with discount
-  const discountPercent = form.watch("discountPercent") || 0;
-  const totals = calculateQuotationTotalsWithCosts(quotationItems, products, quotationCosts, discountPercent);
+  const totals = calculateQuotationTotalsWithCosts(
+    quotationItems, 
+    products, 
+    quotationCosts, 
+    discountPercent,
+    sellerCommissionPercent
+  );
 
   const addProduct = () => {
     const newItems = [...quotationItems, { productId: "", quantity: 0 }];
@@ -160,7 +173,12 @@ export default function QuotationForm({
   };
 
   const addCost = () => {
-    const newCosts = [...quotationCosts, { costId: "", adjustedValue: 0 }];
+    const newCosts = [...quotationCosts, { 
+      costId: "", 
+      calculationType: 'fixed' as const,
+      unitValue: 0,
+      quantity: 1
+    }];
     setQuotationCosts(newCosts);
     form.setValue("costs", newCosts);
   };
@@ -171,11 +189,30 @@ export default function QuotationForm({
     form.setValue("costs", newCosts);
   };
 
-  const updateCost = (index: number, field: 'costId' | 'adjustedValue', value: string | number) => {
+  const updateCost = (index: number, field: keyof typeof quotationCosts[0], value: string | number) => {
     const newCosts = [...quotationCosts];
     newCosts[index] = { ...newCosts[index], [field]: value };
     setQuotationCosts(newCosts);
     form.setValue("costs", newCosts);
+  };
+
+  // Calculate totals first (need this for percentage calculation)
+  const discountPercent = form.watch("discountPercent") || 0;
+  const sellerCommissionPercent = initialData?.user?.commissionPercent ? parseFloat(initialData.user.commissionPercent) : 0;
+  
+  const getCostTotal = (cost: typeof quotationCosts[0]) => {
+    if (cost.calculationType === 'percentage') {
+      // Calculate subtotal for percentage base
+      const subtotal = quotationItems.reduce((sum, item) => {
+        const product = products.find(p => p.id === item.productId);
+        if (!product || !item.quantity) return sum;
+        const productPrice = parseFloat(product.pricePerM2);
+        return sum + (productPrice * item.quantity);
+      }, 0);
+      return (subtotal * (cost.unitValue / 100)) * (cost.quantity || 1);
+    } else {
+      return (cost.unitValue || 0) * (cost.quantity || 1);
+    }
   };
 
   const getCost = (costId: string) => {
@@ -227,13 +264,16 @@ export default function QuotationForm({
           totalCost: totalCost.toString(),
         };
       }),
-      costs: data.costs?.map(cost => {
+      costs: quotationCosts.map(cost => {
         const costData = getCost(cost.costId)!;
         return {
           costId: cost.costId,
-          adjustedValue: cost.adjustedValue.toString(),
+          calculationType: cost.calculationType,
+          unitValue: cost.unitValue.toString(),
+          quantity: cost.quantity.toString(),
+          totalValue: getCostTotal(cost).toString(),
         };
-      }) || [],
+      }),
     };
 
     onSubmit(quotationData);
@@ -494,7 +534,7 @@ export default function QuotationForm({
                 return (
                   <Card key={index}>
                     <CardContent className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Custo *
@@ -517,25 +557,63 @@ export default function QuotationForm({
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Valor Original
+                            Tipo de Cálculo
                           </label>
-                          <Input
-                            value={costData ? `R$ ${parseFloat(costData.value).toFixed(2)}` : 'R$ 0,00'}
-                            readOnly
-                            className="bg-gray-100"
-                          />
+                          <div className="flex space-x-2">
+                            <Button
+                              type="button"
+                              variant={cost.calculationType === 'fixed' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => updateCost(index, 'calculationType', 'fixed')}
+                              className="flex-1"
+                            >
+                              R$
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={cost.calculationType === 'percentage' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => updateCost(index, 'calculationType', 'percentage')}
+                              className="flex-1"
+                            >
+                              %
+                            </Button>
+                          </div>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Valor Ajustado (R$) *
+                            Valor Unitário
                           </label>
                           <Input
                             type="number"
                             step="0.01"
                             min="0"
                             placeholder="0.00"
-                            value={cost.adjustedValue || ""}
-                            onChange={(e) => updateCost(index, 'adjustedValue', parseFloat(e.target.value) || 0)}
+                            value={cost.unitValue || ""}
+                            onChange={(e) => updateCost(index, 'unitValue', parseFloat(e.target.value) || 0)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Quantidade
+                          </label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="1.00"
+                            value={cost.quantity || ""}
+                            onChange={(e) => updateCost(index, 'quantity', parseFloat(e.target.value) || 1)}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Total
+                          </label>
+                          <Input
+                            value={`R$ ${getCostTotal(cost).toFixed(2)}`}
+                            readOnly
+                            className="bg-gray-100 text-red-600 font-semibold"
                           />
                         </div>
                         <div className="flex items-end">
@@ -615,6 +693,15 @@ export default function QuotationForm({
                       R$ {totals.tithe.toFixed(2)}
                     </span>
                   </div>
+                  
+                  {sellerCommissionPercent > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-700">Comissão Vendedor ({sellerCommissionPercent}%):</span>
+                      <span className="text-gray-900 font-medium">
+                        R$ {totals.sellerCommission.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
                   
                   <div className="border-t border-gray-300 pt-3">
                     <div className="flex justify-between">
