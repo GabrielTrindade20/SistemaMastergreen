@@ -44,6 +44,9 @@ interface QuotationFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
   isLoading: boolean;
+  initialData?: any;
+  isAdminMode?: boolean;
+  editingId?: string | null;
 }
 
 export default function QuotationForm({ 
@@ -51,7 +54,10 @@ export default function QuotationForm({
   products, 
   onSubmit, 
   onCancel, 
-  isLoading 
+  isLoading,
+  initialData,
+  isAdminMode = false,
+  editingId
 }: QuotationFormProps) {
   const { user } = useAuth();
   const [quotationItems, setQuotationItems] = useState([
@@ -67,12 +73,12 @@ export default function QuotationForm({
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
     defaultValues: {
-      customerId: "",
-      validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      notes: "",
-      discountPercent: 0,
-      shippingIncluded: true,
-      warrantyText: "1 ano de garantia de fábrica",
+      customerId: initialData?.customerId || "",
+      validUntil: initialData?.validUntil ? new Date(initialData.validUntil).toISOString().split('T')[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      notes: initialData?.notes || "",
+      discountPercent: parseFloat(initialData?.discountPercent || "0"),
+      shippingIncluded: initialData?.shippingIncluded ?? true,
+      warrantyText: initialData?.warrantyText || "1 ano de garantia de fábrica",
       pdfTitle: "",
       responsibleName: user?.name || "",
       responsiblePosition: user?.type === "admin" ? "Administrador" : "Funcionário",

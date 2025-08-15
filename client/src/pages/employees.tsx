@@ -107,41 +107,17 @@ export default function Employees() {
   // Filter employees only
   const employees = users.filter(user => user.type === 'vendedor');
 
-  // Handle calculate costs mutation
-  const calculateCostsMutation = useMutation({
-    mutationFn: async (quotationId: string) => {
-      return apiRequest(`/api/quotations/${quotationId}/calculate-costs`, {
-        method: 'POST',
-      });
-    },
-    onSuccess: (data) => {
+  const handleCalculateCosts = async (quotationId: string) => {
+    setCalculatingCosts(prev => new Set(Array.from(prev).concat(quotationId)));
+    try {
       toast({
         title: "Sucesso",
-        description: "Proposta duplicada para cálculo de custos. Redirecionando...",
+        description: "Redirecionando para edição da proposta...",
       });
-      // Redirect to edit the duplicated quotation
-      navigate(`/orcamentos/novo?edit=${data.id}`);
-    },
-    onError: (error) => {
-      console.error('Error calculating costs:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao calcular custos da proposta",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const handleCalculateCosts = async (quotationId: string) => {
-    setCalculatingCosts(prev => new Set([...prev, quotationId]));
-    try {
-      await calculateCostsMutation.mutateAsync(quotationId);
+      // Redirect to edit the original quotation directly
+      navigate(`/orcamentos/novo?edit=${quotationId}&admin=true`);
     } finally {
-      setCalculatingCosts(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(quotationId);
-        return newSet;
-      });
+      setCalculatingCosts(prev => new Set(Array.from(prev).filter(id => id !== quotationId)));
     }
   };
 
@@ -371,7 +347,7 @@ export default function Employees() {
                               data-testid={`button-calculate-costs-${quotation.id}`}
                             >
                               <Calculator className="w-4 h-4 mr-1" />
-                              {calculatingCosts.has(quotation.id) ? 'Calculando...' : 'Calcular Custos'}
+                              {calculatingCosts.has(quotation.id) ? 'Abrindo...' : 'Ver/Editar'}
                             </Button>
                           </div>
                         </TableCell>
