@@ -296,8 +296,15 @@ export default function NewQuotationForm({
     if (field === 'productId') {
       const product = products.find(p => p.id === value);
       if (product) {
-        newItems[index].unitPrice = parseFloat(product.pricePerM2); // Custo
-        newItems[index].salePrice = parseFloat(product.pricePerM2); // Preço de venda inicial igual ao custo
+        // Para funcionários, definir unitPrice como 0 já que não veem custos
+        // Mas admin precisa ver o custo real
+        if (user?.type === 'funcionario') {
+          newItems[index].unitPrice = 0; // Funcionário não vê custos
+          newItems[index].salePrice = parseFloat(product.pricePerM2); // Preço de venda sugerido
+        } else {
+          newItems[index].unitPrice = parseFloat(product.pricePerM2); // Admin vê custos
+          newItems[index].salePrice = parseFloat(product.pricePerM2); // Preço de venda inicial igual ao custo
+        }
         newItems[index].originalUnitPrice = parseFloat(product.pricePerM2);
         console.log(`📦 Produto selecionado:`, product.name, `- Preço: R$ ${product.pricePerM2}`);
       }
@@ -464,7 +471,7 @@ export default function NewQuotationForm({
         subtotal: calculations.subtotal.toString(),
         total: calculations.finalTotal.toString(),
         shippingIncluded: formData.shippingIncluded ? 1 : 0,
-        createdAt: new Date().toISOString()
+        createdAt: new Date()
       };
 
       console.log('📋 Dados temporários para PDF:', tempQuotationData);
@@ -627,7 +634,7 @@ export default function NewQuotationForm({
           <CardContent>
             <div className="space-y-4">
               {items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
+                <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
                   <div>
                     <label className="text-sm font-medium">Produto</label>
                     <Select 
@@ -659,40 +666,62 @@ export default function NewQuotationForm({
                     />
                   </div>
                   
-                  <div>
-                    <label className="text-sm font-medium">Custo Unitário (R$/m²)</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={item.unitPrice || ''}
-                      onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                      data-testid={`input-unit-price-${index}`}
-                      className="bg-gray-50"
-                      title="Custo do produto (incluído nos custos)"
-                    />
-                  </div>
+                  {/* Campos de custo apenas para admin */}
+                  {user?.type === 'admin' && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium">Custo Unitário (R$/m²)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.unitPrice || ''}
+                          onChange={(e) => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
+                          data-testid={`input-unit-price-${index}`}
+                          className="bg-gray-50"
+                          title="Custo do produto (incluído nos custos)"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium">Valor por Metro (Venda)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={item.salePrice || ''}
+                          onChange={(e) => updateItem(index, 'salePrice', parseFloat(e.target.value) || 0)}
+                          data-testid={`input-sale-price-${index}`}
+                          className="bg-green-50 border-green-200"
+                          title="Valor por metro que será cobrado do cliente"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm font-medium">Custo Total</label>
+                        <div className="text-lg font-semibold text-red-600">
+                          {formatCurrency((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                   
-                  <div>
-                    <label className="text-sm font-medium">Valor por Metro (Venda)</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={item.salePrice || ''}
-                      onChange={(e) => updateItem(index, 'salePrice', parseFloat(e.target.value) || 0)}
-                      data-testid={`input-sale-price-${index}`}
-                      className="bg-green-50 border-green-200"
-                      title="Valor por metro que será cobrado do cliente"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium">Custo Total</label>
-                    <div className="text-lg font-semibold text-red-600">
-                      {formatCurrency((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))}
+                  {/* Campo de valor de venda - sempre visível */}
+                  {user?.type === 'funcionario' && (
+                    <div>
+                      <label className="text-sm font-medium">Valor por Metro (Venda)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={item.salePrice || ''}
+                        onChange={(e) => updateItem(index, 'salePrice', parseFloat(e.target.value) || 0)}
+                        data-testid={`input-sale-price-${index}`}
+                        className="bg-green-50 border-green-200"
+                        title="Valor por metro que será cobrado do cliente"
+                      />
                     </div>
-                  </div>
+                  )}
                   
                   <div>
                     <label className="text-sm font-medium">Valor Total Venda</label>
