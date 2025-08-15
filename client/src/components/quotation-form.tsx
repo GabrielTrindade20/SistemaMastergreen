@@ -231,24 +231,24 @@ export default function QuotationForm({
 
   const handleSubmit = (data: QuotationFormData) => {
     const quotationData = {
-      quotation: {
-        customerId: data.customerId,
-        subtotal: totals.subtotal.toString(),
-        discountPercent: (data.discountPercent || 0).toString(),
-        discountAmount: totals.discountAmount.toString(),
-        taxAmount: totals.tax.toString(),
-        totalCost: totals.totalCost.toString(),
-        total: totals.total.toString(),
-        netProfit: totals.netProfit.toString(),
-        validUntil: data.validUntil,
-        notes: data.notes || null,
-        shippingIncluded: data.shippingIncluded ? 1 : 0,
-        warrantyText: data.warrantyText || "1 ano de garantia de fábrica",
-        pdfTitle: data.pdfTitle || null,
-        responsibleName: user?.name || null,
-        responsiblePosition: user?.type === "admin" ? "Administrador" : "Funcionário",
-      },
-      items: data.items.map(item => {
+      customerId: data.customerId,
+      userId: user?.id || initialData?.user?.id,
+      subtotal: totals.finalTotal.toString(),
+      discountPercent: (data.discountPercent || 0).toString(),
+      discountAmount: totals.discountAmount.toString(),
+      taxAmount: totals.invoiceValue.toString(),
+      totalCost: totals.totalCosts.toString(),
+      total: totals.finalTotal.toString(),
+      netProfit: totals.netProfit.toString(),
+      validUntil: new Date(data.validUntil).toISOString(),
+      notes: data.notes || null,
+      shippingIncluded: data.shippingIncluded ? 1 : 0,
+      warrantyText: data.warrantyText || "1 ano de garantia de fábrica",
+      pdfTitle: data.pdfTitle || null,
+      responsibleName: data.responsibleName || user?.name || null,
+      responsiblePosition: data.responsiblePosition || (user?.type === "admin" ? "Administrador" : "Funcionário"),
+      branch: user?.branch || initialData?.user?.branch || "Ceilândia",
+      items: quotationItems.map(item => {
         const product = getProduct(item.productId)!;
         const unitPrice = parseFloat(product.pricePerM2);
         const unitCost = parseFloat(product.costPerM2 || "0");
@@ -718,50 +718,51 @@ export default function QuotationForm({
         </Card>
 
         {/* Additional Configuration */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Configurações Adicionais</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="discountPercent"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Desconto (%)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      placeholder="0.00"
-                      {...field}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="shippingIncluded"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      Frete incluso?
-                    </FormLabel>
-                  </div>
-                </FormItem>
-              )}
-            />
-          </div>
+        {!isAdminMode && (
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Configurações Adicionais</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="discountPercent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Desconto (%)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="0.00"
+                        {...field}
+                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="shippingIncluded"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Frete incluso?
+                      </FormLabel>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <FormField
@@ -814,6 +815,7 @@ export default function QuotationForm({
             </div>
           </div>
         </div>
+        )}
 
         {/* Additional Information */}
         <FormField
