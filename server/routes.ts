@@ -768,16 +768,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const userCustomers = await storage.getCustomersByUser(user.id);
 
         const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
-        const pendingQuotations = userQuotations.filter(q => q.status === 'pending');
+        // REGRA: Vendedor vê apenas propostas pendentes ORIGINAIS (que ele criou, não as do admin)
+        const pendingQuotations = userQuotations.filter(q => q.status === 'pending' && q.adminCalculated === 0);
         
-        // Taxa de conversão baseada em todas as propostas do vendedor
-        const conversionRate = userQuotations.length > 0 
-          ? (approvedQuotations.length / userQuotations.length) * 100 
+        // REGRA: Taxa de conversão baseada apenas nas propostas originais do vendedor
+        const originalQuotations = userQuotations.filter(q => q.adminCalculated === 0);
+        const conversionRate = originalQuotations.length > 0 
+          ? (vendedorOriginalApproved.length / originalQuotations.length) * 100 
           : 0;
 
         // REGRA VENDEDOR: Comissão baseada APENAS nas propostas originais que ELE aprovou
         // Filtrar apenas propostas originais do vendedor (não as calculadas pelo admin)
         const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === 0);
+        console.log(`Vendedor Dashboard - Total quotations: ${userQuotations.length}, Approved: ${approvedQuotations.length}, Original approved: ${vendedorOriginalApproved.length}`);
         
         const commissionPercent = parseFloat(user.commissionPercent || '0');
         const totalCommission = vendedorOriginalApproved.reduce((sum, q) => {
@@ -808,7 +811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           activeCustomers: userCustomers.length,
           conversionRate,
           approvedQuotations: vendedorOriginalApproved.length, // Apenas propostas originais aprovadas
-          totalQuotations: userQuotations.length,
+          totalQuotations: originalQuotations.length, // Apenas propostas originais
           commissionPercent,
           commissionBreakdown
         });
@@ -835,8 +838,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Admin sees all employee activities
         quotations = await storage.getQuotationsInDateRange(startDate, endDate);
       } else {
-        // Employee sees only their activities
-        quotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
+        // REGRA: Vendedor vê apenas suas propostas ORIGINAIS (não as calculadas pelo admin)
+        const allUserQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
+        quotations = allUserQuotations.filter(q => q.adminCalculated === 0);
+        console.log(`Recent Activities - User ${user.name}: found ${allUserQuotations.length} total, showing ${quotations.length} originals`);
       }
 
       const activities = quotations
