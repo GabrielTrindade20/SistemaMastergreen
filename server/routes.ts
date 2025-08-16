@@ -568,7 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allQuotations = await storage.getQuotationsInDateRange(startDate, endDate);
         const allCustomers = await storage.getCustomers();
         const allUsers = await storage.getUsers();
-        const employees = allUsers.filter(u => u.type === "funcionario");
+        const employees = allUsers.filter(u => u.type === "vendedor");
 
         const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
         const pendingQuotations = allQuotations.filter(q => q.status === 'pending');
@@ -723,7 +723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (user.type === "admin") {
           const allQuotations = await storage.getQuotationsInDateRange(startDate, endDate);
           const allUsers = await storage.getUsers();
-          const employees = allUsers.filter(u => u.type === "funcionario");
+          const employees = allUsers.filter(u => u.type === "vendedor");
           
           const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
           const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);

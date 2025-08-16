@@ -868,14 +868,14 @@ export class DatabaseStorage implements IStorage {
           name: "João Silva",
           email: "joao@filial1.com",
           password: "func123",
-          type: "funcionario",
+          type: "vendedor",
           branch: "Filial Norte"
         },
         {
           name: "Ana Lima",
           email: "ana@filial2.com",
           password: "func456",
-          type: "funcionario",
+          type: "vendedor",
           branch: "Filial Sul"
         }
       ];
