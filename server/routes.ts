@@ -541,6 +541,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoint to get all employee quotations for management
+  app.get("/api/employee-quotations", requireAdmin, async (req, res) => {
+    try {
+      // Get all quotations from employees (not admin)
+      const quotations = await storage.getEmployeeQuotations();
+      res.json(quotations);
+    } catch (error) {
+      console.error("Error fetching employee quotations:", error);
+      res.status(500).json({ message: "Failed to fetch employee quotations" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
