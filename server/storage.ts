@@ -720,7 +720,7 @@ export class DatabaseStorage implements IStorage {
         responsibleName: quotationData.responsibleName,
         responsiblePosition: quotationData.responsiblePosition,
         responsibleId: quotationData.responsibleId,
-        adminCalculated: quotationData.adminCalculated || 0,
+        adminCalculated: quotationData.adminCalculated || 1, // Marcar como calculado pelo admin se estiver sendo atualizado
         branch: quotationData.branch,
       };
 
