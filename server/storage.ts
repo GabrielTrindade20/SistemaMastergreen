@@ -269,7 +269,7 @@ export class DatabaseStorage implements IStorage {
     return quotationsWithDetails;
   }
 
-  // Admin vê apenas propostas originais (não calculadas por admin)
+  // Admin vê apenas propostas originais (não calculadas por admin) criadas por ele mesmo
   async getOriginalQuotations(): Promise<QuotationWithDetails[]> {
     const result = await db
       .select()
@@ -425,7 +425,7 @@ export class DatabaseStorage implements IStorage {
         const product = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
         if (product.length > 0) {
           const unitPrice = parseFloat(product[0].pricePerM2);
-          const unitCost = parseFloat(product[0].costPerM2);
+          const unitCost = parseFloat(product[0].costPerM2 || "0");
           const subtotal = item.quantity * unitPrice;
           const totalCost = item.quantity * unitCost;
           

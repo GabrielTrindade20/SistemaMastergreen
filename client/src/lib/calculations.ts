@@ -124,12 +124,11 @@ export function calculateQuotationTotalsWithCosts(
   // 10. Dízimo (10% do lucro da empresa)
   const tithe = companyProfit * 0.10;
 
-  // 11. Comissão do Vendedor (% sobre o lucro após dízimo)
-  const profitAfterTithe = companyProfit - tithe;
-  const sellerCommission = profitAfterTithe * (sellerCommissionPercent / 100);
+  // 11. Comissão do Vendedor (baseada no Total Final ao Cliente)
+  const sellerCommission = finalTotal * (sellerCommissionPercent / 100);
 
   // 12. Lucro Líquido (Lucro da empresa - Dízimo - Comissão do Vendedor)
-  const netProfit = profitAfterTithe - sellerCommission;
+  const netProfit = companyProfit - tithe - sellerCommission;
 
   return {
     subtotal, // Valor bruto
