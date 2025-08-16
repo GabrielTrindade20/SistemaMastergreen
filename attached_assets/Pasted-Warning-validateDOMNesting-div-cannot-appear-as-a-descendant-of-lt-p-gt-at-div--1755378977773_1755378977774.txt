@@ -1,0 +1,39 @@
+Warning: validateDOMNesting(...): <div> cannot appear as a descendant of &lt;p&gt;.
+    at div
+    at Badge (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/src/components/ui/badge.tsx:35:18)
+    at p
+    at div
+    at div
+    at div
+    at div
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=3bf34ba6:42:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-EGTK4MNA.js?v=3bf34ba6:59:7
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=3bf34ba6:79:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=3bf34ba6:56:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=3bf34ba6:42:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-U4KRNCKQ.js?v=3bf34ba6:29:5
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=3bf34ba6:233:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=3bf34ba6:156:58
+    at Presence (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-E2WRGZOK.js?v=3bf34ba6:24:11)
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=3bf34ba6:147:64
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=3bf34ba6:79:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-2K77HOHX.js?v=3bf34ba6:56:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-Q6YJROYD.js?v=3bf34ba6:42:13
+    at https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-EGTK4MNA.js?v=3bf34ba6:258:22
+    at Presence (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-E2WRGZOK.js?v=3bf34ba6:24:11)
+    at Provider (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M3NVYRND.js?v=3bf34ba6:48:15)
+    at DialogPortal (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=3bf34ba6:109:11)
+    at _c3 (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/src/components/ui/dialog.tsx:52:12)
+    at Provider (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M3NVYRND.js?v=3bf34ba6:48:15)
+    at Dialog (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-dialog.js?v=3bf34ba6:50:5)
+    at div
+    at Employees (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/src/pages/employees.tsx:43:33)
+    at Route (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=3bf34ba6:323:16)
+    at Switch (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=3bf34ba6:379:17)
+    at div
+    at div
+    at Router (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/src/components/App.tsx?v=ROzag2ipluIQ5j4Gx_EZN:38:38)
+    at Provider (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-M3NVYRND.js?v=3bf34ba6:48:15)
+    at TooltipProvider (https://95403099-28b8-4dc7-8873-0b3cc5183b78-00-2obua9i47vm4g.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=3bf34ba6:59:5)
+    at QueryClientProvider…
+Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
