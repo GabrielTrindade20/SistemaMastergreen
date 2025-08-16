@@ -229,6 +229,13 @@ export default function QuotationForm({
     return parseFloat(product.pricePerM2) * item.quantity;
   };
 
+  const getItemCostTotal = (item: { productId: string; quantity: number }) => {
+    const product = getProduct(item.productId);
+    if (!product || !item.quantity) return 0;
+    const costPerM2 = parseFloat(product.costPerM2 || "0");
+    return costPerM2 * item.quantity;
+  };
+
   const handleSubmit = (data: QuotationFormData) => {
     const quotationData = {
       customerId: data.customerId,
@@ -420,7 +427,7 @@ export default function QuotationForm({
               return (
                 <Card key={index} className="bg-gray-50">
                   <CardContent className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className={`grid grid-cols-1 gap-4 ${isAdminMode ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Produto *
@@ -489,6 +496,18 @@ export default function QuotationForm({
                           className="bg-gray-100"
                         />
                       </div>
+                      {isAdminMode && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Custo Total
+                          </label>
+                          <Input
+                            value={`R$ ${getItemCostTotal(item).toFixed(2)}`}
+                            readOnly
+                            className="bg-red-50 text-red-600 font-semibold"
+                          />
+                        </div>
+                      )}
                       {!isAdminMode && (
                         <div className="flex items-end">
                           <Button
