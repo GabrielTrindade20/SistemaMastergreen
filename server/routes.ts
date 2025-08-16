@@ -681,8 +681,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (user.type === "admin") {
         // Admin dashboard - comprehensive system view
-        const allQuotations = await storage.getQuotationsInDateRange(startDate, endDate);
-        console.log(`Admin Dashboard - Found ${allQuotations.length} quotations in date range`);
+        const allQuotationsRaw = await storage.getQuotationsInDateRange(startDate, endDate);
+        console.log(`Admin Dashboard - Found ${allQuotationsRaw.length} total quotations in date range`);
+        
+        // NOVA LÓGICA: Deduplicar propostas - mostrar apenas versão final de cada proposta
+        // Prioridade: versão calculada > versão original
+        const quotationsMap = new Map<string, any>();
+        
+        allQuotationsRaw.forEach(q => {
+          const originalId = q.originalQuotationId || q.id; // ID da proposta original
+          
+          if (!quotationsMap.has(originalId)) {
+            // Primeira vez vendo esta proposta
+            quotationsMap.set(originalId, q);
+          } else {
+            // Já vimos uma versão desta proposta
+            const existing = quotationsMap.get(originalId);
+            // Se a nova é calculada e a existente não, ou se ambas são calculadas mas a nova é mais recente
+            if (q.adminCalculated && !existing.adminCalculated) {
+              quotationsMap.set(originalId, q); // Substituir pela versão calculada
+            }
+          }
+        });
+        
+        const allQuotations = Array.from(quotationsMap.values());
+        console.log(`Admin Dashboard - After deduplication: ${allQuotations.length} unique quotations`);
+        
         const allCustomers = await storage.getCustomers();
         const allUsers = await storage.getUsers();
         const employees = allUsers.filter(u => u.type === "vendedor");
@@ -695,12 +719,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let totalCosts = 0; // Custos adicionados pelo admin
         let totalNetProfit = 0; // Lucro líquido calculado pelo admin
         
-        // REGRA: Receita Total = soma do valor bruto de TODAS as propostas aprovadas
-        // (vendedores + admin), independente de terem custos calculados
+        // REGRA: Receita Total = soma do valor bruto das propostas aprovadas (SEM DUPLICAÇÃO)
+        // Agora usando apenas a versão final de cada proposta
         approvedQuotations.forEach(q => {
           const revenue = parseFloat(q.total || '0');
           totalRevenue += revenue;
-          console.log(`Dashboard - Adding revenue from quotation ${q.quotationNumber}: ${revenue}`);
+          console.log(`Dashboard - Adding revenue from quotation ${q.quotationNumber}: ${revenue} (${q.adminCalculated ? 'calculated' : 'original'})`);
         });
         
         // Separar propostas com custos calculados pelo admin
@@ -720,20 +744,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? (approvedQuotations.length / allQuotations.length) * 100 
           : 0;
 
-        // Calculate commissions by employee - BASEADO EM PROPOSTAS ORIGINAIS APROVADAS
+        // Calculate commissions by employee - BASEADO EM PROPOSTAS DO VENDEDOR
         const commissionsByEmployee = employees.map(employee => {
-          // REGRA: Comissão baseada apenas em propostas ORIGINAIS aprovadas do vendedor
-          const employeeOriginalApproved = approvedQuotations.filter(q => 
-            q.userId === employee.id && q.adminCalculated === false
-          );
+          // REGRA: Comissão baseada nas propostas aprovadas do vendedor (independente de terem sido calculadas)
+          const employeeApproved = approvedQuotations.filter(q => q.userId === employee.id);
           const commissionPercent = parseFloat(employee.commissionPercent || '0');
-          const totalSales = employeeOriginalApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          const totalSales = employeeApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
           const totalCommission = totalSales * commissionPercent / 100;
           
-          // Total de propostas originais do vendedor (para conversão)
-          const employeeOriginalQuotations = allQuotations.filter(q => 
-            q.userId === employee.id && q.adminCalculated === false
-          );
+          // Total de propostas do vendedor (para conversão)
+          const employeeQuotations = allQuotations.filter(q => q.userId === employee.id);
           
           return {
             employeeId: employee.id,
@@ -742,10 +762,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             commissionPercent,
             totalSales,
             totalCommission,
-            quotationsCount: employeeOriginalApproved.length, // Apenas originais aprovadas
-            allQuotationsCount: employeeOriginalQuotations.length, // Apenas originais totais
-            conversionRate: employeeOriginalQuotations.length > 0 
-              ? (employeeOriginalApproved.length / employeeOriginalQuotations.length) * 100 
+            quotationsCount: employeeApproved.length, // Propostas aprovadas (versão final)
+            allQuotationsCount: employeeQuotations.length, // Total de propostas (versão final)
+            conversionRate: employeeQuotations.length > 0 
+              ? (employeeApproved.length / employeeQuotations.length) * 100 
               : 0
           };
         });
@@ -845,8 +865,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let quotations: any[];
 
       if (user.type === "admin") {
-        // Admin sees all employee activities
-        quotations = await storage.getQuotationsInDateRange(startDate, endDate);
+        // Admin sees all employee activities (deduplicadas)
+        const quotationsRaw = await storage.getQuotationsInDateRange(startDate, endDate);
+        
+        // Aplicar mesma lógica de deduplicação para atividades recentes
+        const quotationsMap = new Map<string, any>();
+        
+        quotationsRaw.forEach(q => {
+          const originalId = q.originalQuotationId || q.id;
+          
+          if (!quotationsMap.has(originalId)) {
+            quotationsMap.set(originalId, q);
+          } else {
+            const existing = quotationsMap.get(originalId);
+            if (q.adminCalculated && !existing.adminCalculated) {
+              quotationsMap.set(originalId, q);
+            }
+          }
+        });
+        
+        quotations = Array.from(quotationsMap.values());
+        console.log(`Recent Activities - Admin: found ${quotationsRaw.length} total, showing ${quotations.length} deduplicated`);
       } else {
         // REGRA: Vendedor vê apenas suas propostas ORIGINAIS (não as calculadas pelo admin)
         const allUserQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
