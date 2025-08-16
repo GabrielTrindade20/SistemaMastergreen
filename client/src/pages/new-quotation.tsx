@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import QuotationForm from "@/components/quotation-form";
+import NewQuotationForm from "@/components/new-quotation-form";
 import type { Customer, Product } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,12 +47,23 @@ export default function NewQuotation() {
 
   const createQuotationMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('=== MUTATION FUNCTION ===');
+      console.log('editingQuotationId:', editingQuotationId);
+      console.log('isAdminEditing:', isAdminEditing);
+      console.log('data being sent:', data);
+      
       if (editingQuotationId) {
         // Update existing quotation
-        return await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "PUT", data });
+        console.log('Making PUT request to:', `/api/quotations/${editingQuotationId}`);
+        const result = await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "PUT", data });
+        console.log('PUT request result:', result);
+        return result;
       } else {
         // Create new quotation
-        return await apiRequest("/api/quotations", { method: "POST", data });
+        console.log('Making POST request to: /api/quotations');
+        const result = await apiRequest("/api/quotations", { method: "POST", data });
+        console.log('POST request result:', result);
+        return result;
       }
     },
     onSuccess: () => {
@@ -62,7 +73,7 @@ export default function NewQuotation() {
         description: editingQuotationId ? "Proposta atualizada com sucesso!" : "Proposta criada com sucesso!",
       });
       if (isAdminEditing) {
-        setLocation("/funcionarios");
+        setLocation("/employees");
       } else {
         setLocation("/orcamentos");
       }
@@ -78,12 +89,15 @@ export default function NewQuotation() {
   });
 
   const handleSubmit = (data: any) => {
+    console.log('handleSubmit called with data:', data);
+    console.log('Editing quotation ID:', editingQuotationId);
+    console.log('Is admin editing:', isAdminEditing);
     createQuotationMutation.mutate(data);
   };
 
   const handleCancel = () => {
     if (isAdminEditing) {
-      setLocation("/funcionarios");
+      setLocation("/employees");
     } else {
       setLocation("/orcamentos");
     }
@@ -117,15 +131,13 @@ export default function NewQuotation() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <QuotationForm
+            <NewQuotationForm
               customers={customers}
               products={products}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
               isLoading={createQuotationMutation.isPending}
               initialData={editingQuotation}
-              isAdminMode={isAdminEditing}
-              editingId={editingQuotationId}
             />
           </CardContent>
         </Card>
