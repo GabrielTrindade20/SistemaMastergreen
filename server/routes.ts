@@ -797,12 +797,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Vendedor Dashboard - Found ${userQuotations.length} quotations for user ${user.name}`);
         const userCustomers = await storage.getCustomersByUser(user.id);
 
+        // NOVA REGRA: Apenas propostas APROVADAS contam para comissão e vendas
         const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
         // REGRA: Vendedor vê apenas propostas pendentes ORIGINAIS (que ele criou, não as do admin)
         const pendingQuotations = userQuotations.filter(q => q.status === 'pending' && q.adminCalculated === false);
         
-        // REGRA VENDEDOR: Comissão baseada APENAS nas propostas originais que ELE aprovou
-        // Filtrar apenas propostas originais do vendedor (não as calculadas pelo admin)
+        // REGRA VENDEDOR: Comissão baseada APENAS nas propostas APROVADAS originais
         const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === false);
         console.log(`Vendedor Dashboard - Total quotations: ${userQuotations.length}, Approved: ${approvedQuotations.length}, Original approved: ${vendedorOriginalApproved.length}`);
 
@@ -813,12 +813,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : 0;
         
         const commissionPercent = parseFloat(user.commissionPercent || '0');
-        const totalCommission = vendedorOriginalApproved.reduce((sum, q) => {
-          return sum + (parseFloat(q.total) * commissionPercent / 100);
-        }, 0);
-
-        // Vendas totais = valor bruto das propostas originais aprovadas pelo vendedor
+        // VENDEDOR: Comissão e vendas APENAS de propostas APROVADAS
         const totalSales = vendedorOriginalApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
+        const totalCommission = totalSales * commissionPercent / 100;
 
         // Breakdown detalhado apenas das propostas originais
         const commissionBreakdown = vendedorOriginalApproved.map(q => ({
