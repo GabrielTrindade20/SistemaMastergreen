@@ -386,14 +386,16 @@ export default function NewQuotationForm({
   };
 
   const handleSubmit = (formData: QuotationFormData) => {
-    console.log('=== INÍCIO DO ENVIO ===');
-    console.log('Dados do formulário antes do envio:', formData);
-    console.log('Items antes do envio:', items);
-    console.log('Costs antes do envio:', costs);
-    console.log('Calculations antes do envio:', calculations);
+    console.log('=== HANDLESUBMIT CALLED ===');
+    console.log('User type:', user?.type);
+    console.log('Is admin editing:', user?.type === 'admin');
+    console.log('Form data received:', formData);
+    console.log('Current items state:', items);
+    console.log('Current costs state:', costs);
+    console.log('Current calculations:', calculations);
     
     // Verificar se há mudanças nos valores
-    console.log('Verificando mudanças:');
+    console.log('Detailed item analysis:');
     items.forEach((item, index) => {
       console.log(`Item ${index}:`, {
         produto: item.productId,
@@ -401,6 +403,18 @@ export default function NewQuotationForm({
         precoOriginal: item.unitPrice,
         precoVenda: item.salePrice,
         precoFinal: item.salePrice || item.unitPrice
+      });
+    });
+    
+    console.log('Detailed costs analysis:');
+    costs.forEach((cost, index) => {
+      console.log(`Cost ${index}:`, {
+        costId: cost.costId,
+        name: cost.name,
+        unitValue: cost.unitValue,
+        quantity: cost.quantity,
+        totalValue: cost.totalValue,
+        calculationType: cost.calculationType
       });
     });
     
@@ -423,9 +437,17 @@ export default function NewQuotationForm({
       calculations,
     };
     
-    console.log('Dados finais sendo enviados:', quotationData);
-    console.log('=== FIM DO ENVIO ===');
-    onSubmit(quotationData);
+    console.log('Prepared quotation data:', quotationData);
+    console.log('About to call onSubmit function...');
+    
+    try {
+      onSubmit(quotationData);
+      console.log('onSubmit called successfully');
+    } catch (error) {
+      console.error('Error calling onSubmit:', error);
+    }
+    
+    console.log('=== HANDLESUBMIT COMPLETE ===');
   };
 
   const handleShareQuotation = async () => {
@@ -552,8 +574,11 @@ export default function NewQuotationForm({
     <Form {...form}>
       <form onSubmit={(e) => {
         console.log('Form submit event triggered');
-        e.preventDefault();
-        form.handleSubmit(handleSubmit)(e);
+        console.log('Form validation state:', form.formState.isValid);
+        console.log('Form errors:', form.formState.errors);
+        form.handleSubmit(handleSubmit, (errors) => {
+          console.log('Form validation errors:', errors);
+        })(e);
       }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Cliente com Pesquisa Melhorada */}
