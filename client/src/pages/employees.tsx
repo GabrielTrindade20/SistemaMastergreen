@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Users, Search, Filter, Calculator } from "lucide-react";
+import { Eye, Users, Search, Filter, Calculator, ShieldCheck } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -105,9 +106,15 @@ export default function Employees() {
     queryKey: ['/api/users']
   });
 
-  // Fetch employee quotations for admin management
-  const { data: quotations = [] } = useQuery<Quotation[]>({
+  // Fetch original employee quotations for admin management
+  const { data: originalQuotations = [] } = useQuery<Quotation[]>({
     queryKey: ['/api/employee-quotations'],
+    enabled: !!currentUser && currentUser.type === "admin"
+  });
+
+  // Fetch admin-calculated quotations (validated proposals)
+  const { data: validatedQuotations = [] } = useQuery<Quotation[]>({
+    queryKey: ['/api/admin-calculated-quotations'],
     enabled: !!currentUser && currentUser.type === "admin"
   });
 
@@ -128,10 +135,31 @@ export default function Employees() {
     }
   };
 
-  // Filter quotations to exclude current admin's proposals
-  const filteredQuotationsExcludingCurrentAdmin = quotations.filter(quotation => {
+  // Filter functions for both types of quotations
+  const getFilteredQuotations = (quotationsList: Quotation[]) => {
+    return quotationsList.filter(quotation => {
+      const employeeId = quotation.responsibleId || quotation.userId;
+      
+      // Basic filters
+      const matchesSearch = 
+        quotation.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getEmployeeName(quotation).toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesEmployee = selectedEmployee === "all" || employeeId === selectedEmployee;
+      const matchesStatus = selectedStatus === "all" || quotation.status === selectedStatus;
+      
+      return matchesSearch && matchesEmployee && matchesStatus && employeeId !== currentUser?.id;
+    });
+  };
+
+  const filteredOriginalQuotations = getFilteredQuotations(originalQuotations);
+  const filteredValidatedQuotations = getFilteredQuotations(validatedQuotations);
+
+  // Create a combined list for employee summary cards
+  const allQuotations = [...originalQuotations, ...validatedQuotations];
+  const filteredQuotationsForSummary = allQuotations.filter(quotation => {
     const employeeId = quotation.responsibleId || quotation.userId;
-    return employeeId !== currentUser?.id; // Exclude current admin's own proposals
+    return employeeId !== currentUser?.id;
   });
 
   // Helper functions
@@ -162,20 +190,77 @@ export default function Employees() {
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
-  // Filter quotations (excluding current admin's proposals)
-  const filteredQuotations = filteredQuotationsExcludingCurrentAdmin.filter(quotation => {
-    const employeeId = quotation.responsibleId || quotation.userId || "";
-    const employee = users.find(u => u.id === employeeId);
-    
-    const matchesSearch = searchTerm === "" || 
-      employee?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      quotation.customer.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesEmployee = selectedEmployee === "all" || employeeId === selectedEmployee;
-    const matchesStatus = selectedStatus === "all" || quotation.status === selectedStatus;
-    
-    return matchesSearch && matchesEmployee && matchesStatus;
-  });
+  // Component para renderizar lista de propostas
+  const QuotationsList = ({ quotations, title, canEdit = false }: { quotations: Quotation[], title: string, canEdit?: boolean }) => (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>
+          {quotations.length} proposta(s) encontrada(s)
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {quotations.length === 0 ? (
+          <p className="text-center text-gray-500 py-8">Nenhuma proposta encontrada</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Funcionário</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {quotations.map((quotation) => (
+                <TableRow key={quotation.id}>
+                  <TableCell>{quotation.customer.name}</TableCell>
+                  <TableCell>{getEmployeeName(quotation)}</TableCell>
+                  <TableCell>{getStatusBadge(quotation.status)}</TableCell>
+                  <TableCell>{formatCurrency(parseFloat(quotation.total))}</TableCell>
+                  <TableCell>{formatDate(quotation.createdAt!)}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedQuotation(quotation)}
+                        data-testid={`button-view-${quotation.id}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                        Ver
+                      </Button>
+                      {canEdit && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCalculateCosts(quotation.id)}
+                          disabled={calculatingCosts.has(quotation.id)}
+                          data-testid={`button-calculate-${quotation.id}`}
+                        >
+                          {calculatingCosts.has(quotation.id) ? (
+                            "Carregando..."
+                          ) : (
+                            <>
+                              <Calculator className="h-4 w-4 mr-1" />
+                              Calcular Custos
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -243,7 +328,7 @@ export default function Employees() {
       {/* Employee Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {employees.map((employee) => {
-          const employeeQuotations = filteredQuotationsExcludingCurrentAdmin.filter(q => 
+          const employeeQuotations = filteredQuotationsForSummary.filter(q => 
             (q.responsibleId === employee.id || q.userId === employee.id)
           );
           const totalValue = employeeQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
@@ -281,92 +366,35 @@ export default function Employees() {
         })}
       </div>
 
-      {/* Quotations Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Propostas dos Funcionários</CardTitle>
-          <CardDescription>
-            {filteredQuotations.length} proposta(s) encontrada(s)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {filteredQuotations.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">
-                {searchTerm || selectedEmployee !== "all" || selectedStatus !== "all" 
-                  ? "Nenhuma proposta encontrada com os filtros aplicados" 
-                  : "Nenhuma proposta cadastrada"}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Funcionário</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Situação</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Valor Bruto</TableHead>
-                    <TableHead>% Comissão</TableHead>
-                    <TableHead>Valor Comissão</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredQuotations.map((quotation) => {
-                    const employeeId = quotation.responsibleId || quotation.userId || "";
-                    const commissionPercent = getEmployeeCommissionPercent(employeeId);
-                    const commissionValue = calculateCommission(quotation.total, employeeId);
-                    
-                    return (
-                      <TableRow key={quotation.id}>
-                        <TableCell className="font-medium">
-                          {getEmployeeName(quotation)}
-                        </TableCell>
-                        <TableCell>{quotation.customer.name}</TableCell>
-                        <TableCell>{getStatusBadge(quotation.status)}</TableCell>
-                        <TableCell>{formatDate(quotation.createdAt!)}</TableCell>
-                        <TableCell className="font-semibold">
-                          {formatCurrency(parseFloat(quotation.total))}
-                        </TableCell>
-                        <TableCell className="font-semibold">
-                          {commissionPercent}%
-                        </TableCell>
-                        <TableCell className="font-semibold text-green-600">
-                          {formatCurrency(commissionValue)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setSelectedQuotation(quotation)}
-                              data-testid={`button-view-proposal-${quotation.id}`}
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleCalculateCosts(quotation.id)}
-                              disabled={calculatingCosts.has(quotation.id)}
-                              data-testid={`button-calculate-costs-${quotation.id}`}
-                            >
-                              <Calculator className="w-4 h-4 mr-1" />
-                              {calculatingCosts.has(quotation.id) ? 'Abrindo...' : 'Ver/Editar'}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Propostas com abas */}
+      <Tabs defaultValue="original" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="original" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Propostas dos Funcionários
+          </TabsTrigger>
+          <TabsTrigger value="validated" className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" />
+            Propostas Validadas
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="original">
+          <QuotationsList 
+            quotations={filteredOriginalQuotations} 
+            title="Propostas Originais dos Funcionários"
+            canEdit={true}
+          />
+        </TabsContent>
+        
+        <TabsContent value="validated">
+          <QuotationsList 
+            quotations={filteredValidatedQuotations} 
+            title="Propostas Validadas pelo Admin"
+            canEdit={false}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Quotation Details Modal */}
       {selectedQuotation && (
