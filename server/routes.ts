@@ -562,10 +562,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [year, month] = selectedDate.split('-').map(Number);
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
+      
+      console.log(`Dashboard - Date: ${selectedDate}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
 
       if (user.type === "admin") {
         // Admin dashboard - comprehensive system view
         const allQuotations = await storage.getQuotationsInDateRange(startDate, endDate);
+        console.log(`Admin Dashboard - Found ${allQuotations.length} quotations in date range`);
         const allCustomers = await storage.getCustomers();
         const allUsers = await storage.getUsers();
         const employees = allUsers.filter(u => u.type === "vendedor");
@@ -619,6 +622,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Employee dashboard - personal view
         const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
+        console.log(`Vendedor Dashboard - Found ${userQuotations.length} quotations for user ${user.name}`);
         const userCustomers = await storage.getCustomersByUser(user.id);
 
         const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
