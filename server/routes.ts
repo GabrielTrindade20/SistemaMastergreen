@@ -604,23 +604,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
         const pendingQuotations = allQuotations.filter(q => q.status === 'pending');
         
-        // Calculate total revenue using admin-calculated values when available
-        const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+        // Calculate metrics considering admin-calculated propostas
+        let totalRevenue = 0;
+        let totalCompanyProfit = 0;
+        let totalNetProfit = 0;
         
-        // Calculate total company profit and net profit from admin-calculated values
-        const totalCompanyProfit = approvedQuotations.reduce((sum, q) => {
-          if (q.adminCalculated && q.companyProfit) {
-            return sum + parseFloat(q.companyProfit);
+        approvedQuotations.forEach(q => {
+          console.log(`Dashboard - Processing quotation ${q.quotationNumber}, adminCalculated: ${q.adminCalculated}`);
+          
+          if (q.adminCalculated === 1) {
+            // Para propostas calculadas pelo admin, usar valores calculados
+            const netProfit = parseFloat(q.netProfit || '0');
+            const companyProfit = parseFloat(q.companyProfit || '0');
+            totalNetProfit += netProfit;
+            totalCompanyProfit += companyProfit;
+            totalRevenue += parseFloat(q.total || '0'); // Manter receita total
+            console.log(`Dashboard - Admin calculated: netProfit=${netProfit}, companyProfit=${companyProfit}`);
+          } else {
+            // Para propostas originais, usar valor total como lucro bruto
+            const total = parseFloat(q.total || '0');
+            totalRevenue += total;
+            totalCompanyProfit += total; // Considera todo valor como lucro bruto
+            console.log(`Dashboard - Original: total=${total}`);
           }
-          return sum;
-        }, 0);
-        
-        const totalNetProfit = approvedQuotations.reduce((sum, q) => {
-          if (q.adminCalculated && q.netProfit) {
-            return sum + parseFloat(q.netProfit);
-          }
-          return sum;
-        }, 0);
+        });
         const conversionRate = allQuotations.length > 0 
           ? (approvedQuotations.length / allQuotations.length) * 100 
           : 0;
@@ -649,8 +656,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
         
-        // Use calculated net profit from admin calculations when available
-        const netProfit = totalNetProfit > 0 ? (totalNetProfit - totalCommissionsPaid) : (totalRevenue - totalCommissionsPaid);
+        // Calculate final net profit considering commissions
+        const finalNetProfit = totalNetProfit > 0 ? totalNetProfit : (totalCompanyProfit - totalCommissionsPaid);
+        
+        console.log(`Dashboard Summary - Total Revenue: ${totalRevenue}, Company Profit: ${totalCompanyProfit}, Net Profit: ${totalNetProfit}, Commissions: ${totalCommissionsPaid}, Final Net: ${finalNetProfit}`);
 
         res.json({
           type: "admin",
@@ -662,7 +671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalQuotations: allQuotations.length,
           commissionsByEmployee,
           totalCommissionsPaid,
-          netProfit,
+          netProfit: finalNetProfit,
           totalCompanyProfit,
           totalNetProfit,
           employeesCount: employees.length
