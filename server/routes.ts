@@ -497,6 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const updatedCalculated = await storage.updateQuotation(existingCalculated.id, {
             ...req.body,
             userId: existingQuotation.userId, // Manter vendedor original
+            status: existingQuotation.status, // INHERIT STATUS FROM ORIGINAL QUOTATION
             responsibleId: existingQuotation.userId, // Referência ao vendedor
             adminCalculated: true,
             originalQuotationId: id,
@@ -524,6 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tithe: calculations.tithe.toString(),
             netProfit: calculations.netProfit.toString(),
             total: calculations.total.toString(),
+            status: existingQuotation.status, // INHERIT STATUS FROM ORIGINAL QUOTATION
             shippingIncluded: req.body.shippingIncluded ? 1 : 0,
             warrantyText: req.body.warrantyText || "1 ano de garantia de fábrica",
             pdfTitle: req.body.pdfTitle || null,
@@ -718,12 +720,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? (approvedQuotations.length / allQuotations.length) * 100 
           : 0;
 
-        // Calculate commissions by employee
+        // Calculate commissions by employee - BASEADO EM PROPOSTAS ORIGINAIS APROVADAS
         const commissionsByEmployee = employees.map(employee => {
-          const employeeApprovedQuotations = approvedQuotations.filter(q => q.userId === employee.id);
+          // REGRA: Comissão baseada apenas em propostas ORIGINAIS aprovadas do vendedor
+          const employeeOriginalApproved = approvedQuotations.filter(q => 
+            q.userId === employee.id && q.adminCalculated === 0
+          );
           const commissionPercent = parseFloat(employee.commissionPercent || '0');
-          const totalSales = employeeApprovedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          const totalSales = employeeOriginalApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
           const totalCommission = totalSales * commissionPercent / 100;
+          
+          // Total de propostas originais do vendedor (para conversão)
+          const employeeOriginalQuotations = allQuotations.filter(q => 
+            q.userId === employee.id && q.adminCalculated === 0
+          );
           
           return {
             employeeId: employee.id,
@@ -732,10 +742,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             commissionPercent,
             totalSales,
             totalCommission,
-            quotationsCount: employeeApprovedQuotations.length,
-            allQuotationsCount: allQuotations.filter(q => q.userId === employee.id).length,
-            conversionRate: allQuotations.filter(q => q.userId === employee.id).length > 0 
-              ? (employeeApprovedQuotations.length / allQuotations.filter(q => q.userId === employee.id).length) * 100 
+            quotationsCount: employeeOriginalApproved.length, // Apenas originais aprovadas
+            allQuotationsCount: employeeOriginalQuotations.length, // Apenas originais totais
+            conversionRate: employeeOriginalQuotations.length > 0 
+              ? (employeeOriginalApproved.length / employeeOriginalQuotations.length) * 100 
               : 0
           };
         });
