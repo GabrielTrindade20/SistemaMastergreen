@@ -684,6 +684,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getQuotationsInDateRange(startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
+    console.log(`Storage - getQuotationsInDateRange: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    
     const result = await db
       .select({
         quotation: quotations,
@@ -700,6 +702,8 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(quotations.createdAt));
+      
+    console.log(`Storage - Found ${result.length} quotations in database`);
 
     // Group by quotation and fetch related data
     const quotationsMap = new Map<string, QuotationWithDetails>();
@@ -744,6 +748,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
+    console.log(`Storage - getQuotationsByUserInDateRange for user ${userId}: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    
     const result = await db
       .select({
         quotation: quotations,
@@ -761,6 +767,8 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(quotations.createdAt));
+      
+    console.log(`Storage - Found ${result.length} quotations for user`);
 
     // Group by quotation and fetch related data
     const quotationsMap = new Map<string, QuotationWithDetails>();
