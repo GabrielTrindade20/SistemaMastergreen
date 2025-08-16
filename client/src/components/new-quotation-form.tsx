@@ -78,7 +78,7 @@ interface NewQuotationFormProps {
   initialData?: any;
 }
 
-export default function NewQuotationForm({ 
+export function NewQuotationForm({ 
   customers, 
   products, 
   onSubmit, 
@@ -1227,3 +1227,5 @@ export default function NewQuotationForm({
     </Form>
   );
 }
+
+export default NewQuotationForm;

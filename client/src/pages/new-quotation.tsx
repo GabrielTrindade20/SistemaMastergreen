@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import QuotationForm from "@/components/quotation-form";
+import NewQuotationForm from "@/components/new-quotation-form";
 import type { Customer, Product } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -125,15 +125,13 @@ export default function NewQuotation() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <QuotationForm
+            <NewQuotationForm
               customers={customers}
               products={products}
               onSubmit={handleSubmit}
               onCancel={handleCancel}
               isLoading={createQuotationMutation.isPending}
               initialData={editingQuotation}
-              isAdminMode={isAdminEditing}
-              editingId={editingQuotationId}
             />
           </CardContent>
         </Card>
