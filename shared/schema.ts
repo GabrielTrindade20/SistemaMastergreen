@@ -57,6 +57,7 @@ export const quotations = pgTable("quotations", {
   responsiblePosition: text("responsible_position").default("Administrador"),
   responsibleId: uuid("responsible_id").references(() => users.id), // vendedor responsável
   adminCalculated: integer("admin_calculated").default(0), // 0=original, 1=calculado pelo admin
+  originalQuotationId: text("original_quotation_id"), // Referência à proposta original quando é versão calculada
   branch: text("branch").notNull(), // filial do orçamento
   createdAt: timestamp("created_at").defaultNow(),
 });

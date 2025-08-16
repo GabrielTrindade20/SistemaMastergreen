@@ -472,33 +472,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/quotations/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
+      const user = req.session.user!;
       console.log('=== UPDATE QUOTATION START ===');
       console.log('Quotation ID:', id);
-      console.log('Request body keys:', Object.keys(req.body));
-      console.log('Request body length:', JSON.stringify(req.body).length);
-      console.log('Full request body:', req.body);
+      console.log('User:', user.name, 'Type:', user.type);
+      console.log('Is Admin Calculated:', req.body.adminCalculated);
       
-      // Verificar se a proposta existe usando getQuotation
+      // Verificar se a proposta existe
       const existingQuotation = await storage.getQuotation(id);
-      
       if (!existingQuotation) {
         return res.status(404).json({ message: "Quotation not found" });
       }
       
-      // Mesclar dados existentes com novos dados para atualização
-      const mergedData = {
-        ...req.body,
-        // Preservar campos importantes da proposta original
-        userId: existingQuotation.userId,
-        createdAt: existingQuotation.createdAt,
-        quotationNumber: existingQuotation.quotationNumber,
-      };
-      
-      console.log('Merged data for update:', mergedData);
-      const updatedQuotation = await storage.updateQuotation(id, mergedData);
-      console.log('Update successful, returning result');
-      console.log('=== UPDATE QUOTATION END ===');
-      res.json(updatedQuotation);
+      // LÓGICA CRÍTICA: Se admin está editando proposta de vendedor, criar nova proposta calculada
+      if (user.type === 'admin' && req.body.adminCalculated && existingQuotation.userId !== user.id) {
+        console.log('ADMIN CREATING CALCULATED VERSION - Do not modify original!');
+        
+        // Verificar se já existe uma versão calculada para esta proposta original
+        const existingCalculated = await storage.getCalculatedQuotationByOriginal(id);
+        
+        if (existingCalculated) {
+          console.log('Updating existing calculated quotation:', existingCalculated.id);
+          // Atualizar a versão calculada existente
+          const updatedCalculated = await storage.updateQuotation(existingCalculated.id, {
+            ...req.body,
+            userId: existingQuotation.userId, // Manter vendedor original
+            responsibleId: existingQuotation.userId, // Referência ao vendedor
+            adminCalculated: true,
+            originalQuotationId: id,
+          });
+          return res.json(updatedCalculated);
+        } else {
+          console.log('Creating new calculated quotation for original:', id);
+          // Criar nova proposta calculada
+          const { customerId, validUntil, notes, items, costs, calculations } = req.body;
+          
+          const quotationData = {
+            customerId,
+            userId: existingQuotation.userId, // Manter vendedor original
+            branch: existingQuotation.branch,
+            validUntil: new Date(validUntil),
+            notes: notes || null,
+            subtotal: calculations.subtotal.toString(),
+            totalCosts: calculations.totalCosts.toString(),
+            totalWithoutInvoice: calculations.totalWithoutInvoice.toString(),
+            invoicePercent: calculations.invoicePercent.toString(),
+            invoiceAmount: calculations.invoiceAmount.toString(),
+            totalWithInvoice: calculations.totalWithInvoice.toString(),
+            companyProfit: calculations.companyProfit.toString(),
+            profitPercent: calculations.profitPercent.toString(),
+            tithe: calculations.tithe.toString(),
+            netProfit: calculations.netProfit.toString(),
+            total: calculations.total.toString(),
+            shippingIncluded: req.body.shippingIncluded ? 1 : 0,
+            warrantyText: req.body.warrantyText || "1 ano de garantia de fábrica",
+            pdfTitle: req.body.pdfTitle || null,
+            responsibleName: req.body.responsibleName || existingQuotation.responsibleName,
+            responsiblePosition: req.body.responsiblePosition || "Administrador",
+            responsibleId: existingQuotation.userId, // Referência ao vendedor
+            adminCalculated: true,
+            originalQuotationId: id,
+          };
+          
+          const itemsData = items.map((item: any) => ({
+            productId: item.productId,
+            quantity: item.quantity.toString(),
+            unitPrice: item.unitPrice.toString(),
+            unitCost: "0.00",
+            subtotal: (item.quantity * item.unitPrice).toString(),
+            totalCost: "0.00",
+          }));
+          
+          const costsData = costs ? costs.map((cost: any) => ({
+            costId: cost.costId === 'manual' ? null : cost.costId,
+            name: cost.name,
+            unitValue: cost.unitValue.toString(),
+            quantity: cost.quantity.toString(),
+            totalValue: cost.totalValue.toString(),
+            supplier: cost.supplier || null,
+            description: cost.description || null,
+          })) : [];
+          
+          const newCalculatedQuotation = await storage.createQuotation(quotationData, itemsData, costsData);
+          console.log('Created calculated quotation:', newCalculatedQuotation.id);
+          return res.json(newCalculatedQuotation);
+        }
+      } else {
+        console.log('NORMAL UPDATE - Vendor editing own quotation');
+        // Edição normal (vendedor editando própria proposta)
+        const mergedData = {
+          ...req.body,
+          userId: existingQuotation.userId,
+          createdAt: existingQuotation.createdAt,
+          quotationNumber: existingQuotation.quotationNumber,
+        };
+        
+        const updatedQuotation = await storage.updateQuotation(id, mergedData);
+        console.log('=== UPDATE QUOTATION END ===');
+        res.json(updatedQuotation);
+      }
     } catch (error) {
       console.error("Error updating quotation:", error);
       if (error instanceof z.ZodError) {
