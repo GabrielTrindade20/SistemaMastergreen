@@ -57,6 +57,7 @@ export interface IStorage {
   getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]>;
   getCustomersByUser(userId: string): Promise<Customer[]>;
   createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[], costs?: InsertQuotationCost[]): Promise<QuotationWithDetails>;
+  updateQuotation(id: string, quotation: any): Promise<QuotationWithDetails>;
   updateQuotationStatus(id: string, status: string): Promise<QuotationWithDetails>;
   updateQuotationCommission(id: string, commission: number): Promise<QuotationWithDetails>;
   deleteQuotation(id: string): Promise<void>;
@@ -689,6 +690,109 @@ export class DatabaseStorage implements IStorage {
     // Return the complete quotation
     const result = await this.getQuotation(newQuotation.id);
     return result!;
+  }
+
+  async updateQuotation(id: string, quotationData: any): Promise<QuotationWithDetails> {
+    console.log('Storage - updateQuotation called with:', { id, quotationData });
+    
+    try {
+      // Atualizar dados principais da proposta
+      const quotationUpdateData = {
+        customerId: quotationData.customerId,
+        userId: quotationData.userId,
+        subtotal: quotationData.subtotal,
+        totalCosts: quotationData.totalCosts,
+        totalWithoutInvoice: quotationData.totalWithoutInvoice,
+        invoicePercent: quotationData.invoicePercent,
+        invoiceAmount: quotationData.invoiceAmount,
+        totalWithInvoice: quotationData.totalWithInvoice,
+        companyProfit: quotationData.companyProfit,
+        profitPercent: quotationData.profitPercent,
+        tithe: quotationData.tithe,
+        netProfit: quotationData.netProfit,
+        total: quotationData.total,
+        status: quotationData.status || 'pending',
+        validUntil: quotationData.validUntil ? new Date(quotationData.validUntil) : undefined,
+        notes: quotationData.notes,
+        shippingIncluded: quotationData.shippingIncluded,
+        warrantyText: quotationData.warrantyText,
+        pdfTitle: quotationData.pdfTitle,
+        responsibleName: quotationData.responsibleName,
+        responsiblePosition: quotationData.responsiblePosition,
+        responsibleId: quotationData.responsibleId,
+        adminCalculated: quotationData.adminCalculated || 0,
+        branch: quotationData.branch,
+      };
+
+      // Remover campos undefined
+      Object.keys(quotationUpdateData).forEach(key => {
+        if (quotationUpdateData[key] === undefined) {
+          delete quotationUpdateData[key];
+        }
+      });
+
+      console.log('Storage - updating quotation with data:', quotationUpdateData);
+
+      const [updatedQuotation] = await db
+        .update(quotations)
+        .set(quotationUpdateData)
+        .where(eq(quotations.id, id))
+        .returning();
+
+      // Atualizar itens se fornecidos
+      if (quotationData.items && Array.isArray(quotationData.items)) {
+        // Remover itens existentes
+        await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+        
+        // Inserir novos itens
+        for (const item of quotationData.items) {
+          const product = await this.getProduct(item.productId);
+          if (product) {
+            await db.insert(quotationItems).values({
+              quotationId: id,
+              productId: item.productId,
+              quantity: item.quantity.toString(),
+              unitPrice: item.unitPrice.toString(),
+              unitCost: product.costPerM2,
+              subtotal: (Number(item.quantity) * Number(item.unitPrice)).toString(),
+              totalCost: (Number(item.quantity) * Number(product.costPerM2)).toString(),
+            });
+          }
+        }
+      }
+
+      // Atualizar custos se fornecidos
+      if (quotationData.costs && Array.isArray(quotationData.costs)) {
+        // Remover custos existentes
+        await db.delete(quotationCosts).where(eq(quotationCosts.quotationId, id));
+        
+        // Inserir novos custos
+        for (const cost of quotationData.costs) {
+          await db.insert(quotationCosts).values({
+            quotationId: id,
+            costId: cost.costId || null,
+            name: cost.name,
+            unitValue: cost.unitValue.toString(),
+            quantity: cost.quantity.toString(),
+            totalValue: cost.totalValue.toString(),
+            supplier: cost.supplier || null,
+            description: cost.description || null,
+          });
+        }
+      }
+
+      // Retornar proposta atualizada com detalhes
+      const result = await this.getQuotation(id);
+      if (!result) {
+        throw new Error('Proposta não encontrada após atualização');
+      }
+      
+      console.log('Storage - quotation updated successfully');
+      return result;
+    } catch (error) {
+      console.error('Storage - error updating quotation:', error);
+      throw error;
+    }
   }
 
   async updateQuotationStatus(id: string, status: string): Promise<QuotationWithDetails> {

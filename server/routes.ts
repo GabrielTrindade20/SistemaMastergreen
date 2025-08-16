@@ -474,18 +474,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       console.log('Received quotation update data:', req.body);
       
-      // Para atualizações, usar um schema mais flexível
-      const existingQuotation = await storage.getQuotationById(id);
+      // Verificar se a proposta existe usando getQuotation
+      const existingQuotation = await storage.getQuotation(id);
+      
       if (!existingQuotation) {
         return res.status(404).json({ message: "Quotation not found" });
       }
       
-      // Mesclar dados existentes com novos dados
+      // Mesclar dados existentes com novos dados para atualização
       const mergedData = {
-        ...existingQuotation,
         ...req.body,
-        id: undefined, // remover ID dos dados de atualização
-        createdAt: undefined, // preservar data de criação
+        // Preservar campos importantes da proposta original
+        userId: existingQuotation.userId,
+        createdAt: existingQuotation.createdAt,
+        quotationNumber: existingQuotation.quotationNumber,
       };
       
       console.log('Merged data for update:', mergedData);
