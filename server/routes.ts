@@ -563,45 +563,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
 
-      let quotations: any[];
-      let customers: any[];
-
       if (user.type === "admin") {
-        // Admin sees all data
-        quotations = await storage.getQuotationsInDateRange(startDate, endDate);
-        customers = await storage.getCustomers();
+        // Admin dashboard - comprehensive system view
+        const allQuotations = await storage.getQuotationsInDateRange(startDate, endDate);
+        const allCustomers = await storage.getCustomers();
+        const allUsers = await storage.getUsers();
+        const employees = allUsers.filter(u => u.type === "funcionario");
+
+        const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
+        const pendingQuotations = allQuotations.filter(q => q.status === 'pending');
+        
+        const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+        const conversionRate = allQuotations.length > 0 
+          ? (approvedQuotations.length / allQuotations.length) * 100 
+          : 0;
+
+        // Calculate commissions by employee
+        const commissionsByEmployee = employees.map(employee => {
+          const employeeApprovedQuotations = approvedQuotations.filter(q => q.userId === employee.id);
+          const commissionPercent = parseFloat(employee.commissionPercent || '0');
+          const totalSales = employeeApprovedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          const totalCommission = totalSales * commissionPercent / 100;
+          
+          return {
+            employeeId: employee.id,
+            employeeName: employee.name,
+            employeeBranch: employee.branch,
+            commissionPercent,
+            totalSales,
+            totalCommission,
+            quotationsCount: employeeApprovedQuotations.length,
+            allQuotationsCount: allQuotations.filter(q => q.userId === employee.id).length,
+            conversionRate: allQuotations.filter(q => q.userId === employee.id).length > 0 
+              ? (employeeApprovedQuotations.length / allQuotations.filter(q => q.userId === employee.id).length) * 100 
+              : 0
+          };
+        });
+
+        const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
+        const netProfit = totalRevenue - totalCommissionsPaid;
+
+        res.json({
+          type: "admin",
+          totalRevenue,
+          pendingQuotations: pendingQuotations.length,
+          activeCustomers: allCustomers.length,
+          conversionRate,
+          approvedQuotations: approvedQuotations.length,
+          totalQuotations: allQuotations.length,
+          commissionsByEmployee,
+          totalCommissionsPaid,
+          netProfit,
+          employeesCount: employees.length
+        });
       } else {
-        // Employee sees only their data
-        quotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
-        customers = await storage.getCustomersByUser(user.id);
-      }
+        // Employee dashboard - personal view
+        const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
+        const userCustomers = await storage.getCustomersByUser(user.id);
 
-      const approvedQuotations = quotations.filter(q => q.status === 'approved');
-      const pendingQuotations = quotations.filter(q => q.status === 'pending').length;
-      
-      const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
-      
-      const conversionRate = quotations.length > 0 
-        ? (approvedQuotations.length / quotations.length) * 100 
-        : 0;
+        const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
+        const pendingQuotations = userQuotations.filter(q => q.status === 'pending');
+        
+        const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+        const conversionRate = userQuotations.length > 0 
+          ? (approvedQuotations.length / userQuotations.length) * 100 
+          : 0;
 
-      // Calculate commission for employees
-      let totalCommission = 0;
-      if (user.type === "funcionario") {
+        // Calculate commission for this employee
         const commissionPercent = parseFloat(user.commissionPercent || '0');
-        totalCommission = approvedQuotations.reduce((sum, q) => {
+        const totalCommission = approvedQuotations.reduce((sum, q) => {
           return sum + (parseFloat(q.total) * commissionPercent / 100);
         }, 0);
-      }
 
-      res.json({
-        totalRevenue,
-        pendingQuotations,
-        activeCustomers: customers.length,
-        conversionRate,
-        totalCommission,
-        approvedQuotations: approvedQuotations.length
-      });
+        // Detailed commission breakdown by quotation
+        const commissionBreakdown = approvedQuotations.map(q => ({
+          quotationId: q.id,
+          quotationNumber: q.quotationNumber,
+          customerName: q.customer.name,
+          quotationTotal: parseFloat(q.total),
+          commissionPercent,
+          commissionAmount: parseFloat(q.total) * commissionPercent / 100,
+          approvedDate: q.updatedAt || q.createdAt
+        }));
+
+        res.json({
+          type: "employee",
+          totalRevenue,
+          pendingQuotations: pendingQuotations.length,
+          activeCustomers: userCustomers.length,
+          conversionRate,
+          approvedQuotations: approvedQuotations.length,
+          totalQuotations: userQuotations.length,
+          totalCommission,
+          commissionPercent,
+          commissionBreakdown
+        });
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -644,6 +701,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(activities);
     } catch (error) {
       console.error("Error fetching recent activities:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Generate monthly extract (PDF/Excel)
+  app.get("/api/extract/:format", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const format = req.params.format; // 'pdf' or 'excel'
+      const selectedDate = req.query.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      const [year, month] = selectedDate.split('-').map(Number);
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+
+      const monthName = startDate.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
+
+      if (format === 'pdf') {
+        // For now, return JSON that can be used to generate PDF on frontend
+        if (user.type === "admin") {
+          const allQuotations = await storage.getQuotationsInDateRange(startDate, endDate);
+          const allUsers = await storage.getUsers();
+          const employees = allUsers.filter(u => u.type === "funcionario");
+          
+          const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
+          const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          
+          const commissionsByEmployee = employees.map(employee => {
+            const employeeApprovedQuotations = approvedQuotations.filter(q => q.userId === employee.id);
+            const commissionPercent = parseFloat(employee.commissionPercent || '0');
+            const totalSales = employeeApprovedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+            const totalCommission = totalSales * commissionPercent / 100;
+            
+            return {
+              employeeName: employee.name,
+              employeeBranch: employee.branch,
+              commissionPercent,
+              totalSales,
+              totalCommission,
+              quotationsCount: employeeApprovedQuotations.length
+            };
+          });
+
+          const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
+          
+          res.json({
+            type: 'admin',
+            monthName,
+            totalRevenue,
+            totalCommissionsPaid,
+            netProfit: totalRevenue - totalCommissionsPaid,
+            commissionsByEmployee,
+            approvedQuotationsCount: approvedQuotations.length,
+            totalQuotationsCount: allQuotations.length
+          });
+        } else {
+          const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
+          const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
+          const commissionPercent = parseFloat(user.commissionPercent || '0');
+          
+          const commissionBreakdown = approvedQuotations.map(q => ({
+            quotationNumber: q.quotationNumber,
+            customerName: q.customer.name,
+            quotationTotal: parseFloat(q.total),
+            commissionAmount: parseFloat(q.total) * commissionPercent / 100,
+            approvedDate: new Date(q.updatedAt || q.createdAt).toLocaleDateString('pt-BR')
+          }));
+
+          const totalCommission = commissionBreakdown.reduce((sum, item) => sum + item.commissionAmount, 0);
+          
+          res.json({
+            type: 'employee',
+            employeeName: user.name,
+            employeeBranch: user.branch,
+            monthName,
+            commissionPercent,
+            totalCommission,
+            commissionBreakdown,
+            approvedQuotationsCount: approvedQuotations.length,
+            totalQuotationsCount: userQuotations.length
+          });
+        }
+      } else {
+        res.status(400).json({ message: "Format not supported yet" });
+      }
+    } catch (error) {
+      console.error("Error generating extract:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
