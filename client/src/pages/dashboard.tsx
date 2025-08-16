@@ -226,7 +226,7 @@ export default function Dashboard() {
                     R$ {data.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {data.approvedQuotations || 0} vendas aprovadas
+                    {data.approvedQuotations || 0} vendas aprovadas (valor bruto)
                   </p>
                 </CardContent>
               </Card>
@@ -253,10 +253,10 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">
-                    R$ {data.netProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                    R$ {data.totalNetProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Receita - Comissões
+                    Lucro das propostas processadas
                   </p>
                 </CardContent>
               </Card>
@@ -352,10 +352,10 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    R$ {data.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                    R$ {data.totalSales?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {data.approvedQuotations || 0} vendas aprovadas
+                    {data.approvedQuotations || 0} vendas aprovadas (valor bruto)
                   </p>
                 </CardContent>
               </Card>

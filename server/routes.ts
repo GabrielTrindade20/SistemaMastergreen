@@ -688,46 +688,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
         const pendingQuotations = allQuotations.filter(q => q.status === 'pending');
         
-        // Calculate metrics prioritizing admin-calculated quotations
-        let totalRevenue = 0;
-        let totalCompanyProfit = 0;
-        let totalNetProfit = 0;
+        // Calculate admin dashboard metrics according to new business rules
+        let totalRevenue = 0; // Valor bruto total (nunca muda)
+        let totalCosts = 0; // Custos adicionados pelo admin
+        let totalNetProfit = 0; // Lucro líquido calculado pelo admin
         
-        // Separar propostas validadas pelo admin das originais
-        const adminCalculatedQuotations = approvedQuotations.filter(q => q.adminCalculated === 1);
-        const originalQuotations = approvedQuotations.filter(q => q.adminCalculated === 0);
-        
-        // IDs das propostas originais que já foram validadas pelo admin
-        const originalIdsWithAdminVersion = adminCalculatedQuotations
-          .map(q => q.originalQuotationId)
-          .filter(Boolean);
-        
-        // Propostas originais que NÃO foram validadas pelo admin
-        const originalQuotationsNotValidated = originalQuotations.filter(q => 
-          !originalIdsWithAdminVersion.includes(q.id)
-        );
-        
-        // Calcular com base nas propostas validadas pelo admin
-        adminCalculatedQuotations.forEach(q => {
-          console.log(`Dashboard - Admin calculated quotation ${q.quotationNumber}`);
+        // REGRA: Receita Total = soma do valor bruto de TODAS as propostas aprovadas
+        // (vendedores + admin), independente de terem custos calculados
+        approvedQuotations.forEach(q => {
           const revenue = parseFloat(q.total || '0');
-          const netProfit = parseFloat(q.netProfit || '0');
-          const companyProfit = parseFloat(q.companyProfit || '0');
-          
           totalRevenue += revenue;
-          totalNetProfit += netProfit;
-          totalCompanyProfit += companyProfit;
-          
-          console.log(`Dashboard - Admin calculated: revenue=${revenue}, netProfit=${netProfit}, companyProfit=${companyProfit}`);
+          console.log(`Dashboard - Adding revenue from quotation ${q.quotationNumber}: ${revenue}`);
         });
         
-        // Para propostas originais não validadas, usar valor total como lucro bruto
-        originalQuotationsNotValidated.forEach(q => {
-          console.log(`Dashboard - Original not validated quotation ${q.quotationNumber}`);
-          const total = parseFloat(q.total || '0');
-          totalRevenue += total;
-          totalCompanyProfit += total; // Considera todo valor como lucro bruto
-          console.log(`Dashboard - Original: total=${total}`);
+        // Separar propostas com custos calculados pelo admin
+        const adminCalculatedQuotations = approvedQuotations.filter(q => q.adminCalculated === 1);
+        
+        // REGRA: Custos e Lucro Líquido = apenas das propostas que o admin já processou
+        adminCalculatedQuotations.forEach(q => {
+          const costs = parseFloat(q.totalCosts || '0');
+          const netProfit = parseFloat(q.netProfit || '0');
+          
+          totalCosts += costs;
+          totalNetProfit += netProfit;
+          
+          console.log(`Dashboard - Admin processed quotation ${q.quotationNumber}: costs=${costs}, netProfit=${netProfit}`);
         });
         const conversionRate = allQuotations.length > 0 
           ? (approvedQuotations.length / allQuotations.length) * 100 
@@ -757,14 +742,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
         
-        // Calculate final net profit considering commissions
-        const finalNetProfit = totalNetProfit > 0 ? totalNetProfit : (totalCompanyProfit - totalCommissionsPaid);
-        
-        console.log(`Dashboard Summary - Total Revenue: ${totalRevenue}, Company Profit: ${totalCompanyProfit}, Net Profit: ${totalNetProfit}, Commissions: ${totalCommissionsPaid}, Final Net: ${finalNetProfit}`);
+        console.log(`Dashboard Summary - Total Revenue: ${totalRevenue}, Total Costs: ${totalCosts}, Net Profit: ${totalNetProfit}, Commissions: ${totalCommissionsPaid}`);
 
         res.json({
           type: "admin",
-          totalRevenue,
+          totalRevenue, // Valor bruto total (nunca muda)
+          totalCosts, // Custos adicionados pelo admin
+          totalNetProfit, // Lucro líquido das propostas processadas pelo admin
           pendingQuotations: pendingQuotations.length,
           activeCustomers: allCustomers.length,
           conversionRate,
@@ -772,10 +756,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalQuotations: allQuotations.length,
           commissionsByEmployee,
           totalCommissionsPaid,
-          netProfit: finalNetProfit,
-          totalCompanyProfit,
-          totalNetProfit,
-          employeesCount: employees.length
+          employeesCount: employees.length,
+          // Dados adicionais para o dashboard do admin
+          processedQuotations: adminCalculatedQuotations.length, // Quantas propostas já foram processadas
+          pendingProcessing: approvedQuotations.length - adminCalculatedQuotations.length // Quantas ainda precisam ser processadas
         });
       } else {
         // Employee dashboard - personal view
@@ -786,19 +770,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
         const pendingQuotations = userQuotations.filter(q => q.status === 'pending');
         
-        const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+        // Taxa de conversão baseada em todas as propostas do vendedor
         const conversionRate = userQuotations.length > 0 
           ? (approvedQuotations.length / userQuotations.length) * 100 
           : 0;
 
-        // Calculate commission for this employee
+        // REGRA VENDEDOR: Comissão baseada APENAS nas propostas originais que ELE aprovou
+        // Filtrar apenas propostas originais do vendedor (não as calculadas pelo admin)
+        const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === 0);
+        
         const commissionPercent = parseFloat(user.commissionPercent || '0');
-        const totalCommission = approvedQuotations.reduce((sum, q) => {
+        const totalCommission = vendedorOriginalApproved.reduce((sum, q) => {
           return sum + (parseFloat(q.total) * commissionPercent / 100);
         }, 0);
 
-        // Detailed commission breakdown by quotation
-        const commissionBreakdown = approvedQuotations.map(q => ({
+        // Vendas totais = valor bruto das propostas originais aprovadas pelo vendedor
+        const totalSales = vendedorOriginalApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
+
+        // Breakdown detalhado apenas das propostas originais
+        const commissionBreakdown = vendedorOriginalApproved.map(q => ({
           quotationId: q.id,
           quotationNumber: q.quotationNumber,
           customerName: q.customer.name,
@@ -808,15 +798,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           approvedDate: q.updatedAt || q.createdAt
         }));
 
+        console.log(`Vendedor Dashboard - Original approved: ${vendedorOriginalApproved.length}, Total sales: ${totalSales}, Commission: ${totalCommission}`);
+
         res.json({
           type: "employee",
-          totalRevenue,
+          totalSales, // Vendas brutas das propostas originais aprovadas
+          totalCommission, // Comissão das propostas originais
           pendingQuotations: pendingQuotations.length,
           activeCustomers: userCustomers.length,
           conversionRate,
-          approvedQuotations: approvedQuotations.length,
+          approvedQuotations: vendedorOriginalApproved.length, // Apenas propostas originais aprovadas
           totalQuotations: userQuotations.length,
-          totalCommission,
           commissionPercent,
           commissionBreakdown
         });
