@@ -959,7 +959,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(products, eq(quotationItems.productId, products.id))
           .where(eq(quotationItems.quotationId, quotation.id));
 
-        const costs = await db
+        const quotationCostsData = await db
           .select()
           .from(quotationCosts)
           .leftJoin(costs as any, eq(quotationCosts.costId, costs.id))
@@ -973,7 +973,7 @@ export class DatabaseStorage implements IStorage {
             ...item.quotation_items,
             product: item.products!
           })),
-          costs: costs.map(cost => ({
+          costs: quotationCostsData.map(cost => ({
             ...cost.quotation_costs,
             cost: cost.costs
           }))
@@ -1001,7 +1001,7 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(products, eq(quotationItems.productId, products.id))
           .where(eq(quotationItems.quotationId, quotation.id));
 
-        const costs = await db
+        const quotationCostsData = await db
           .select()
           .from(quotationCosts)
           .leftJoin(costs as any, eq(quotationCosts.costId, costs.id))
@@ -1015,7 +1015,7 @@ export class DatabaseStorage implements IStorage {
             ...item.quotation_items,
             product: item.products!
           })),
-          costs: costs.map(cost => ({
+          costs: quotationCostsData.map(cost => ({
             ...cost.quotation_costs,
             cost: cost.costs
           }))
