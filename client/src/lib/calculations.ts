@@ -100,9 +100,12 @@ export function calculateQuotationTotalsWithCosts(
   // 4. Calcular custos adicionais
   const additionalCosts = costs.reduce((sum, cost) => {
     if (cost.calculationType === 'percentage') {
-      // Para porcentagem, o valor unitário já é o valor final desejado
-      return sum + (cost.unitValue || 0) * (cost.quantity || 1);
+      // Para porcentagem: (valor base * porcentagem) / 100
+      const baseValue = cost.unitValue || 0;
+      const percentage = cost.quantity || 0;
+      return sum + (baseValue * percentage) / 100;
     } else {
+      // Para valor fixo: unitValue * quantity
       return sum + (cost.unitValue || 0) * (cost.quantity || 1);
     }
   }, 0);
