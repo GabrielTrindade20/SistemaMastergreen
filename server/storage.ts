@@ -319,6 +319,101 @@ export class DatabaseStorage implements IStorage {
     return quotationsWithDetails;
   }
 
+  // Buscar apenas propostas originais de funcionários (não calculadas pelo admin)
+  async getEmployeeOriginalQuotations(): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(and(
+        eq(users.type, "vendedor"), // Apenas propostas de vendedores
+        eq(quotations.adminCalculated, 0) // Apenas propostas originais
+      ))
+      .orderBy(quotations.createdAt);
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
+
+  // Buscar propostas calculadas pelo admin (propostas validadas)
+  async getAdminCalculatedQuotations(): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(eq(quotations.adminCalculated, 1)) // Apenas propostas calculadas pelo admin
+      .orderBy(quotations.createdAt);
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
+
   // Buscar todas as propostas de funcionários para o admin gerenciar
   async getEmployeeQuotations(): Promise<QuotationWithDetails[]> {
     const result = await db

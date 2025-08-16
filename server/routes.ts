@@ -569,15 +569,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin endpoint to get all employee quotations for management
+  // Admin endpoint to get original employee quotations for management
   app.get("/api/employee-quotations", requireAdmin, async (req, res) => {
     try {
-      // Get all quotations from employees (not admin)
-      const quotations = await storage.getEmployeeQuotations();
+      // Get original quotations from employees (not admin-calculated)
+      const quotations = await storage.getEmployeeOriginalQuotations();
       res.json(quotations);
     } catch (error) {
       console.error("Error fetching employee quotations:", error);
       res.status(500).json({ message: "Failed to fetch employee quotations" });
+    }
+  });
+
+  // Admin endpoint to get admin-calculated quotations (validated proposals)
+  app.get("/api/admin-calculated-quotations", requireAdmin, async (req, res) => {
+    try {
+      // Get quotations that have been calculated by admin
+      const quotations = await storage.getAdminCalculatedQuotations();
+      res.json(quotations);
+    } catch (error) {
+      console.error("Error fetching admin calculated quotations:", error);
+      res.status(500).json({ message: "Failed to fetch admin calculated quotations" });
     }
   });
 

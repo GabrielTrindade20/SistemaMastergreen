@@ -62,6 +62,8 @@ export default function NewQuotation() {
       console.log('Mutation success response:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/employee-quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin-calculated-quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({
         title: "Sucesso",
         description: editingQuotationId ? "Proposta atualizada com sucesso!" : "Proposta criada com sucesso!",
