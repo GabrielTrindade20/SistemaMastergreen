@@ -771,16 +771,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // REGRA: Vendedor vê apenas propostas pendentes ORIGINAIS (que ele criou, não as do admin)
         const pendingQuotations = userQuotations.filter(q => q.status === 'pending' && q.adminCalculated === 0);
         
+        // REGRA VENDEDOR: Comissão baseada APENAS nas propostas originais que ELE aprovou
+        // Filtrar apenas propostas originais do vendedor (não as calculadas pelo admin)
+        const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === 0);
+        console.log(`Vendedor Dashboard - Total quotations: ${userQuotations.length}, Approved: ${approvedQuotations.length}, Original approved: ${vendedorOriginalApproved.length}`);
+
         // REGRA: Taxa de conversão baseada apenas nas propostas originais do vendedor
         const originalQuotations = userQuotations.filter(q => q.adminCalculated === 0);
         const conversionRate = originalQuotations.length > 0 
           ? (vendedorOriginalApproved.length / originalQuotations.length) * 100 
           : 0;
-
-        // REGRA VENDEDOR: Comissão baseada APENAS nas propostas originais que ELE aprovou
-        // Filtrar apenas propostas originais do vendedor (não as calculadas pelo admin)
-        const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === 0);
-        console.log(`Vendedor Dashboard - Total quotations: ${userQuotations.length}, Approved: ${approvedQuotations.length}, Original approved: ${vendedorOriginalApproved.length}`);
         
         const commissionPercent = parseFloat(user.commissionPercent || '0');
         const totalCommission = vendedorOriginalApproved.reduce((sum, q) => {
