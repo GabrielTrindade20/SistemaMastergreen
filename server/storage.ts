@@ -450,13 +450,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateQuotation(id: string, quotationData: any): Promise<QuotationWithDetails> {
+    // Prepare quotation update data with financial calculations
+    const updateData: any = {
+      ...quotationData,
+      updatedAt: new Date(),
+    };
+    
+    // If calculations are provided (admin editing), include all financial calculations
+    if (quotationData.calculations) {
+      const calc = quotationData.calculations;
+      updateData.subtotal = calc.subtotal?.toString();
+      updateData.totalCosts = calc.totalCosts?.toString();
+      updateData.totalWithoutInvoice = calc.totalWithoutInvoice?.toString();
+      updateData.invoicePercent = calc.invoicePercent?.toString();
+      updateData.invoiceAmount = calc.invoiceAmount?.toString();
+      updateData.totalWithInvoice = calc.totalWithInvoice?.toString();
+      updateData.companyProfit = calc.companyProfit?.toString();
+      updateData.profitPercent = calc.profitPercent?.toString();
+      updateData.tithe = calc.tithe?.toString();
+      updateData.netProfit = calc.netProfit?.toString();
+      updateData.total = calc.finalTotal?.toString();
+      updateData.adminCalculated = true;
+      
+      console.log('Saving financial calculations:', {
+        companyProfit: calc.companyProfit,
+        netProfit: calc.netProfit,
+        totalCosts: calc.totalCosts
+      });
+    }
+    
+    // Remove calculations from the data to be inserted
+    delete updateData.calculations;
+    delete updateData.items;
+    delete updateData.costs;
+
     // Update the quotation
     const [updatedQuotation] = await db
       .update(quotations)
-      .set({
-        ...quotationData,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(quotations.id, id))
       .returning();
 
@@ -498,17 +529,32 @@ export class DatabaseStorage implements IStorage {
       
       // Insert new costs
       for (const cost of quotationData.costs) {
-        const costData = await db.select().from(costs).where(eq(costs.id, cost.costId)).limit(1);
-        if (costData.length > 0) {
+        if (cost.costId && cost.costId !== 'manual') {
+          // Use existing cost from database
+          const costData = await db.select().from(costs).where(eq(costs.id, cost.costId)).limit(1);
+          if (costData.length > 0) {
+            await db.insert(quotationCosts).values({
+              quotationId: id,
+              costId: cost.costId,
+              name: costData[0].name,
+              supplier: costData[0].supplier,
+              quantity: cost.quantity?.toString() || "1",
+              unitValue: cost.unitValue?.toString() || "0",
+              totalValue: cost.totalValue?.toString() || "0",
+              description: costData[0].description
+            });
+          }
+        } else {
+          // Manual cost
           await db.insert(quotationCosts).values({
             quotationId: id,
-            costId: cost.costId,
-            name: costData[0].name,
-            supplier: costData[0].supplier,
-            quantity: "1",
-            unitValue: cost.adjustedValue.toString(),
-            totalValue: cost.adjustedValue.toString(),
-            description: costData[0].description
+            costId: null,
+            name: cost.name || 'Custo Manual',
+            supplier: cost.supplier || '',
+            quantity: cost.quantity?.toString() || "1",
+            unitValue: cost.unitValue?.toString() || "0",
+            totalValue: cost.totalValue?.toString() || "0",
+            description: cost.description || ''
           });
         }
       }

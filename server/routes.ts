@@ -576,7 +576,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
         const pendingQuotations = allQuotations.filter(q => q.status === 'pending');
         
+        // Calculate total revenue using admin-calculated values when available
         const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+        
+        // Calculate total company profit and net profit from admin-calculated values
+        const totalCompanyProfit = approvedQuotations.reduce((sum, q) => {
+          if (q.adminCalculated && q.companyProfit) {
+            return sum + parseFloat(q.companyProfit);
+          }
+          return sum;
+        }, 0);
+        
+        const totalNetProfit = approvedQuotations.reduce((sum, q) => {
+          if (q.adminCalculated && q.netProfit) {
+            return sum + parseFloat(q.netProfit);
+          }
+          return sum;
+        }, 0);
         const conversionRate = allQuotations.length > 0 
           ? (approvedQuotations.length / allQuotations.length) * 100 
           : 0;
@@ -604,7 +620,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
-        const netProfit = totalRevenue - totalCommissionsPaid;
+        
+        // Use calculated net profit from admin calculations when available
+        const netProfit = totalNetProfit > 0 ? (totalNetProfit - totalCommissionsPaid) : (totalRevenue - totalCommissionsPaid);
 
         res.json({
           type: "admin",
@@ -617,6 +635,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           commissionsByEmployee,
           totalCommissionsPaid,
           netProfit,
+          totalCompanyProfit,
+          totalNetProfit,
           employeesCount: employees.length
         });
       } else {
