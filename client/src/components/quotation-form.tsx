@@ -202,14 +202,8 @@ export default function QuotationForm({
   
   const getCostTotal = (cost: typeof quotationCosts[0]) => {
     if (cost.calculationType === 'percentage') {
-      // Calculate subtotal for percentage base
-      const subtotal = quotationItems.reduce((sum, item) => {
-        const product = products.find(p => p.id === item.productId);
-        if (!product || !item.quantity) return sum;
-        const productPrice = parseFloat(product.pricePerM2);
-        return sum + (productPrice * item.quantity);
-      }, 0);
-      return (subtotal * (cost.unitValue / 100)) * (cost.quantity || 1);
+      // For percentage, calculate based on unitValue as base * (percentage/100) * quantity
+      return (cost.unitValue || 0) * (cost.quantity || 1);
     } else {
       return (cost.unitValue || 0) * (cost.quantity || 1);
     }
