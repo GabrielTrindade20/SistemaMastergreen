@@ -472,7 +472,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/quotations/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      console.log('Received quotation update data:', req.body);
+      console.log('=== UPDATE QUOTATION START ===');
+      console.log('Quotation ID:', id);
+      console.log('Request body keys:', Object.keys(req.body));
+      console.log('Request body length:', JSON.stringify(req.body).length);
+      console.log('Full request body:', req.body);
       
       // Verificar se a proposta existe usando getQuotation
       const existingQuotation = await storage.getQuotation(id);
@@ -492,6 +496,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Merged data for update:', mergedData);
       const updatedQuotation = await storage.updateQuotation(id, mergedData);
+      console.log('Update successful, returning result');
+      console.log('=== UPDATE QUOTATION END ===');
       res.json(updatedQuotation);
     } catch (error) {
       console.error("Error updating quotation:", error);
