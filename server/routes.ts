@@ -472,13 +472,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/quotations/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const quotationData = insertQuotationSchema.parse(req.body);
-      console.log(`Updating quotation ${id}:`, quotationData);
+      console.log('Received quotation update data:', req.body);
       
-      const updatedQuotation = await storage.updateQuotation(id, quotationData);
+      // Para atualizações, usar um schema mais flexível
+      const existingQuotation = await storage.getQuotationById(id);
+      if (!existingQuotation) {
+        return res.status(404).json({ message: "Quotation not found" });
+      }
+      
+      // Mesclar dados existentes com novos dados
+      const mergedData = {
+        ...existingQuotation,
+        ...req.body,
+        id: undefined, // remover ID dos dados de atualização
+        createdAt: undefined, // preservar data de criação
+      };
+      
+      console.log('Merged data for update:', mergedData);
+      const updatedQuotation = await storage.updateQuotation(id, mergedData);
       res.json(updatedQuotation);
     } catch (error) {
       console.error("Error updating quotation:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation error",
+          error: JSON.stringify(error.errors, null, 2)
+        });
+      }
       res.status(500).json({ 
         message: "Error updating quotation",
         error: error instanceof Error ? error.message : "Unknown error"
