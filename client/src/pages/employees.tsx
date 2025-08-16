@@ -94,18 +94,25 @@ export default function Employees() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
 
+  // Redirect non-admin users
+  if (currentUser && currentUser.type !== "admin") {
+    navigate("/dashboard");
+    return null;
+  }
+
   // Fetch users (employees)
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ['/api/users']
   });
 
-  // Fetch quotations
+  // Fetch employee quotations for admin management
   const { data: quotations = [] } = useQuery<Quotation[]>({
-    queryKey: ['/api/quotations']
+    queryKey: ['/api/employee-quotations'],
+    enabled: !!currentUser && currentUser.type === "admin"
   });
 
   // Filter employees only
-  const employees = users.filter(user => user.type === 'vendedor');
+  const employees = users.filter(user => user.type === 'funcionario');
 
   const handleCalculateCosts = async (quotationId: string) => {
     setCalculatingCosts(prev => new Set(Array.from(prev).concat(quotationId)));
