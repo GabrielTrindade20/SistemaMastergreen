@@ -1,68 +1,85 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, FileText, Users, TrendingUp, Clock } from "lucide-react";
-import type { QuotationWithDetails, Customer } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { DollarSign, FileText, Users, TrendingUp, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import type { User } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   
-  const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
-    queryKey: ["/api/quotations"],
+  const { data: dashboardData, isLoading } = useQuery({
+    queryKey: ["/api/dashboard", selectedDate],
+    enabled: !!user,
   });
 
-  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
+  const { data: employees = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: user?.type === "admin",
   });
 
-  const isLoading = quotationsLoading || customersLoading;
+  const { data: recentActivities = [] } = useQuery({
+    queryKey: ["/api/recent-activities", selectedDate],
+    enabled: !!user,
+  });
 
-  // Filter data based on user type
-  const userQuotations = user?.type === "admin" 
-    ? quotations 
-    : quotations.filter(q => q.userId === user?.id);
-  
-  const userCustomers = customers; // Already filtered by backend
+  // Navigation functions for month selection
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const [year, month] = selectedDate.split('-').map(Number);
+    const currentDate = new Date(year, month - 1);
+    
+    if (direction === 'prev') {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+    } else {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    
+    const newYear = currentDate.getFullYear();
+    const newMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+    setSelectedDate(`${newYear}-${newMonth}`);
+  };
 
-  // Calculate metrics using filtered data
-  const totalRevenue = userQuotations
-    .filter(q => q.status === 'approved')
-    .reduce((sum, q) => sum + parseFloat(q.total), 0);
+  const getMonthName = (dateStr: string) => {
+    const [year, month] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1);
+    return date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
+  };
 
-  const pendingQuotations = userQuotations.filter(q => q.status === 'pending');
-  const activeCustomers = userCustomers.length;
-  const conversionRate = userQuotations.length > 0 
-    ? (userQuotations.filter(q => q.status === 'approved').length / userQuotations.length) * 100 
-    : 0;
+  // Get dashboard metrics from API response
+  const metrics = dashboardData || {
+    totalRevenue: 0,
+    pendingQuotations: 0,
+    activeCustomers: 0,
+    conversionRate: 0,
+    totalCommission: 0,
+    approvedQuotations: 0
+  };
 
-  // Calculate commission for sales representatives based on gross value
-  const totalCommission = user?.type === "vendedor" 
-    ? userQuotations
-        .filter(q => q.status === 'approved')
-        .reduce((sum, q) => {
-          const commissionPercent = parseFloat(user.commissionPercent || '0');
-          const grossValue = parseFloat(q.total);
-          return sum + (grossValue * commissionPercent / 100);
-        }, 0)
-    : 0;
-
-  // Recent activities using filtered data
-  const recentActivities = userQuotations
-    .slice(0, 3)
-    .map(q => ({
-      id: q.id,
-      type: q.status,
-      customer: q.customer.name,
-      amount: parseFloat(q.total),
-      createdAt: new Date(q.createdAt!),
-      description: `${q.items[0]?.product.name} ${q.items[0]?.quantity}m²` || 'Orçamento'
-    }));
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Header - Mobile responsive */}
+      {/* Header with Month Filter */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
           <div className="mb-2 md:mb-0">
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-600 text-sm md:text-base">
@@ -74,11 +91,34 @@ export default function Dashboard() {
             Atualizado agora
           </div>
         </div>
+        
+        {/* Month Navigation */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateMonth('prev')}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-lg font-semibold min-w-[200px] text-center">
+              {getMonthName(selectedDate)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigateMonth('next')}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Dashboard Content */}
       <div className="p-4 md:p-6">
-        {/* Key Metrics Cards - Mobile responsive grid */}
+        {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
           {user?.type === "admin" ? (
             <>
@@ -90,10 +130,10 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {userQuotations.filter(q => q.status === 'approved').length} vendas aprovadas
+                    {metrics.approvedQuotations} vendas aprovadas
                   </p>
                 </CardContent>
               </Card>
@@ -104,7 +144,7 @@ export default function Dashboard() {
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{pendingQuotations.length}</div>
+                  <div className="text-2xl font-bold">{metrics.pendingQuotations}</div>
                   <p className="text-xs text-muted-foreground">
                     Aguardando aprovação
                   </p>
@@ -117,7 +157,7 @@ export default function Dashboard() {
                   <Users className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{activeCustomers}</div>
+                  <div className="text-2xl font-bold">{metrics.activeCustomers}</div>
                   <p className="text-xs text-muted-foreground">
                     Total de clientes
                   </p>
@@ -130,7 +170,7 @@ export default function Dashboard() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{conversionRate.toFixed(1)}%</div>
+                  <div className="text-2xl font-bold">{metrics.conversionRate.toFixed(1)}%</div>
                   <p className="text-xs text-muted-foreground">
                     Propostas aprovadas
                   </p>
@@ -139,7 +179,7 @@ export default function Dashboard() {
             </>
           ) : (
             <>
-              {/* Sales Representative Cards */}
+              {/* Employee Cards */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Minhas Comissões</CardTitle>
@@ -147,25 +187,25 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    R$ {totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {metrics.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {user?.commissionPercent}% do valor bruto das vendas
+                    {user?.commissionPercent}% das vendas aprovadas
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Vendas Aprovadas</CardTitle>
+                  <CardTitle className="text-sm font-medium">Minhas Vendas</CardTitle>
                   <FileText className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {userQuotations.filter(q => q.status === 'approved').length}
+                    R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Total de propostas fechadas
+                    {metrics.approvedQuotations} vendas aprovadas
                   </p>
                 </CardContent>
               </Card>
@@ -173,10 +213,10 @@ export default function Dashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Propostas Pendentes</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{pendingQuotations.length}</div>
+                  <div className="text-2xl font-bold">{metrics.pendingQuotations}</div>
                   <p className="text-xs text-muted-foreground">
                     Aguardando aprovação
                   </p>
@@ -185,13 +225,13 @@ export default function Dashboard() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Meus Clientes</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{activeCustomers}</div>
+                  <div className="text-2xl font-bold">{metrics.conversionRate.toFixed(1)}%</div>
                   <p className="text-xs text-muted-foreground">
-                    Total de clientes
+                    Propostas aprovadas
                   </p>
                 </CardContent>
               </Card>
@@ -199,92 +239,85 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Recent Activities Section */}
+        {/* Recent Activities */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Atividades Recentes</CardTitle>
-              <CardDescription>Últimas movimentações no sistema</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="animate-pulse">
-                      <div className="flex space-x-3">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : recentActivities.length > 0 ? (
-                recentActivities.map(activity => (
-                  <div key={activity.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg mb-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">
-                        Orçamento para {activity.customer}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {activity.description} • R$ {activity.amount.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {activity.createdAt.toLocaleDateString('pt-BR')}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                  <p>Nenhuma atividade recente</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Performance Metrics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Indicadores de Performance</CardTitle>
-              <CardDescription>Métricas {user?.type === "admin" ? "globais" : "pessoais"}</CardDescription>
+              <CardTitle>
+                {user?.type === "admin" ? "Atividades Recentes dos Vendedores" : "Minhas Atividades Recentes"}
+              </CardTitle>
+              <CardDescription>
+                {user?.type === "admin" 
+                  ? "Propostas geradas pelos vendedores neste mês" 
+                  : "Suas propostas mais recentes"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Ticket Médio</span>
-                  <span className="text-lg font-semibold">
-                    R$ {userQuotations.filter(q => q.status === 'approved').length > 0 
-                      ? (totalRevenue / userQuotations.filter(q => q.status === 'approved').length).toFixed(2)
-                      : '0.00'
-                    }
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Orçamentos Criados</span>
-                  <span className="text-lg font-semibold">{userQuotations.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Orçamentos Aprovados</span>
-                  <span className="text-lg font-semibold text-green-600">
-                    {userQuotations.filter(q => q.status === 'approved').length}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Orçamentos Rejeitados</span>
-                  <span className="text-lg font-semibold text-red-600">
-                    {userQuotations.filter(q => q.status === 'rejected').length}
-                  </span>
-                </div>
+                {Array.isArray(recentActivities) && recentActivities.length > 0 ? (
+                  recentActivities.slice(0, 5).map((activity: any, index: number) => (
+                    <div key={index} className="flex items-center space-x-4">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {activity.customerName}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate">
+                          {activity.description}
+                          {user?.type === "admin" && ` - ${activity.sellerName}`}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <p className="text-sm font-medium text-gray-900">
+                          R$ {parseFloat(activity.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(activity.createdAt).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-sm">Nenhuma atividade recente encontrada.</p>
+                )}
               </div>
             </CardContent>
           </Card>
+
+          {/* Employee Performance (Admin only) */}
+          {user?.type === "admin" && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Performance dos Vendedores</CardTitle>
+                <CardDescription>
+                  Desempenho dos vendedores neste mês
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {employees.filter(emp => emp.type === "funcionario").map((employee) => (
+                    <div key={employee.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{employee.name}</p>
+                        <p className="text-xs text-gray-500">{employee.branch}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-gray-900">
+                          {employee.commissionPercent}% comissão
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {employee.email}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  {employees.filter(emp => emp.type === "funcionario").length === 0 && (
+                    <p className="text-gray-500 text-sm">Nenhum vendedor cadastrado.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
