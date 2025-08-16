@@ -236,6 +236,19 @@ export default function QuotationForm({
     return costPerM2 * item.quantity;
   };
 
+  const getTotalProductCosts = () => {
+    return quotationItems.reduce((total, item) => {
+      return total + getItemCostTotal(item);
+    }, 0);
+  };
+
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    });
+  };
+
   const handleSubmit = (data: QuotationFormData) => {
     const quotationData = {
       customerId: data.customerId,
@@ -427,7 +440,7 @@ export default function QuotationForm({
               return (
                 <Card key={index} className="bg-gray-50">
                   <CardContent className="p-4">
-                    <div className={`grid grid-cols-1 gap-4 ${isAdminMode ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Produto *
@@ -496,18 +509,7 @@ export default function QuotationForm({
                           className="bg-gray-100"
                         />
                       </div>
-                      {isAdminMode && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Custo Total
-                          </label>
-                          <Input
-                            value={`R$ ${getItemCostTotal(item).toFixed(2)}`}
-                            readOnly
-                            className="bg-red-50 text-red-600 font-semibold"
-                          />
-                        </div>
-                      )}
+
                       {!isAdminMode && (
                         <div className="flex items-end">
                           <Button
@@ -528,6 +530,18 @@ export default function QuotationForm({
               );
             })}
           </div>
+
+          {/* Total Cost Display for Admin */}
+          {isAdminMode && (
+            <div className="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-red-700 mb-1">Custo Total</span>
+                <span className="text-2xl font-bold text-red-600">
+                  {formatCurrency(getTotalProductCosts())}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Costs Section */}
