@@ -10,7 +10,6 @@ import { Save } from "lucide-react";
 import type { Customer } from "@shared/schema";
 import { z } from "zod";
 import { usePhoneMask, useCPFCNPJMask, useCEPMask } from "@/hooks/useFormat";
-import { ImageUploader } from "./ImageUploader";
 
 const formSchema = insertCustomerSchema.extend({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -23,7 +22,6 @@ const formSchema = insertCustomerSchema.extend({
   neighborhood: z.string().optional(),
   zipCode: z.string().optional(),
   notes: z.string().optional(),
-  imageUrl: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof formSchema>;
@@ -58,7 +56,6 @@ export default function CustomerForm({
       city: initialData?.city || "",
       zipCode: initialData?.zipCode || "",
       notes: initialData?.notes || "",
-      imageUrl: initialData?.imageUrl || "",
     },
   });
 
@@ -243,16 +240,6 @@ export default function CustomerForm({
               )}
             />
           </div>
-        </div>
-
-        {/* Image Upload */}
-        <div>
-          <FormLabel>Foto do Cliente</FormLabel>
-          <ImageUploader
-            currentImage={form.watch("imageUrl")}
-            onImageUploaded={(imageUrl) => form.setValue("imageUrl", imageUrl)}
-            className="mt-2"
-          />
         </div>
 
         {/* Additional Information */}
