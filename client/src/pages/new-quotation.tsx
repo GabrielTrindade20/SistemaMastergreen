@@ -47,22 +47,27 @@ export default function NewQuotation() {
 
   const createQuotationMutation = useMutation({
     mutationFn: async (data: any) => {
+      console.log('MUTATION: Starting API request with data:', data);
+      console.log('MUTATION: Editing ID:', editingQuotationId);
+      
       if (editingQuotationId) {
-        // Update existing quotation
-        return await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "PUT", data });
+        console.log('MUTATION: Updating existing quotation');
+        return await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "PUT", body: data });
       } else {
-        // Create new quotation
-        return await apiRequest("/api/quotations", { method: "POST", data });
+        console.log('MUTATION: Creating new quotation');
+        return await apiRequest("/api/quotations", { method: "POST", body: data });
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Mutation success response:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/employee-quotations"] });
       toast({
         title: "Sucesso",
         description: editingQuotationId ? "Proposta atualizada com sucesso!" : "Proposta criada com sucesso!",
       });
       if (isAdminEditing) {
-        setLocation("/funcionarios");
+        setLocation("/employees");
       } else {
         setLocation("/orcamentos");
       }
@@ -78,6 +83,9 @@ export default function NewQuotation() {
   });
 
   const handleSubmit = (data: any) => {
+    console.log('NEW-QUOTATION PAGE: Received data to submit:', data);
+    console.log('Admin editing mode:', isAdminEditing);
+    console.log('Editing quotation ID:', editingQuotationId);
     createQuotationMutation.mutate(data);
   };
 
