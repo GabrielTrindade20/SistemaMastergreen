@@ -371,7 +371,10 @@ export default function NewQuotationForm({
   };
 
   const handleSubmit = (formData: QuotationFormData) => {
-    console.log('=== INÍCIO DO ENVIO ===');
+    console.log('=== INÍCIO DO ENVIO (ADMIN MODE) ===');
+    console.log('User type:', user?.type);
+    console.log('Is admin editing:', user?.type === 'admin');
+    console.log('Initial Data provided:', !!initialData);
     console.log('Dados do formulário antes do envio:', formData);
     console.log('Items antes do envio:', items);
     console.log('Costs antes do envio:', costs);
@@ -386,6 +389,16 @@ export default function NewQuotationForm({
         precoOriginal: item.unitPrice,
         precoVenda: item.salePrice,
         precoFinal: item.salePrice || item.unitPrice
+      });
+    });
+    
+    costs.forEach((cost, index) => {
+      console.log(`Cost ${index}:`, {
+        costId: cost.costId,
+        name: cost.name,
+        unitValue: cost.unitValue,
+        quantity: cost.quantity,
+        totalValue: cost.totalValue
       });
     });
     
@@ -409,6 +422,7 @@ export default function NewQuotationForm({
     };
     
     console.log('Dados finais sendo enviados:', quotationData);
+    console.log('Enviando via onSubmit...');
     console.log('=== FIM DO ENVIO ===');
     onSubmit(quotationData);
   };
