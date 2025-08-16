@@ -24,7 +24,7 @@ import {
   type LoginUser
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, isNotNull, notInArray } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
@@ -940,6 +940,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEmployeeOriginalQuotations(): Promise<QuotationWithDetails[]> {
+    // Buscar IDs de propostas que já foram validadas pelo admin
+    const validatedQuotationIds = await db
+      .select({ originalQuotationId: quotations.originalQuotationId })
+      .from(quotations)
+      .where(and(
+        eq(quotations.adminCalculated, 1),
+        isNotNull(quotations.originalQuotationId)
+      ));
+    
+    const validatedIds = validatedQuotationIds.map(v => v.originalQuotationId).filter(Boolean);
+    
     const quotationResults = await db
       .select()
       .from(quotations)
@@ -947,7 +958,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(quotations.userId, users.id))
       .where(and(
         eq(quotations.adminCalculated, 0), // Apenas propostas originais
-        eq(users.type, 'vendedor') // Apenas de vendedores
+        eq(users.type, 'vendedor'), // Apenas de vendedores
+        validatedIds.length > 0 ? notInArray(quotations.id, validatedIds) : undefined // Excluir as já validadas
       ))
       .orderBy(desc(quotations.createdAt));
 
