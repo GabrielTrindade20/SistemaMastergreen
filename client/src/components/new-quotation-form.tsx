@@ -164,48 +164,63 @@ export default function NewQuotationForm({
     }
   }, [customerSearchValue, customers]);
 
-  // Carregar dados duplicados quando initialData for fornecido
+  // Carregar dados quando initialData for fornecido (edição)
   useEffect(() => {
     if (initialData) {
-      console.log('🔄 Carregando dados duplicados:', initialData);
-      console.log('🚢 Valor shippingIncluded recebido:', initialData.shippingIncluded, typeof initialData.shippingIncluded);
+      console.log('Loading initial data:', initialData);
+      console.log('Loading items:', initialData.items?.map((i: any) => ({
+        productId: i.productId,
+        quantity: i.quantity
+      })));
       
-      // Preencher todos os campos do formulário
-      Object.keys(initialData).forEach(key => {
-        if (key !== 'items' && key !== 'costs') {
-          const value = initialData[key];
-          console.log(`📝 Definindo ${key}:`, value, typeof value);
-          form.setValue(key as keyof QuotationFormData, value);
-        }
-      });
+      // Configurar o formulário com os dados da proposta
+      form.setValue('customerId', initialData.customerId || '');
+      form.setValue('validUntil', initialData.validUntil ? new Date(initialData.validUntil).toISOString().split('T')[0] : '');
+      form.setValue('notes', initialData.notes || '');
+      form.setValue('shippingIncluded', Boolean(initialData.shippingIncluded));
+      form.setValue('warrantyText', initialData.warrantyText || '1 ano de garantia de fábrica');
+      form.setValue('pdfTitle', initialData.pdfTitle || '');
+      form.setValue('responsibleName', initialData.responsibleName || user?.name || '');
+      form.setValue('responsiblePosition', initialData.responsiblePosition || 'Administrador');
+      form.setValue('discountPercent', initialData.discountPercent || '');
       
-      // Carregar itens duplicados
+      // Carregar itens
       if (initialData.items && initialData.items.length > 0) {
-        console.log('📦 Carregando itens:', initialData.items);
-        setItems(initialData.items);
+        const loadedItems = initialData.items.map((item: any) => ({
+          productId: item.productId,
+          quantity: parseFloat(item.quantity) || 0,
+          unitPrice: parseFloat(item.unitCost) || 0, // custo unitário
+          salePrice: parseFloat(item.unitPrice) || 0, // preço de venda
+          originalUnitPrice: parseFloat(item.unitCost) || 0,
+        }));
+        setItems(loadedItems);
       }
       
-      // Carregar custos duplicados
+      // Carregar custos existentes se houver
       if (initialData.costs && initialData.costs.length > 0) {
-        console.log('💰 Carregando custos:', initialData.costs);
-        setCosts(initialData.costs);
+        const loadedCosts = initialData.costs.map((cost: any) => ({
+          costId: cost.costId || 'manual',
+          name: cost.name || '',
+          unitValue: parseFloat(cost.unitValue) || 0,
+          quantity: parseFloat(cost.quantity) || 1,
+          totalValue: parseFloat(cost.totalValue) || 0,
+          supplier: cost.supplier || '',
+          description: cost.description || '',
+          calculationType: 'fixed' as const,
+          percentageValue: 0,
+        }));
+        setCosts(loadedCosts);
       }
       
-      // Carregar o cliente selecionado para o campo de pesquisa
+      // Configurar o cliente selecionado
       if (initialData.customerId && customers.length > 0) {
         const selectedCustomer = customers.find(c => c.id === initialData.customerId);
         if (selectedCustomer) {
           setCustomerSearchValue(selectedCustomer.name);
-          console.log('👤 Cliente selecionado:', selectedCustomer.name);
         }
       }
-      
-      // Verificar estado atual do formulário após carregamento
-      setTimeout(() => {
-        console.log('✅ Estado final do formulário:', form.getValues());
-      }, 100);
     }
-  }, [initialData, form, customers]);
+  }, [initialData, form, customers, user]);
 
   // Recalcular automaticamente quando items, costs ou desconto mudarem
   useEffect(() => {
@@ -371,10 +386,7 @@ export default function NewQuotationForm({
   };
 
   const handleSubmit = (formData: QuotationFormData) => {
-    console.log('=== INÍCIO DO ENVIO (ADMIN MODE) ===');
-    console.log('User type:', user?.type);
-    console.log('Is admin editing:', user?.type === 'admin');
-    console.log('Initial Data provided:', !!initialData);
+    console.log('=== INÍCIO DO ENVIO ===');
     console.log('Dados do formulário antes do envio:', formData);
     console.log('Items antes do envio:', items);
     console.log('Costs antes do envio:', costs);
@@ -389,16 +401,6 @@ export default function NewQuotationForm({
         precoOriginal: item.unitPrice,
         precoVenda: item.salePrice,
         precoFinal: item.salePrice || item.unitPrice
-      });
-    });
-    
-    costs.forEach((cost, index) => {
-      console.log(`Cost ${index}:`, {
-        costId: cost.costId,
-        name: cost.name,
-        unitValue: cost.unitValue,
-        quantity: cost.quantity,
-        totalValue: cost.totalValue
       });
     });
     
@@ -422,7 +424,6 @@ export default function NewQuotationForm({
     };
     
     console.log('Dados finais sendo enviados:', quotationData);
-    console.log('Enviando via onSubmit...');
     console.log('=== FIM DO ENVIO ===');
     onSubmit(quotationData);
   };
@@ -549,7 +550,11 @@ export default function NewQuotationForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form onSubmit={(e) => {
+        console.log('Form submit event triggered');
+        e.preventDefault();
+        form.handleSubmit(handleSubmit)(e);
+      }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Cliente com Pesquisa Melhorada */}
           <FormField
@@ -1181,8 +1186,9 @@ export default function NewQuotationForm({
               type="submit" 
               disabled={isLoading}
               data-testid="button-submit"
+              className="bg-green-900 hover:bg-green-800 text-white"
             >
-              {isLoading ? "Salvando..." : "Salvar Proposta"}
+              {isLoading ? "Salvando..." : "Salvar Orçamento"}
             </Button>
           </div>
         </div>

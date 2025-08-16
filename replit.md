@@ -9,11 +9,6 @@ MasterGreen is a full-stack business management system for a company specializin
 - Added commission tracking in employee dashboard with automatic calculations from approved quotations
 - Enhanced reports page with monthly filtering and role-based data access for both admins and employees
 - Added PDF report generation with personalized data for each user type
-- Fixed admin proposal editing functionality with proper cost calculation saving
-- Corrected dashboard APIs to use path parameters instead of query parameters
-- Implemented proper financial calculations storage when admin edits vendor proposals
-- Updated nomenclature from "funcionários" to "vendedores" throughout the system
-- Database reset to clean state with only admin user for fresh testing
 
 ## User Preferences
 
