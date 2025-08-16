@@ -112,7 +112,7 @@ export default function Employees() {
   });
 
   // Filter employees only
-  const employees = users.filter(user => user.type === 'funcionario');
+  const employees = users.filter(user => user.type === 'vendedor');
 
   const handleCalculateCosts = async (quotationId: string) => {
     setCalculatingCosts(prev => new Set(Array.from(prev).concat(quotationId)));
