@@ -1,26 +1,28 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { DollarSign, FileText, Users, TrendingUp, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, FileText, Users, TrendingUp, Clock, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import type { User } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+
   
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ["/api/dashboard", selectedDate],
     enabled: !!user,
-  });
-
-  const { data: employees = [] } = useQuery<User[]>({
-    queryKey: ["/api/users"],
-    enabled: user?.type === "admin",
   });
 
   const { data: recentActivities = [] } = useQuery({
@@ -50,14 +52,97 @@ export default function Dashboard() {
     return date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
   };
 
-  // Get dashboard metrics from API response
-  const metrics = dashboardData || {
-    totalRevenue: 0,
-    pendingQuotations: 0,
-    activeCustomers: 0,
-    conversionRate: 0,
-    totalCommission: 0,
-    approvedQuotations: 0
+  const generateExtract = async () => {
+    try {
+      const extractData = await apiRequest(`/api/extract/pdf?date=${selectedDate}`, {
+        method: 'GET'
+      });
+
+      // Generate PDF using jsPDF
+      const pdf = new jsPDF();
+      
+      // Header
+      pdf.setFontSize(20);
+      pdf.text('MG MASTERGREEN', 20, 20);
+      pdf.setFontSize(16);
+      pdf.text(`Extrato Mensal - ${extractData.monthName}`, 20, 35);
+      
+      let yPos = 55;
+
+      if (extractData.type === 'admin') {
+        // Admin extract
+        pdf.setFontSize(14);
+        pdf.text('RESUMO GERAL', 20, yPos);
+        yPos += 15;
+
+        pdf.setFontSize(12);
+        pdf.text(`Receita Total: R$ ${extractData.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+        yPos += 10;
+        pdf.text(`Comissões Pagas: R$ ${extractData.totalCommissionsPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+        yPos += 10;
+        pdf.text(`Lucro Líquido: R$ ${extractData.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+        yPos += 10;
+        pdf.text(`Propostas Aprovadas: ${extractData.approvedQuotationsCount}`, 20, yPos);
+        yPos += 20;
+
+        pdf.setFontSize(14);
+        pdf.text('COMISSÕES POR VENDEDOR', 20, yPos);
+        yPos += 15;
+
+        extractData.commissionsByEmployee.forEach((emp: any) => {
+          pdf.setFontSize(12);
+          pdf.text(`${emp.employeeName} (${emp.employeeBranch})`, 20, yPos);
+          yPos += 10;
+          pdf.text(`  Vendas: R$ ${emp.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${emp.quotationsCount} propostas)`, 25, yPos);
+          yPos += 10;
+          pdf.text(`  Comissão: R$ ${emp.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${emp.commissionPercent}%)`, 25, yPos);
+          yPos += 15;
+        });
+      } else {
+        // Employee extract
+        pdf.setFontSize(14);
+        pdf.text(`VENDEDOR: ${extractData.employeeName}`, 20, yPos);
+        yPos += 10;
+        pdf.text(`FILIAL: ${extractData.employeeBranch}`, 20, yPos);
+        yPos += 20;
+
+        pdf.setFontSize(12);
+        pdf.text(`Total de Comissões: R$ ${extractData.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+        yPos += 10;
+        pdf.text(`Percentual de Comissão: ${extractData.commissionPercent}%`, 20, yPos);
+        yPos += 10;
+        pdf.text(`Propostas Aprovadas: ${extractData.approvedQuotationsCount}`, 20, yPos);
+        yPos += 20;
+
+        pdf.setFontSize(14);
+        pdf.text('DETALHAMENTO DAS COMISSÕES', 20, yPos);
+        yPos += 15;
+
+        extractData.commissionBreakdown.forEach((item: any) => {
+          pdf.setFontSize(10);
+          pdf.text(`${item.quotationNumber} - ${item.customerName}`, 20, yPos);
+          yPos += 8;
+          pdf.text(`  Valor: R$ ${item.quotationTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Comissão: R$ ${item.commissionAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 25, yPos);
+          yPos += 8;
+          pdf.text(`  Data: ${item.approvedDate}`, 25, yPos);
+          yPos += 12;
+        });
+      }
+
+      pdf.save(`extrato-${extractData.monthName.toLowerCase().replace(/\s+/g, '-')}.pdf`);
+
+      toast({
+        title: "Extrato gerado",
+        description: "O arquivo PDF foi baixado com sucesso.",
+      });
+    } catch (error) {
+      console.error("Error generating extract:", error);
+      toast({
+        title: "Erro",
+        description: "Falha ao gerar extrato.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -75,6 +160,8 @@ export default function Dashboard() {
     );
   }
 
+  const data = dashboardData || {};
+
   return (
     <div>
       {/* Header with Month Filter */}
@@ -83,12 +170,18 @@ export default function Dashboard() {
           <div className="mb-2 md:mb-0">
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-600 text-sm md:text-base">
-              {user?.type === "admin" ? "Visão geral do negócio" : "Seus dados pessoais"}
+              {user?.type === "admin" ? "Visão geral do sistema" : "Seus dados pessoais"}
             </p>
           </div>
-          <div className="text-xs md:text-sm text-gray-500">
-            <Clock className="w-4 h-4 inline mr-2" />
-            Atualizado agora
+          <div className="flex items-center gap-2">
+            <Button onClick={generateExtract} variant="outline" size="sm">
+              <Download className="w-4 h-4 mr-2" />
+              Gerar Extrato PDF
+            </Button>
+            <div className="text-xs md:text-sm text-gray-500">
+              <Clock className="w-4 h-4 inline mr-2" />
+              Atualizado agora
+            </div>
           </div>
         </div>
         
@@ -118,11 +211,11 @@ export default function Dashboard() {
 
       {/* Dashboard Content */}
       <div className="p-4 md:p-6">
-        {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-8">
-          {user?.type === "admin" ? (
-            <>
-              {/* Admin Cards */}
+        {user?.type === "admin" ? (
+          // Admin Dashboard
+          <>
+            {/* Admin KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
@@ -130,36 +223,40 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {data.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {metrics.approvedQuotations} vendas aprovadas
+                    {data.approvedQuotations || 0} vendas aprovadas
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Propostas Pendentes</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Comissões Pagas</CardTitle>
+                  <DollarSign className="h-4 w-4 text-red-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{metrics.pendingQuotations}</div>
+                  <div className="text-2xl font-bold text-red-600">
+                    R$ {data.totalCommissionsPaid?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Aguardando aprovação
+                    Comissões dos vendedores
                   </p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-medium">Lucro Líquido</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-green-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{metrics.activeCustomers}</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    R$ {data.netProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Total de clientes
+                    Receita - Comissões
                   </p>
                 </CardContent>
               </Card>
@@ -170,27 +267,80 @@ export default function Dashboard() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{metrics.conversionRate.toFixed(1)}%</div>
+                  <div className="text-2xl font-bold">{data.conversionRate?.toFixed(1) || '0'}%</div>
                   <p className="text-xs text-muted-foreground">
-                    Propostas aprovadas
+                    {data.approvedQuotations || 0} de {data.totalQuotations || 0} propostas
                   </p>
                 </CardContent>
               </Card>
-            </>
-          ) : (
-            <>
-              {/* Employee Cards */}
+            </div>
+
+            {/* Employee Performance Table */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Performance dos Vendedores</CardTitle>
+                <CardDescription>
+                  Comissões e vendas por vendedor neste mês
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vendedor</TableHead>
+                      <TableHead>Filial</TableHead>
+                      <TableHead>Vendas</TableHead>
+                      <TableHead>Propostas</TableHead>
+                      <TableHead>Conversão</TableHead>
+                      <TableHead>Comissão %</TableHead>
+                      <TableHead>Total Comissão</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.commissionsByEmployee?.map((emp: any) => (
+                      <TableRow key={emp.employeeId}>
+                        <TableCell className="font-medium">{emp.employeeName}</TableCell>
+                        <TableCell>{emp.employeeBranch}</TableCell>
+                        <TableCell>R$ {emp.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell>{emp.quotationsCount}</TableCell>
+                        <TableCell>
+                          <Badge variant={emp.conversionRate >= 50 ? "default" : "secondary"}>
+                            {emp.conversionRate.toFixed(1)}%
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{emp.commissionPercent}%</TableCell>
+                        <TableCell className="font-semibold">
+                          R$ {emp.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </TableCell>
+                      </TableRow>
+                    )) || (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-gray-500">
+                          Nenhum vendedor cadastrado
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          // Employee Dashboard
+          <>
+            {/* Employee KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Minhas Comissões</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <DollarSign className="h-4 w-4 text-green-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
-                    R$ {metrics.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <div className="text-2xl font-bold text-green-600">
+                    R$ {data.totalCommission?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {user?.commissionPercent}% das vendas aprovadas
+                    {data.commissionPercent || 0}% das vendas aprovadas
                   </p>
                 </CardContent>
               </Card>
@@ -198,14 +348,14 @@ export default function Dashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Minhas Vendas</CardTitle>
-                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {data.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {metrics.approvedQuotations} vendas aprovadas
+                    {data.approvedQuotations || 0} vendas aprovadas
                   </p>
                 </CardContent>
               </Card>
@@ -213,10 +363,10 @@ export default function Dashboard() {
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Propostas Pendentes</CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <Clock className="h-4 w-4 text-orange-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{metrics.pendingQuotations}</div>
+                  <div className="text-2xl font-bold text-orange-600">{data.pendingQuotations || 0}</div>
                   <p className="text-xs text-muted-foreground">
                     Aguardando aprovação
                   </p>
@@ -229,96 +379,105 @@ export default function Dashboard() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{metrics.conversionRate.toFixed(1)}%</div>
+                  <div className="text-2xl font-bold">{data.conversionRate?.toFixed(1) || '0'}%</div>
                   <p className="text-xs text-muted-foreground">
-                    Propostas aprovadas
+                    {data.approvedQuotations || 0} de {data.totalQuotations || 0} propostas
                   </p>
                 </CardContent>
               </Card>
-            </>
-          )}
-        </div>
+            </div>
 
-        {/* Recent Activities */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {user?.type === "admin" ? "Atividades Recentes dos Vendedores" : "Minhas Atividades Recentes"}
-              </CardTitle>
-              <CardDescription>
-                {user?.type === "admin" 
-                  ? "Propostas geradas pelos vendedores neste mês" 
-                  : "Suas propostas mais recentes"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {Array.isArray(recentActivities) && recentActivities.length > 0 ? (
-                  recentActivities.slice(0, 5).map((activity: any, index: number) => (
-                    <div key={index} className="flex items-center space-x-4">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {activity.customerName}
-                        </p>
-                        <p className="text-sm text-gray-500 truncate">
-                          {activity.description}
-                          {user?.type === "admin" && ` - ${activity.sellerName}`}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end">
-                        <p className="text-sm font-medium text-gray-900">
-                          R$ {parseFloat(activity.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(activity.createdAt).toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 text-sm">Nenhuma atividade recente encontrada.</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Employee Performance (Admin only) */}
-          {user?.type === "admin" && (
-            <Card>
+            {/* Commission Breakdown Table */}
+            <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Performance dos Vendedores</CardTitle>
+                <CardTitle>Detalhamento das Comissões</CardTitle>
                 <CardDescription>
-                  Desempenho dos vendedores neste mês
+                  Comissões por proposta aprovada neste mês
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {employees.filter(emp => emp.type === "funcionario").map((employee) => (
-                    <div key={employee.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{employee.name}</p>
-                        <p className="text-xs text-gray-500">{employee.branch}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">
-                          {employee.commissionPercent}% comissão
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {employee.email}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {employees.filter(emp => emp.type === "funcionario").length === 0 && (
-                    <p className="text-gray-500 text-sm">Nenhum vendedor cadastrado.</p>
-                  )}
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Proposta</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Valor Total</TableHead>
+                      <TableHead>Comissão %</TableHead>
+                      <TableHead>Valor Comissão</TableHead>
+                      <TableHead>Data Aprovação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.commissionBreakdown?.map((item: any) => (
+                      <TableRow key={item.quotationId}>
+                        <TableCell className="font-medium">{item.quotationNumber}</TableCell>
+                        <TableCell>{item.customerName}</TableCell>
+                        <TableCell>R$ {item.quotationTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                        <TableCell>{item.commissionPercent}%</TableCell>
+                        <TableCell className="font-semibold text-green-600">
+                          R$ {item.commissionAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(item.approvedDate).toLocaleDateString('pt-BR')}
+                        </TableCell>
+                      </TableRow>
+                    )) || (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-gray-500">
+                          Nenhuma comissão no período selecionado
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
-          )}
-        </div>
+          </>
+        )}
+
+        {/* Recent Activities */}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {user?.type === "admin" ? "Atividades Recentes do Sistema" : "Minhas Atividades Recentes"}
+            </CardTitle>
+            <CardDescription>
+              {user?.type === "admin" 
+                ? "Propostas geradas no sistema neste mês" 
+                : "Suas propostas mais recentes"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Array.isArray(recentActivities) && recentActivities.length > 0 ? (
+                recentActivities.slice(0, 5).map((activity: any, index: number) => (
+                  <div key={index} className="flex items-center space-x-4">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {activity.customerName}
+                      </p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {activity.description}
+                        {user?.type === "admin" && activity.sellerName && ` - ${activity.sellerName}`}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <p className="text-sm font-medium text-gray-900">
+                        R$ {parseFloat(activity.total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(activity.createdAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-sm">Nenhuma atividade recente encontrada.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
