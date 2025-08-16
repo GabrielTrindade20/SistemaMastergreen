@@ -420,6 +420,33 @@ export function NewQuotationForm({
     
     const quotationData = {
       ...formData,
+      // Garantir que campos obrigatórios estão presentes para atualização
+      customerId: formData.customerId || initialData?.customerId,
+      userId: user?.id || initialData?.userId,
+      branch: user?.branch || initialData?.branch,
+      subtotal: calculations.subtotal?.toString() || calculations.total?.toString() || initialData?.subtotal || '0',
+      total: calculations.total?.toString() || initialData?.total || '0',
+      validUntil: formData.validUntil,
+      
+      // Campos dos cálculos
+      totalCosts: calculations.totalCosts?.toString() || '0',
+      totalWithoutInvoice: calculations.totalWithoutInvoice?.toString() || '0',
+      invoicePercent: calculations.invoicePercent?.toString() || '5',
+      invoiceAmount: calculations.invoiceAmount?.toString() || '0',
+      totalWithInvoice: calculations.totalWithInvoice?.toString() || '0',
+      companyProfit: calculations.companyProfit?.toString() || '0',
+      profitPercent: calculations.profitPercent?.toString() || '0',
+      tithe: calculations.tithe?.toString() || '0',
+      netProfit: calculations.netProfit?.toString() || '0',
+      
+      // Configurações
+      shippingIncluded: formData.shippingIncluded ? 1 : 0,
+      warrantyText: formData.warrantyText || '1 ano de garantia de fábrica',
+      responsibleName: formData.responsibleName || user?.name || initialData?.responsibleName,
+      responsiblePosition: formData.responsiblePosition || user?.type || 'Administrador',
+      responsibleId: user?.id || initialData?.responsibleId,
+      adminCalculated: 1, // Marcar como calculado pelo admin
+      
       items: items.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
