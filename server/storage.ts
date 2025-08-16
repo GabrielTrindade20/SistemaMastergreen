@@ -325,7 +325,7 @@ export class DatabaseStorage implements IStorage {
       .from(quotations)
       .leftJoin(customers, eq(quotations.customerId, customers.id))
       .leftJoin(users, eq(quotations.userId, users.id))
-      .where(eq(users.type, "funcionario")) // Apenas propostas de funcionários
+      .where(eq(users.type, "vendedor")) // Apenas propostas de vendedores
       .orderBy(quotations.createdAt);
 
     const quotationsWithDetails: QuotationWithDetails[] = [];
