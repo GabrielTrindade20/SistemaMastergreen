@@ -52,10 +52,10 @@ export default function NewQuotation() {
       
       if (editingQuotationId) {
         console.log('MUTATION: Updating existing quotation');
-        return await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "PUT", body: data });
+        return await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "PUT", data });
       } else {
         console.log('MUTATION: Creating new quotation');
-        return await apiRequest("/api/quotations", { method: "POST", body: data });
+        return await apiRequest("/api/quotations", { method: "POST", data });
       }
     },
     onSuccess: (data) => {
@@ -67,7 +67,7 @@ export default function NewQuotation() {
         description: editingQuotationId ? "Proposta atualizada com sucesso!" : "Proposta criada com sucesso!",
       });
       if (isAdminEditing) {
-        setLocation("/employees");
+        setLocation("/funcionarios");
       } else {
         setLocation("/orcamentos");
       }
