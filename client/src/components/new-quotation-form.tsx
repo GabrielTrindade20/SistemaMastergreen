@@ -1212,6 +1212,12 @@ export default function NewQuotationForm({
               disabled={isLoading}
               data-testid="button-submit"
               className="bg-green-900 hover:bg-green-800 text-white"
+              onClick={(e) => {
+                console.log('Submit button clicked');
+                console.log('Button disabled:', isLoading);
+                console.log('Form valid:', form.formState.isValid);
+                console.log('Form dirty:', form.formState.isDirty);
+              }}
             >
               {isLoading ? "Salvando..." : "Salvar Orçamento"}
             </Button>
