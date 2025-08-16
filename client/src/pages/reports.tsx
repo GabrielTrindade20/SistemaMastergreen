@@ -39,7 +39,7 @@ export default function Reports() {
   const netProfit = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.netProfit || '0'), 0);
 
   // Calculate commission for employees based on gross value
-  const totalCommission = user?.type === "funcionario" 
+  const totalCommission = user?.type === "vendedor" 
     ? approvedQuotations.reduce((sum, q) => {
         const commissionPercent = parseFloat(user.commissionPercent || '0');
         const grossValue = parseFloat(q.total);

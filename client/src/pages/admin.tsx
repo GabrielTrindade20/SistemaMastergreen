@@ -181,12 +181,12 @@ export default function Admin() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Funcionários</CardTitle>
+            <CardTitle className="text-sm font-medium">Vendedores</CardTitle>
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {users.filter((u: UserType) => u.type === "funcionario").length}
+              {users.filter((u: UserType) => u.type === "vendedor").length}
             </div>
           </CardContent>
         </Card>
@@ -217,10 +217,10 @@ export default function Admin() {
                     <p className="text-sm text-gray-600">{user.email}</p>
                     <div className="flex items-center space-x-2 mt-1">
                       <Badge variant={user.type === "admin" ? "default" : "secondary"}>
-                        {user.type === "admin" ? "Administrador" : "Funcionário"}
+                        {user.type === "admin" ? "Administrador" : "Vendedor"}
                       </Badge>
                       <Badge variant="outline">{user.branch}</Badge>
-                      {user.type === "funcionario" && user.commissionPercent && (
+                      {user.type === "vendedor" && user.commissionPercent && (
                         <Badge variant="outline" className="text-green-600 border-green-300">
                           Comissão: {user.commissionPercent}%
                         </Badge>
@@ -354,7 +354,7 @@ function UserForm({ user, onSubmit, isLoading }: UserFormProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="funcionario">Funcionário</SelectItem>
+            <SelectItem value="vendedor">Vendedor</SelectItem>
             <SelectItem value="admin">Administrador</SelectItem>
           </SelectContent>
         </Select>
@@ -371,8 +371,8 @@ function UserForm({ user, onSubmit, isLoading }: UserFormProps) {
         />
       </div>
       
-      {/* Campo de comissão apenas para funcionários */}
-      {formData.type === "funcionario" && (
+      {/* Campo de comissão apenas para vendedores */}
+      {formData.type === "vendedor" && (
         <div>
           <Label htmlFor="commissionPercent">Percentual de Comissão (%)</Label>
           <Input

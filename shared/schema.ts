@@ -16,7 +16,7 @@ export const customers = pgTable("customers", {
   city: text("city").notNull(),
   zipCode: text("zip_code"),
   notes: text("notes"),
-  createdById: uuid("created_by_id").references(() => users.id), // ID do funcionário/admin que criou
+  createdById: uuid("created_by_id").references(() => users.id), // ID do vendedor/admin que criou
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -100,7 +100,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   type: text("type").notNull(), // "admin" or "vendedor"
   branch: text("branch").notNull(), // filial
-  commissionPercent: text("commission_percent").default("0"), // percentual de comissão do funcionário
+  commissionPercent: text("commission_percent").default("0"), // percentual de comissão do vendedor
   createdAt: timestamp("created_at").defaultNow(),
 });
 
