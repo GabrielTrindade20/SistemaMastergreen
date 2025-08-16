@@ -24,7 +24,7 @@ import {
   type LoginUser
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
@@ -53,6 +53,9 @@ export interface IStorage {
   getQuotations(branch?: string): Promise<QuotationWithDetails[]>;
   getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]>;
   getQuotation(id: string): Promise<QuotationWithDetails | undefined>;
+  getQuotationsInDateRange(startDate: Date, endDate: Date): Promise<QuotationWithDetails[]>;
+  getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]>;
+  getCustomersByUser(userId: string): Promise<Customer[]>;
   createQuotation(quotation: InsertQuotation, items: InsertQuotationItem[], costs?: InsertQuotationCost[]): Promise<QuotationWithDetails>;
   updateQuotationStatus(id: string, status: string): Promise<QuotationWithDetails>;
   updateQuotationCommission(id: string, commission: number): Promise<QuotationWithDetails>;
@@ -678,6 +681,135 @@ export class DatabaseStorage implements IStorage {
     await db.delete(quotationCosts).where(eq(quotationCosts.quotationId, id));
     // Then delete the quotation
     await db.delete(quotations).where(eq(quotations.id, id));
+  }
+
+  async getQuotationsInDateRange(startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select({
+        quotation: quotations,
+        customer: customers,
+        user: users,
+      })
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(
+        and(
+          gte(quotations.createdAt, startDate),
+          lte(quotations.createdAt, endDate)
+        )
+      )
+      .orderBy(desc(quotations.createdAt));
+
+    // Group by quotation and fetch related data
+    const quotationsMap = new Map<string, QuotationWithDetails>();
+
+    for (const row of result) {
+      if (!quotationsMap.has(row.quotation.id)) {
+        quotationsMap.set(row.quotation.id, {
+          ...row.quotation,
+          customer: row.customer!,
+          user: row.user!,
+          items: [],
+          costs: []
+        });
+      }
+    }
+
+    // Fetch items and costs for each quotation
+    for (const quotation of quotationsMap.values()) {
+      const items = await db
+        .select({
+          quotationItem: quotationItems,
+          product: products,
+        })
+        .from(quotationItems)
+        .leftJoin(products, eq(quotationItems.productId, products.id))
+        .where(eq(quotationItems.quotationId, quotation.id));
+
+      quotation.items = items.map(item => ({
+        ...item.quotationItem,
+        product: item.product!
+      }));
+
+      const costs = await db
+        .select()
+        .from(quotationCosts)
+        .where(eq(quotationCosts.quotationId, quotation.id));
+
+      quotation.costs = costs;
+    }
+
+    return Array.from(quotationsMap.values());
+  }
+
+  async getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select({
+        quotation: quotations,
+        customer: customers,
+        user: users,
+      })
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(
+        and(
+          eq(quotations.userId, userId),
+          gte(quotations.createdAt, startDate),
+          lte(quotations.createdAt, endDate)
+        )
+      )
+      .orderBy(desc(quotations.createdAt));
+
+    // Group by quotation and fetch related data
+    const quotationsMap = new Map<string, QuotationWithDetails>();
+
+    for (const row of result) {
+      if (!quotationsMap.has(row.quotation.id)) {
+        quotationsMap.set(row.quotation.id, {
+          ...row.quotation,
+          customer: row.customer!,
+          user: row.user!,
+          items: [],
+          costs: []
+        });
+      }
+    }
+
+    // Fetch items and costs for each quotation
+    for (const quotation of quotationsMap.values()) {
+      const items = await db
+        .select({
+          quotationItem: quotationItems,
+          product: products,
+        })
+        .from(quotationItems)
+        .leftJoin(products, eq(quotationItems.productId, products.id))
+        .where(eq(quotationItems.quotationId, quotation.id));
+
+      quotation.items = items.map(item => ({
+        ...item.quotationItem,
+        product: item.product!
+      }));
+
+      const costs = await db
+        .select()
+        .from(quotationCosts)
+        .where(eq(quotationCosts.quotationId, quotation.id));
+
+      quotation.costs = costs;
+    }
+
+    return Array.from(quotationsMap.values());
+  }
+
+  async getCustomersByUser(userId: string): Promise<Customer[]> {
+    return await db
+      .select()
+      .from(customers)
+      .where(eq(customers.createdById, userId))
+      .orderBy(customers.name);
   }
 
   // Users

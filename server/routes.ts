@@ -553,6 +553,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dashboard endpoint
+  app.get("/api/dashboard", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const selectedDate = req.query.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      const [year, month] = selectedDate.split('-').map(Number);
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+
+      let quotations: any[];
+      let customers: any[];
+
+      if (user.type === "admin") {
+        // Admin sees all data
+        quotations = await storage.getQuotationsInDateRange(startDate, endDate);
+        customers = await storage.getCustomers();
+      } else {
+        // Employee sees only their data
+        quotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
+        customers = await storage.getCustomersByUser(user.id);
+      }
+
+      const approvedQuotations = quotations.filter(q => q.status === 'approved');
+      const pendingQuotations = quotations.filter(q => q.status === 'pending').length;
+      
+      const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+      
+      const conversionRate = quotations.length > 0 
+        ? (approvedQuotations.length / quotations.length) * 100 
+        : 0;
+
+      // Calculate commission for employees
+      let totalCommission = 0;
+      if (user.type === "funcionario") {
+        const commissionPercent = parseFloat(user.commissionPercent || '0');
+        totalCommission = approvedQuotations.reduce((sum, q) => {
+          return sum + (parseFloat(q.total) * commissionPercent / 100);
+        }, 0);
+      }
+
+      res.json({
+        totalRevenue,
+        pendingQuotations,
+        activeCustomers: customers.length,
+        conversionRate,
+        totalCommission,
+        approvedQuotations: approvedQuotations.length
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Recent activities endpoint
+  app.get("/api/recent-activities", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const selectedDate = req.query.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      
+      const [year, month] = selectedDate.split('-').map(Number);
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+
+      let quotations: any[];
+
+      if (user.type === "admin") {
+        // Admin sees all employee activities
+        quotations = await storage.getQuotationsInDateRange(startDate, endDate);
+      } else {
+        // Employee sees only their activities
+        quotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
+      }
+
+      const activities = quotations
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10)
+        .map(q => ({
+          id: q.id,
+          customerName: q.customer?.name || 'Cliente não encontrado',
+          sellerName: q.user?.name || 'Vendedor não encontrado',
+          description: `Proposta ${q.quotationNumber}`,
+          total: q.total,
+          status: q.status,
+          createdAt: q.createdAt
+        }));
+
+      res.json(activities);
+    } catch (error) {
+      console.error("Error fetching recent activities:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
