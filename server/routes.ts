@@ -554,10 +554,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard endpoint
-  app.get("/api/dashboard", requireAuth, async (req, res) => {
+  app.get("/api/dashboard/:date?", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      const selectedDate = req.query.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const selectedDate = (req.params.date as string) || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
       const [year, month] = selectedDate.split('-').map(Number);
       const startDate = new Date(year, month - 1, 1);
@@ -670,10 +670,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Recent activities endpoint
-  app.get("/api/recent-activities", requireAuth, async (req, res) => {
+  app.get("/api/recent-activities/:date?", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      const selectedDate = req.query.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const selectedDate = (req.params.date as string) || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
       const [year, month] = selectedDate.split('-').map(Number);
       const startDate = new Date(year, month - 1, 1);
@@ -710,11 +710,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate monthly extract (PDF/Excel)
-  app.get("/api/extract/:format", requireAuth, async (req, res) => {
+  app.get("/api/extract/:format/:date?", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
       const format = req.params.format; // 'pdf' or 'excel'
-      const selectedDate = req.query.date as string || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      const selectedDate = (req.params.date as string) || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       
       const [year, month] = selectedDate.split('-').map(Number);
       const startDate = new Date(year, month - 1, 1);
