@@ -688,29 +688,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
         const pendingQuotations = allQuotations.filter(q => q.status === 'pending');
         
-        // Calculate metrics considering admin-calculated propostas
+        // Calculate metrics prioritizing admin-calculated quotations
         let totalRevenue = 0;
         let totalCompanyProfit = 0;
         let totalNetProfit = 0;
         
-        approvedQuotations.forEach(q => {
-          console.log(`Dashboard - Processing quotation ${q.quotationNumber}, adminCalculated: ${q.adminCalculated}`);
+        // Separar propostas validadas pelo admin das originais
+        const adminCalculatedQuotations = approvedQuotations.filter(q => q.adminCalculated === 1);
+        const originalQuotations = approvedQuotations.filter(q => q.adminCalculated === 0);
+        
+        // IDs das propostas originais que já foram validadas pelo admin
+        const originalIdsWithAdminVersion = adminCalculatedQuotations
+          .map(q => q.originalQuotationId)
+          .filter(Boolean);
+        
+        // Propostas originais que NÃO foram validadas pelo admin
+        const originalQuotationsNotValidated = originalQuotations.filter(q => 
+          !originalIdsWithAdminVersion.includes(q.id)
+        );
+        
+        // Calcular com base nas propostas validadas pelo admin
+        adminCalculatedQuotations.forEach(q => {
+          console.log(`Dashboard - Admin calculated quotation ${q.quotationNumber}`);
+          const revenue = parseFloat(q.total || '0');
+          const netProfit = parseFloat(q.netProfit || '0');
+          const companyProfit = parseFloat(q.companyProfit || '0');
           
-          if (q.adminCalculated === 1) {
-            // Para propostas calculadas pelo admin, usar valores calculados
-            const netProfit = parseFloat(q.netProfit || '0');
-            const companyProfit = parseFloat(q.companyProfit || '0');
-            totalNetProfit += netProfit;
-            totalCompanyProfit += companyProfit;
-            totalRevenue += parseFloat(q.total || '0'); // Manter receita total
-            console.log(`Dashboard - Admin calculated: netProfit=${netProfit}, companyProfit=${companyProfit}`);
-          } else {
-            // Para propostas originais, usar valor total como lucro bruto
-            const total = parseFloat(q.total || '0');
-            totalRevenue += total;
-            totalCompanyProfit += total; // Considera todo valor como lucro bruto
-            console.log(`Dashboard - Original: total=${total}`);
-          }
+          totalRevenue += revenue;
+          totalNetProfit += netProfit;
+          totalCompanyProfit += companyProfit;
+          
+          console.log(`Dashboard - Admin calculated: revenue=${revenue}, netProfit=${netProfit}, companyProfit=${companyProfit}`);
+        });
+        
+        // Para propostas originais não validadas, usar valor total como lucro bruto
+        originalQuotationsNotValidated.forEach(q => {
+          console.log(`Dashboard - Original not validated quotation ${q.quotationNumber}`);
+          const total = parseFloat(q.total || '0');
+          totalRevenue += total;
+          totalCompanyProfit += total; // Considera todo valor como lucro bruto
+          console.log(`Dashboard - Original: total=${total}`);
         });
         const conversionRate = allQuotations.length > 0 
           ? (approvedQuotations.length / allQuotations.length) * 100 
