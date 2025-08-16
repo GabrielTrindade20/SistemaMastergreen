@@ -201,12 +201,11 @@ export default function QuotationForm({
   );
   
   const getCostTotal = (cost: typeof quotationCosts[0]) => {
-    if (cost.calculationType === 'percentage') {
-      // For percentage, calculate based on unitValue as base * (percentage/100) * quantity
-      return (cost.unitValue || 0) * (cost.quantity || 1);
-    } else {
-      return (cost.unitValue || 0) * (cost.quantity || 1);
-    }
+    // Para ambos os tipos (% e R$), o cálculo é o mesmo: unitValue * quantity
+    // A diferença é como o usuário interpreta o campo unitValue:
+    // - Para R$: valor unitário direto
+    // - Para %: valor que representa o resultado final da porcentagem
+    return (cost.unitValue || 0) * (cost.quantity || 1);
   };
 
   const getCost = (costId: string) => {
