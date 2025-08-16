@@ -331,8 +331,11 @@ export default function Employees() {
           const employeeQuotations = filteredQuotationsForSummary.filter(q => 
             (q.responsibleId === employee.id || q.userId === employee.id)
           );
-          const totalValue = employeeQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
-          const totalCommission = employeeQuotations.reduce((sum, q) => 
+          
+          // NOVA REGRA: Apenas propostas APROVADAS contam para valor total e comissão
+          const approvedQuotations = employeeQuotations.filter(q => q.status === 'approved');
+          const totalValue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          const totalCommission = approvedQuotations.reduce((sum, q) => 
             sum + calculateCommission(q.total, employee.id), 0
           );
           
