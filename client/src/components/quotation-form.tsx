@@ -201,11 +201,15 @@ export default function QuotationForm({
   );
   
   const getCostTotal = (cost: typeof quotationCosts[0]) => {
-    // Para ambos os tipos (% e R$), o cálculo é o mesmo: unitValue * quantity
-    // A diferença é como o usuário interpreta o campo unitValue:
-    // - Para R$: valor unitário direto
-    // - Para %: valor que representa o resultado final da porcentagem
-    return (cost.unitValue || 0) * (cost.quantity || 1);
+    if (cost.calculationType === 'percentage') {
+      // Para porcentagem: (valor base * porcentagem) / 100
+      const baseValue = cost.unitValue || 0;
+      const percentage = cost.quantity || 0;
+      return (baseValue * percentage) / 100;
+    } else {
+      // Para valor fixo: unitValue * quantity
+      return (cost.unitValue || 0) * (cost.quantity || 1);
+    }
   };
 
   const getCost = (costId: string) => {
@@ -621,15 +625,15 @@ export default function QuotationForm({
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Quantidade
+                            {cost.calculationType === 'percentage' ? 'Porcentagem (%)' : 'Quantidade'}
                           </label>
                           <Input
                             type="number"
                             step="0.01"
                             min="0"
-                            placeholder="1.00"
+                            placeholder={cost.calculationType === 'percentage' ? "8.00" : "1.00"}
                             value={cost.quantity || ""}
-                            onChange={(e) => updateCost(index, 'quantity', parseFloat(e.target.value) || 1)}
+                            onChange={(e) => updateCost(index, 'quantity', parseFloat(e.target.value) || (cost.calculationType === 'percentage' ? 0 : 1))}
                           />
                         </div>
                         <div>
