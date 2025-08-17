@@ -85,6 +85,21 @@ export default function Dashboard() {
         pdf.text(`Propostas Aprovadas: ${extractData.approvedQuotationsCount}`, 20, yPos);
         yPos += 20;
 
+        // NOVA FUNCIONALIDADE: Incluir performance do admin no PDF
+        if (extractData.adminPerformance && extractData.adminPerformance.quotationsCount > 0) {
+          pdf.setFontSize(14);
+          pdf.text('MINHA PERFORMANCE (ADMIN)', 20, yPos);
+          yPos += 15;
+          
+          pdf.setFontSize(12);
+          pdf.text(`Vendas: R$ ${extractData.adminPerformance.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${extractData.adminPerformance.quotationsCount} propostas)`, 20, yPos);
+          yPos += 10;
+          pdf.text(`Comissão: R$ ${extractData.adminPerformance.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${extractData.adminPerformance.commissionPercent}%)`, 20, yPos);
+          yPos += 10;
+          pdf.text(`Taxa de Conversão: ${extractData.adminPerformance.conversionRate.toFixed(1)}%`, 20, yPos);
+          yPos += 20;
+        }
+
         pdf.setFontSize(14);
         pdf.text('COMISSÕES POR VENDEDOR', 20, yPos);
         yPos += 15;
@@ -274,6 +289,46 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Admin Performance Card */}
+            {data.adminPerformance && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Minha Performance (Admin)</CardTitle>
+                  <CardDescription>
+                    Minhas vendas e performance pessoal neste mês
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        R$ {data.adminPerformance.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                      <p className="text-sm text-muted-foreground">Minhas Vendas</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">
+                        {data.adminPerformance.quotationsCount}
+                      </div>
+                      <p className="text-sm text-muted-foreground">Propostas Aprovadas</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold">
+                        {data.adminPerformance.conversionRate.toFixed(1)}%
+                      </div>
+                      <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        R$ {data.adminPerformance.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                      <p className="text-sm text-muted-foreground">Minha Comissão ({data.adminPerformance.commissionPercent}%)</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Employee Performance Table */}
             <Card className="mb-6">

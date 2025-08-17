@@ -770,6 +770,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         });
 
+        // NOVA FUNCIONALIDADE: Performance do próprio Admin
+        const adminApproved = approvedQuotations.filter(q => q.userId === user.id);
+        const adminQuotations = allQuotations.filter(q => q.userId === user.id);
+        const adminCommissionPercent = parseFloat(user.commissionPercent || '0');
+        const adminTotalSales = adminApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
+        const adminTotalCommission = adminTotalSales * adminCommissionPercent / 100;
+        const adminConversionRate = adminQuotations.length > 0 
+          ? (adminApproved.length / adminQuotations.length) * 100 
+          : 0;
+
+        const adminPerformance = {
+          employeeId: user.id,
+          employeeName: user.name,
+          employeeBranch: user.branch,
+          commissionPercent: adminCommissionPercent,
+          totalSales: adminTotalSales,
+          totalCommission: adminTotalCommission,
+          quotationsCount: adminApproved.length,
+          allQuotationsCount: adminQuotations.length,
+          conversionRate: adminConversionRate
+        };
+
         const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
         
         console.log(`Dashboard Summary - Total Revenue: ${totalRevenue}, Total Costs: ${totalCosts}, Net Profit: ${totalNetProfit}, Commissions: ${totalCommissionsPaid}`);
@@ -789,7 +811,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           employeesCount: employees.length,
           // Dados adicionais para o dashboard do admin
           processedQuotations: adminCalculatedQuotations.length, // Quantas propostas já foram processadas
-          pendingProcessing: approvedQuotations.length - adminCalculatedQuotations.length // Quantas ainda precisam ser processadas
+          pendingProcessing: approvedQuotations.length - adminCalculatedQuotations.length, // Quantas ainda precisam ser processadas
+          // NOVA FUNCIONALIDADE: Performance do próprio Admin
+          adminPerformance
         });
       } else {
         // Employee dashboard - personal view
@@ -951,6 +975,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
           
+          // NOVA FUNCIONALIDADE: Incluir performance do admin no PDF
+          const adminApproved = approvedQuotations.filter(q => q.userId === user.id);
+          const adminCommissionPercent = parseFloat(user.commissionPercent || '0');
+          const adminTotalSales = adminApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          const adminTotalCommission = adminTotalSales * adminCommissionPercent / 100;
+          const adminAllQuotations = allQuotations.filter(q => q.userId === user.id);
+          const adminConversionRate = adminAllQuotations.length > 0 
+            ? (adminApproved.length / adminAllQuotations.length) * 100 
+            : 0;
+
+          const adminPerformance = {
+            totalSales: adminTotalSales,
+            totalCommission: adminTotalCommission,
+            quotationsCount: adminApproved.length,
+            commissionPercent: adminCommissionPercent,
+            conversionRate: adminConversionRate
+          };
+          
           res.json({
             type: 'admin',
             monthName,
@@ -959,7 +1001,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             netProfit: totalRevenue - totalCommissionsPaid,
             commissionsByEmployee,
             approvedQuotationsCount: approvedQuotations.length,
-            totalQuotationsCount: allQuotations.length
+            totalQuotationsCount: allQuotations.length,
+            // NOVA FUNCIONALIDADE: Performance do admin no PDF
+            adminPerformance
           });
         } else {
           const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
