@@ -128,8 +128,10 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFont("helvetica", "bold");
 
   const tableHeaders = ["ITEM", "QTD. (m²)", "DESCRIÇÃO DO PRODUTO", "VALOR UNIT.", "VALOR TOTAL"];
-  const columnWidths = [20, 30, 80, 30, 30]; // Adjusted widths to match model
-  let xPosition = leftMargin;
+  const columnWidths = [15, 25, 70, 25, 25]; // Reduced widths for better fit
+  const tableWidth = columnWidths.reduce((sum, width) => sum + width, 0);
+  const tableStartX = (pageWidth - tableWidth) / 2; // Center the table
+  let xPosition = tableStartX;
 
   // Draw table header with black borders and centered text
   doc.setDrawColor(0, 0, 0);
@@ -153,8 +155,8 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFontSize(9);
   
   quotation.items.forEach((item, index) => {
-    xPosition = leftMargin;
-    const rowHeight = 12;
+    xPosition = tableStartX;
+    const rowHeight = 10; // Reduced row height
 
     // Draw row cells with borders and centered content
     // Item number
@@ -198,30 +200,30 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   });
 
   // Total row exactly as in model - green background for both cells
-  xPosition = leftMargin + columnWidths[0] + columnWidths[1] + columnWidths[2];
+  xPosition = tableStartX + columnWidths[0] + columnWidths[1] + columnWidths[2];
   
   // Green background for "TOTAL:" cell
   doc.setFillColor(76, 175, 80); // Green color matching model
-  doc.rect(xPosition, yPosition, columnWidths[3], 15, 'FD'); // Fill and draw border
+  doc.rect(xPosition, yPosition, columnWidths[3], 12, 'FD'); // Reduced height to match rows
   
   // Green background for total value cell
-  doc.rect(xPosition + columnWidths[3], yPosition, columnWidths[4], 15, 'FD');
+  doc.rect(xPosition + columnWidths[3], yPosition, columnWidths[4], 12, 'FD');
   
   // White text for "TOTAL:"
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   
   const totalLabel = "TOTAL:";
   const totalLabelWidth = doc.getTextWidth(totalLabel);
   const labelCenterX = xPosition + (columnWidths[3] - totalLabelWidth) / 2;
-  doc.text(totalLabel, labelCenterX, yPosition + 10);
+  doc.text(totalLabel, labelCenterX, yPosition + 8);
   
   // White text for total value
   const totalText = formatCurrency(parseFloat(quotation.total));
   const totalTextWidth = doc.getTextWidth(totalText);
   const valueCenterX = xPosition + columnWidths[3] + (columnWidths[4] - totalTextWidth) / 2;
-  doc.text(totalText, valueCenterX, yPosition + 10);
+  doc.text(totalText, valueCenterX, yPosition + 8);
   
   // Reset colors for subsequent content
   doc.setTextColor(0, 0, 0);
@@ -229,46 +231,46 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setDrawColor(0, 0, 0);
     
   // Dados da Proposta - exactly as in model
-  yPosition += 25;
+  yPosition += 20; // Reduced spacing
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text("Dados da Proposta:", leftMargin, yPosition);
 
-  yPosition += 10;
+  yPosition += 8; // Reduced spacing
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
 
   // Fixed information exactly as in model
   doc.text(`Prazo de garantia: ${quotation.warrantyText || '1 ano (garantia da fábrica)'}.`, leftMargin, yPosition);
-  yPosition += 6;
+  yPosition += 5;
 
   doc.text("Forma de pagamento: 50% de entrada + 50% na entrega.", leftMargin, yPosition);
-  yPosition += 6;
+  yPosition += 5;
 
   const shippingText = quotation.shippingIncluded ? "." : ".";
   doc.text(`Frete: ${shippingText}`, leftMargin, yPosition);
-  yPosition += 6;
+  yPosition += 5;
 
   doc.text("Tributos: incluso no preço.", leftMargin, yPosition);
-  yPosition += 6;
+  yPosition += 5;
 
   doc.text("Validade desta proposta: 30 dias.", leftMargin, yPosition);
-  yPosition += 15;
+  yPosition += 12;
 
   // Dados para pagamento - exactly as in model
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text("Dados para pagamento:", leftMargin, yPosition);
-  yPosition += 8;
+  yPosition += 6;
   
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.text(`PIX: ${company.cnpj} - CNPJ`, leftMargin, yPosition);
-  yPosition += 8;
+  yPosition += 6;
   doc.text(`Em nome de: ${company.socialName}`, leftMargin, yPosition);
 
   // Responsible person - centered exactly as in model
-  yPosition += 25;
+  yPosition += 20;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   
