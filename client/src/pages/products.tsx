@@ -225,53 +225,125 @@ export default function Products() {
         <CardContent>
           <div className="space-y-4">
             {products.map((product) => (
-              <div key={product.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-[#002b17] text-white rounded-lg flex items-center justify-center">
-                    <Package className="w-6 h-6" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg">{product.name}</h3>
-                    {product.description && (
-                      <p className="text-sm text-gray-600 mt-1">{product.description}</p>
-                    )}
-                    <div className="flex items-center space-x-3 mt-2">
-                      <Badge className={getCategoryColor(product.category || "")}>
-                        {product.category}
-                      </Badge>
-                      {product.hasInstallation === 1 && (
-                        <Badge variant="outline">Com Instalação</Badge>
+              <div key={product.id} className="border rounded-lg hover:bg-gray-50">
+                {/* Mobile layout */}
+                <div className="block sm:hidden p-4">
+                  <div className="flex items-start space-x-3 mb-3">
+                    <div className="w-10 h-10 bg-[#002b17] text-white rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base leading-tight">{product.name}</h3>
+                      {product.description && (
+                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{product.description}</p>
                       )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-[#002b17]">
-                      R$ {parseFloat(product.pricePerM2).toFixed(2)}/m²
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Custo: R$ {parseFloat(product.costPerM2 || "0").toFixed(2)}/m²
-                    </div>
-                    <div className="text-sm text-green-600 font-medium">
-                      Margem: {getMarginPercent(product.pricePerM2, product.costPerM2 || "0")}%
+                  
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <Badge className={getCategoryColor(product.category || "")}>
+                      {product.category}
+                    </Badge>
+                    {product.hasInstallation === 1 && (
+                      <Badge variant="outline">Com Instalação</Badge>
+                    )}
+                  </div>
+                  
+                  <div className="bg-gray-50 p-3 rounded-md mb-3">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">Preço:</span>
+                        <div className="font-bold text-[#002b17]">
+                          R$ {parseFloat(product.pricePerM2).toFixed(2)}/m²
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Custo:</span>
+                        <div className="text-gray-700">
+                          R$ {parseFloat(product.costPerM2 || "0").toFixed(2)}/m²
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-600">Margem:</span>
+                        <div className="font-medium text-green-600">
+                          {getMarginPercent(product.pricePerM2, product.costPerM2 || "0")}%
+                        </div>
+                      </div>
                     </div>
                   </div>
+                  
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenDialog(product)}
+                      className="flex-1 max-w-[100px]"
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteProduct(product.id)}
+                      disabled={deleteProductMutation.isPending}
+                      className="flex-1 max-w-[100px]"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Excluir
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenDialog(product)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteProduct(product.id)}
-                    disabled={deleteProductMutation.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+
+                {/* Desktop layout */}
+                <div className="hidden sm:flex items-center justify-between p-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 bg-[#002b17] text-white rounded-lg flex items-center justify-center">
+                      <Package className="w-6 h-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{product.name}</h3>
+                      {product.description && (
+                        <p className="text-sm text-gray-600 mt-1">{product.description}</p>
+                      )}
+                      <div className="flex items-center space-x-3 mt-2">
+                        <Badge className={getCategoryColor(product.category || "")}>
+                          {product.category}
+                        </Badge>
+                        {product.hasInstallation === 1 && (
+                          <Badge variant="outline">Com Instalação</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-[#002b17]">
+                        R$ {parseFloat(product.pricePerM2).toFixed(2)}/m²
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Custo: R$ {parseFloat(product.costPerM2 || "0").toFixed(2)}/m²
+                      </div>
+                      <div className="text-sm text-green-600 font-medium">
+                        Margem: {getMarginPercent(product.pricePerM2, product.costPerM2 || "0")}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenDialog(product)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteProduct(product.id)}
+                      disabled={deleteProductMutation.isPending}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}

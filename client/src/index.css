@@ -122,6 +122,110 @@
   .focus\:border-master-green:focus {
     border-color: hsl(var(--primary));
   }
+
+  /* Mobile responsiveness utilities */
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      max-width: 640px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .container {
+      max-width: 768px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      max-width: 1024px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .container {
+      max-width: 1280px;
+    }
+  }
+
+  /* Mobile-first table responsiveness */
+  @media (max-width: 767px) {
+    .table-responsive {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .table-responsive table {
+      font-size: 0.875rem;
+      min-width: 600px;
+    }
+  }
+
+  /* Line clamp utility for text truncation */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  /* Touch-friendly buttons on mobile */
+  @media (max-width: 767px) {
+    button, .btn {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* Improved form inputs on mobile */
+  @media (max-width: 767px) {
+    input[type="text"], 
+    input[type="email"], 
+    input[type="password"], 
+    input[type="number"], 
+    textarea, 
+    select {
+      font-size: 16px; /* Prevents zoom on iOS */
+      padding: 0.75rem;
+    }
+  }
+
+  /* Mobile navigation improvements */
+  @media (max-width: 767px) {
+    .mobile-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 1px solid hsl(var(--border));
+      z-index: 50;
+    }
+  }
 }
 
 @layer components {
