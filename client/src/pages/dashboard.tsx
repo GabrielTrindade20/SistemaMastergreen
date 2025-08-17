@@ -175,7 +175,7 @@ export default function Dashboard() {
     );
   }
 
-  const data = dashboardData || {};
+  const data = dashboardData || {} as any;
 
   return (
     <div>
@@ -188,12 +188,13 @@ export default function Dashboard() {
               {user?.type === "admin" ? "Visão geral do sistema" : "Seus dados pessoais"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={generateExtract} variant="outline" size="sm">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <Button onClick={generateExtract} variant="outline" size="sm" className="w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
-              Gerar Extrato PDF
+              <span className="hidden sm:inline">Gerar Extrato PDF</span>
+              <span className="sm:hidden">PDF</span>
             </Button>
-            <div className="text-xs md:text-sm text-gray-500">
+            <div className="text-xs md:text-sm text-gray-500 text-center sm:text-left">
               <Clock className="w-4 h-4 inline mr-2" />
               Atualizado agora
             </div>
@@ -201,7 +202,7 @@ export default function Dashboard() {
         </div>
         
         {/* Month Navigation */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-center sm:justify-between">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -210,7 +211,7 @@ export default function Dashboard() {
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
-            <span className="text-lg font-semibold min-w-[200px] text-center">
+            <span className="text-lg font-semibold min-w-[150px] sm:min-w-[200px] text-center">
               {getMonthName(selectedDate)}
             </span>
             <Button
@@ -237,11 +238,11 @@ export default function Dashboard() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-xl md:text-2xl font-bold">
                     R$ {data.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {data.approvedQuotations || 0} vendas aprovadas (valor bruto)
+                    {data.approvedQuotations || 0} vendas aprovadas
                   </p>
                 </CardContent>
               </Card>
@@ -252,7 +253,7 @@ export default function Dashboard() {
                   <DollarSign className="h-4 w-4 text-red-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-red-600">
+                  <div className="text-xl md:text-2xl font-bold text-red-600">
                     R$ {data.totalCommissionsPaid?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -267,7 +268,7 @@ export default function Dashboard() {
                   <TrendingUp className="h-4 w-4 text-green-500" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
+                  <div className="text-xl md:text-2xl font-bold text-green-600">
                     R$ {data.totalNetProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                   </div>
                   <p className="text-xs text-muted-foreground">

@@ -247,16 +247,20 @@ export default function CostsPage() {
                     size="sm"
                     onClick={() => handleEdit(cost)}
                     data-testid={`button-edit-cost-${cost.id}`}
+                    className="flex-1 sm:flex-none"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="h-4 w-4 sm:mr-0 mr-2" />
+                    <span className="sm:hidden">Editar</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleDelete(cost)}
                     data-testid={`button-delete-cost-${cost.id}`}
+                    className="flex-1 sm:flex-none"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 sm:mr-0 mr-2" />
+                    <span className="sm:hidden">Excluir</span>
                   </Button>
                 </div>
               </CardContent>

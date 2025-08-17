@@ -121,17 +121,17 @@ export default function Reports() {
   return (
     <div>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
-            <p className="text-gray-600">
+            <h1 className="text-xl md:text-2xl font-bold text-gray-900">Relatórios</h1>
+            <p className="text-gray-600 text-sm md:text-base">
               {user?.type === "admin" ? "Análises e relatórios do negócio" : "Seus relatórios mensais"}
             </p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <Calendar className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Selecionar mês" />
               </SelectTrigger>
@@ -146,18 +146,19 @@ export default function Reports() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={generateReport} className="btn-primary">
+            <Button onClick={generateReport} className="btn-primary w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
-              Gerar PDF
+              <span className="sm:hidden">Gerar PDF</span>
+              <span className="hidden sm:inline">Gerar PDF</span>
             </Button>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
@@ -242,17 +243,17 @@ export default function Reports() {
               <div className="space-y-4">
                 {productArray.slice(0, 5).map((product, index) => (
                   <div key={product.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-sm flex-shrink-0">
                         {index + 1}
                       </div>
-                      <div>
-                        <p className="font-medium">{product.name}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium line-clamp-1">{product.name}</p>
                         <p className="text-sm text-gray-500">{product.quantity.toFixed(1)}m²</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">R$ {product.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-semibold text-sm sm:text-base">R$ {product.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       <p className="text-sm text-gray-500">
                         {((product.revenue / totalRevenue) * 100).toFixed(1)}%
                       </p>
@@ -277,29 +278,62 @@ export default function Reports() {
             ) : (
               <div className="space-y-4">
                 {filteredQuotations.slice(0, 10).map((quotation) => (
-                  <div key={quotation.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        quotation.status === 'approved' ? 'bg-green-500' :
-                        quotation.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
-                      }`} />
-                      <div>
-                        <p className="font-medium">{quotation.customer.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(quotation.createdAt!).toLocaleDateString('pt-BR')}
-                        </p>
-                        {user?.type === "admin" && quotation.user && (
-                          <p className="text-sm text-blue-600">
-                            Criado por: {quotation.user.name} • Código: #{quotation.quotationNumber}
+                  <div key={quotation.id} className="border rounded-lg">
+                    {/* Mobile layout */}
+                    <div className="block sm:hidden p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                            quotation.status === 'approved' ? 'bg-green-500' :
+                            quotation.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                          }`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium line-clamp-1">{quotation.customer.name}</p>
+                            <p className="text-sm text-gray-500">#{quotation.quotationNumber}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-sm">
+                            R$ {parseFloat(quotation.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </p>
-                        )}
+                        </div>
                       </div>
+                      <div className="flex justify-between items-center text-sm text-gray-500">
+                        <span>{new Date(quotation.createdAt!).toLocaleDateString('pt-BR')}</span>
+                        <span className="capitalize">{quotation.status}</span>
+                      </div>
+                      {user?.type === "admin" && quotation.user && (
+                        <p className="text-sm text-blue-600 mt-2 line-clamp-1">
+                          Criado por: {quotation.user.name}
+                        </p>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        R$ {parseFloat(quotation.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-sm text-gray-500 capitalize">{quotation.status}</p>
+
+                    {/* Desktop layout */}
+                    <div className="hidden sm:flex items-center justify-between p-4">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          quotation.status === 'approved' ? 'bg-green-500' :
+                          quotation.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`} />
+                        <div>
+                          <p className="font-medium">{quotation.customer.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {new Date(quotation.createdAt!).toLocaleDateString('pt-BR')}
+                          </p>
+                          {user?.type === "admin" && quotation.user && (
+                            <p className="text-sm text-blue-600">
+                              Criado por: {quotation.user.name} • Código: #{quotation.quotationNumber}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold">
+                          R$ {parseFloat(quotation.total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-sm text-gray-500 capitalize">{quotation.status}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
