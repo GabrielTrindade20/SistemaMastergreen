@@ -181,8 +181,8 @@ export default function Dashboard() {
     <div>
       {/* Header with Month Filter */}
       <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-4">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4">
-          <div className="mb-2 md:mb-0">
+        <div className="flex flex-col space-y-4 mb-4">
+          <div>
             <h1 className="text-xl md:text-2xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-600 text-sm md:text-base">
               {user?.type === "admin" ? "Visão geral do sistema" : "Seus dados pessoais"}

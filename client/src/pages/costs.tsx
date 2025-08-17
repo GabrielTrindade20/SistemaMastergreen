@@ -174,7 +174,7 @@ export default function CostsPage() {
 
   return (
     <div className="p-4 md:p-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+      <div className="flex flex-col space-y-4 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold">Custos</h1>
           <p className="text-muted-foreground text-sm md:text-base">
@@ -188,6 +188,7 @@ export default function CostsPage() {
             setShowCreateDialog(true);
           }}
           data-testid="button-create-cost"
+          className="w-full sm:w-auto"
         >
           <Plus className="h-4 w-4 mr-2" />
           Novo Custo

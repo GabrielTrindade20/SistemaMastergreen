@@ -145,13 +145,13 @@ export default function Admin() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="flex flex-col space-y-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Painel Administrativo</h1>
-          <p className="text-gray-600 mt-1">Gerencie usuários e permissões do sistema</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Painel Administrativo</h1>
+          <p className="text-gray-600 mt-1 text-sm md:text-base">Gerencie usuários e permissões do sistema</p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="bg-[#002b17] hover:bg-[#004a2a]">
+        <Button onClick={() => handleOpenDialog()} className="bg-[#002b17] hover:bg-[#004a2a] w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Novo Usuário
         </Button>
