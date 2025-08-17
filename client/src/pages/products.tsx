@@ -119,7 +119,7 @@ export default function Products() {
   const getMarginPercent = (price: string, cost: string) => {
     const priceNum = parseFloat(price || "0");
     const costNum = parseFloat(cost || "0");
-    if (priceNum === 0) return "0";
+    if (priceNum === 0) return 0;
     return ((priceNum - costNum) / priceNum * 100).toFixed(1);
   };
 
