@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import type { QuotationWithDetails } from '@shared/schema';
 import { formatCurrency, formatPhone, formatDocument, formatCEP } from './calculations';
+import Quotations from '@/pages/quotations';
 
 export interface CompanyInfo {
   name: string;
@@ -56,7 +57,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
       const logoBase64 = await getImageAsBase64('/src/imagem/logoSemFundo.png');
       if (logoBase64) {
         const logoWidth = 50;
-        const logoHeight = 30;
+        const logoHeight = 50;
         doc.addImage(logoBase64, 'PNG', (pageWidth - logoWidth) / 2, yPosition, logoWidth, logoHeight);
         yPosition += 40;
       }
@@ -101,8 +102,6 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFont("helvetica", "normal");
   
   doc.text(`Ao(à): ${quotation.customer.name}`, leftMargin, yPosition);
-  yPosition += 5;
-  doc.text("A/C:", leftMargin, yPosition);
   yPosition += 5;
   doc.text(`Telefone: ${formatPhone(quotation.customer.phone || '')}`, leftMargin, yPosition);
   yPosition += 5;
@@ -247,15 +246,26 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.text("Forma de pagamento: 50% de entrada + 50% na entrega.", leftMargin, yPosition);
   yPosition += 5;
 
-  const shippingText = quotation.shippingIncluded ? "." : ".";
+  const shippingText = quotation.shippingIncluded ? "Incluso no valor" : "Não incluso";
   doc.text(`Frete: ${shippingText}`, leftMargin, yPosition);
   yPosition += 5;
 
-  doc.text("Tributos: incluso no preço.", leftMargin, yPosition);
+  doc.text("Tributos: Incluso no Preço.", leftMargin, yPosition);
   yPosition += 5;
 
-  doc.text("Validade desta proposta: 30 dias.", leftMargin, yPosition);
-  yPosition += 12;
+    
+    const validade = new Date(quotation.validUntil);
+
+    // Formata para dd/MM/yyyy
+    const validadeFormatada = validade.toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric"
+    });
+
+    // Usa no PDF
+    doc.text(`Validade desta proposta: ${validadeFormatada}`, leftMargin, yPosition);
+    yPosition += 12;
 
   // Dados para pagamento - exactly as in model
   doc.setFont("helvetica", "bold");
@@ -267,7 +277,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFontSize(10);
   doc.text(`PIX: ${company.cnpj} - CNPJ`, leftMargin, yPosition);
   yPosition += 6;
-  doc.text(`Em nome de: ${company.socialName}`, leftMargin, yPosition);
+  doc.text("Em nome de: ROCHA COMERCIO E INSTALACAO DE GRAMA SINTETICA LTDA", leftMargin, yPosition);
 
   // Responsible person - centered exactly as in model
   yPosition += 20;

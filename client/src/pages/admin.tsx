@@ -203,49 +203,105 @@ export default function Admin() {
         <CardContent>
           <div className="space-y-4">
             {users.map((user: UserType) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                    {user.type === "admin" ? (
-                      <Shield className="w-5 h-5 text-[#002b17]" />
-                    ) : (
-                      <User className="w-5 h-5 text-gray-600" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">{user.name}</h3>
-                    <p className="text-sm text-gray-600">{user.email}</p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge variant={user.type === "admin" ? "default" : "secondary"}>
-                        {user.type === "admin" ? "Administrador" : "Vendedor"}
-                      </Badge>
-                      <Badge variant="outline">{user.branch}</Badge>
-                      {user.type === "vendedor" && user.commissionPercent && (
-                        <Badge variant="outline" className="text-green-600 border-green-300">
-                          Comissão: {user.commissionPercent}%
-                        </Badge>
+              <div key={user.id} className="border rounded-lg">
+                {/* Mobile layout */}
+                <div className="block sm:hidden p-4">
+                  <div className="flex items-start space-x-3 mb-3">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                      {user.type === "admin" ? (
+                        <Shield className="w-5 h-5 text-[#002b17]" />
+                      ) : (
+                        <User className="w-5 h-5 text-gray-600" />
                       )}
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base leading-tight">{user.name}</h3>
+                      <p className="text-sm text-gray-600 mt-1 truncate">{user.email}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenDialog(user)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  {user.id !== currentUser.id && (
+                  
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <Badge variant={user.type === "admin" ? "default" : "secondary"}>
+                      {user.type === "admin" ? "Administrador" : "Vendedor"}
+                    </Badge>
+                    <Badge variant="outline">{user.branch}</Badge>
+                    {user.type === "vendedor" && user.commissionPercent && (
+                      <Badge variant="outline" className="text-green-600 border-green-300">
+                        Comissão: {user.commissionPercent}%
+                      </Badge>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-end space-x-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteUser(user.id)}
-                      disabled={deleteUserMutation.isPending}
+                      onClick={() => handleOpenDialog(user)}
+                      className="flex-1 max-w-[80px]"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Edit className="w-4 h-4 mr-1" />
+                      Editar
                     </Button>
-                  )}
+                    {user.id !== currentUser.id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={deleteUserMutation.isPending}
+                        className="flex-1 max-w-[80px]"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Excluir
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Desktop layout */}
+                <div className="hidden sm:flex items-center justify-between p-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                      {user.type === "admin" ? (
+                        <Shield className="w-5 h-5 text-[#002b17]" />
+                      ) : (
+                        <User className="w-5 h-5 text-gray-600" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{user.name}</h3>
+                      <p className="text-sm text-gray-600">{user.email}</p>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <Badge variant={user.type === "admin" ? "default" : "secondary"}>
+                          {user.type === "admin" ? "Administrador" : "Vendedor"}
+                        </Badge>
+                        <Badge variant="outline">{user.branch}</Badge>
+                        {user.type === "vendedor" && user.commissionPercent && (
+                          <Badge variant="outline" className="text-green-600 border-green-300">
+                            Comissão: {user.commissionPercent}%
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenDialog(user)}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    {user.id !== currentUser.id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={deleteUserMutation.isPending}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
