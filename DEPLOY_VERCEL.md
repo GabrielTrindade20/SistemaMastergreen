@@ -8,15 +8,7 @@
 
 ## 🚀 Passo a Passo
 
-### 1. Corrigir Erro de Funções Serverless
-
-✅ **Problema Resolvido**: O erro "The pattern doesn't match any Serverless Functions" foi corrigido.
-
-Os arquivos foram ajustados:
-- ✅ `api/index.js` - Função serverless para Vercel
-- ✅ `vercel.json` - Configuração corrigida
-
-### 2. Preparar o Banco de Dados
+### 1. Preparar o Banco de Dados
 
 Você precisa de um banco PostgreSQL online. Recomendo usar o **Neon** (gratuito):
 
