@@ -1214,16 +1214,20 @@ export function NewQuotationForm({
 
         {/* Botões */}
         <div className="flex-coll justify-between">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={onCancel}
-            data-testid="button-cancel"
-          >
-            Cancelar
-          </Button>
           
-          <div className="flex gap-4 mt-[12px] mb-[12px]">
+
+          <div className="flex gap-1">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onCancel}
+              data-testid="button-cancel"            
+            >
+              Cancelar
+            </Button>
+          </div>
+          
+          <div className="flex gap-4">
             <Button 
               type="button" 
               variant="secondary"
