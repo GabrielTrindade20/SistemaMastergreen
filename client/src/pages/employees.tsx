@@ -495,7 +495,7 @@ export default function Employees() {
                       <div className="space-y-3">
                         <h4 className="font-semibold text-gray-700">Receitas</h4>
                         {/* Show gross value if there's a discount */}
-                        {parseFloat(selectedQuotation.discountPercent) > 0 && (
+                        {parseFloat(selectedQuotation.discountPercent || "0") > 0 && (
                           <div className="flex justify-between">
                             <span>Valor Bruto:</span>
                             <span className="font-semibold">
@@ -504,7 +504,7 @@ export default function Employees() {
                           </div>
                         )}
                         {/* Show discount if applicable */}
-                        {parseFloat(selectedQuotation.discountPercent) > 0 && (
+                        {parseFloat(selectedQuotation.discountPercent || "0") > 0 && (
                           <div className="flex justify-between">
                             <span>Desconto ({selectedQuotation.discountPercent}%):</span>
                             <span className="font-semibold text-red-600">
