@@ -513,7 +513,16 @@ export function NewQuotationForm({
         branch: user?.branch || 'Matriz',
         status: 'pending',
         customer: selectedCustomer,
-        user: user,
+        user: user || {
+          id: '',
+          name: 'Usuário Desconhecido',
+          email: '',
+          password: '',
+          type: 'employee',
+          branch: 'Matriz',
+          commissionPercent: '0',
+          createdAt: null
+        },
         validUntil: new Date(formData.validUntil),
         notes: formData.notes || null,
         warrantyText: formData.warrantyText || null,
@@ -521,17 +530,56 @@ export function NewQuotationForm({
         responsibleName: formData.responsibleName || null,
         responsiblePosition: formData.responsiblePosition || null,
         responsibleId: user?.id || null,
-        items: items.map(item => {
+        adminCalculated: 0,
+        originalQuotationId: null,
+        items: items.map((item, index) => {
           const product = products.find(p => p.id === item.productId);
+          const unitPriceValue = Number(item.salePrice) || Number(item.unitPrice);
+          const subtotalValue = Number(item.quantity) * unitPriceValue;
           return {
-            product: product,
+            id: `temp-item-${index}`,
+            productId: item.productId,
+            quotationId: 'temp-quotation',
+            product: product || {
+              id: item.productId,
+              name: 'Produto Desconhecido',
+              createdAt: null,
+              category: null,
+              hasInstallation: 0,
+              pricePerM2: '0',
+              costPerM2: '0',
+              description: null
+            },
             quantity: item.quantity.toString(),
-            unitPrice: (Number(item.salePrice) || Number(item.unitPrice)).toString(),
-            subtotal: (Number(item.quantity) * (Number(item.salePrice) || Number(item.unitPrice))).toString()
+            unitPrice: unitPriceValue.toString(),
+            unitCost: (Number(product?.costPerM2) || 0).toString(),
+            totalCost: (Number(item.quantity) * (Number(product?.costPerM2) || 0)).toString(),
+            subtotal: subtotalValue.toString()
           };
         }),
-        costs: costs,
-        ...calculations,
+        costs: costs.map((cost, index) => ({
+          id: `temp-cost-${index}`,
+          quotationId: 'temp-quotation',
+          costId: cost.costId,
+          name: cost.name,
+          description: cost.description || null,
+          supplier: cost.supplier || null,
+          quantity: cost.quantity.toString(),
+          unitValue: cost.unitValue.toString(),
+          totalValue: cost.totalValue.toString()
+        })),
+        totalCosts: calculations.totalCosts.toString(),
+        totalWithoutInvoice: calculations.totalWithoutInvoice.toString(),
+        invoicePercent: calculations.invoicePercent.toString(),
+        invoiceAmount: calculations.invoiceAmount.toString(),
+        totalWithInvoice: calculations.totalWithInvoice.toString(),
+        companyProfit: calculations.companyProfit.toString(),
+        profitPercent: calculations.profitPercent.toString(),
+        tithe: calculations.tithe.toString(),
+        netProfit: calculations.netProfit.toString(),
+        discount: calculations.discount.toString(),
+        finalTotal: calculations.finalTotal.toString(),
+        discountPercent: formData.discountPercent || "0",
         subtotal: calculations.subtotal.toString(),
         total: calculations.finalTotal.toString(),
         shippingIncluded: formData.shippingIncluded ? 1 : 0,
@@ -1212,28 +1260,25 @@ export function NewQuotationForm({
           )}
         />
 
-        {/* Botões */}
-        <div className="flex-coll justify-between">
+        {/* Botões - Layout responsivo */}
+        <div className="flex flex-col sm:flex-row gap-4 sm:justify-between">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={onCancel}
+            data-testid="button-cancel"
+            className="order-3 sm:order-1"
+          >
+            Cancelar
+          </Button>
           
-
-          <div className="flex gap-1">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={onCancel}
-              data-testid="button-cancel"            
-            >
-              Cancelar
-            </Button>
-          </div>
-          
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 order-1 sm:order-2">
             <Button 
               type="button" 
               variant="secondary"
               onClick={handleShareQuotation}
               data-testid="button-share"
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto"
             >
               <Share2 className="h-4 w-4 mr-2" />
               Compartilhar PDF
@@ -1242,7 +1287,7 @@ export function NewQuotationForm({
               type="submit" 
               disabled={isLoading}
               data-testid="button-submit"
-              className="bg-green-900 hover:bg-green-800 text-white"
+              className="bg-green-900 hover:bg-green-800 text-white w-full sm:w-auto"
               onClick={(e) => {
                 console.log('Submit button clicked');
                 console.log('Button disabled:', isLoading);
