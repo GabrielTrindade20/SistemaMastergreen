@@ -1213,7 +1213,7 @@ export function NewQuotationForm({
         />
 
         {/* Botões */}
-        <div className="flex justify-between">
+        <div className="flex-coll justify-between">
           <Button 
             type="button" 
             variant="outline" 
@@ -1223,7 +1223,7 @@ export function NewQuotationForm({
             Cancelar
           </Button>
           
-          <div className="flex gap-4">
+          <div className="flex gap-4 mt-[12px] mb-[12px]">
             <Button 
               type="button" 
               variant="secondary"
