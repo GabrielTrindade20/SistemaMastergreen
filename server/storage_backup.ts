@@ -322,9 +322,100 @@ export class DatabaseStorage implements IStorage {
     return quotationsWithDetails;
   }
 
+  // Buscar apenas propostas originais de funcionários (não calculadas pelo admin) - PRIMEIRA VERSÃO
+  async getEmployeeOriginalQuotationsOriginal(): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(and(
+        eq(users.type, "vendedor"), // Apenas propostas de vendedores
+        eq(quotations.adminCalculated, 0) // Apenas propostas originais
+      ))
+      .orderBy(quotations.createdAt);
 
+    const quotationsWithDetails: QuotationWithDetails[] = [];
 
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
 
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
+
+  // Buscar propostas calculadas pelo admin (propostas validadas) - PRIMEIRA VERSÃO
+  async getAdminCalculatedQuotationsOriginal(): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(eq(quotations.adminCalculated, 1)) // Apenas propostas calculadas pelo admin
+      .orderBy(quotations.createdAt);
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
 
   // Buscar todas as propostas de funcionários para o admin gerenciar
   async getEmployeeQuotations(): Promise<QuotationWithDetails[]> {
@@ -733,8 +824,8 @@ export class DatabaseStorage implements IStorage {
 
       // Remover campos undefined
       Object.keys(quotationUpdateData).forEach(key => {
-        if ((quotationUpdateData as any)[key] === undefined) {
-          delete (quotationUpdateData as any)[key];
+        if (quotationUpdateData[key] === undefined) {
+          delete quotationUpdateData[key];
         }
       });
 
@@ -777,13 +868,13 @@ export class DatabaseStorage implements IStorage {
         for (const cost of quotationData.costs) {
           await db.insert(quotationCosts).values({
             quotationId: id,
-            costId: cost.costId,
+            costId: cost.costId || null,
             name: cost.name,
             unitValue: cost.unitValue.toString(),
             quantity: cost.quantity.toString(),
             totalValue: cost.totalValue.toString(),
-            supplier: cost.supplier,
-            description: cost.description,
+            supplier: cost.supplier || null,
+            description: cost.description || null,
           });
         }
       }
@@ -868,7 +959,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(quotations.adminCalculated, 0), // Apenas propostas originais
         eq(users.type, 'vendedor'), // Apenas de vendedores
-        validatedIds.length > 0 ? notInArray(quotations.id, validatedIds.filter(Boolean) as string[]) : undefined // Excluir as já validadas
+        validatedIds.length > 0 ? notInArray(quotations.id, validatedIds) : undefined // Excluir as já validadas
       ))
       .orderBy(desc(quotations.createdAt));
 
@@ -994,8 +1085,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Fetch items and costs for each quotation
-    const quotationsList = [...quotationsMap.values()];
-    for (const quotation of quotationsList) {
+    for (const quotation of quotationsMap.values()) {
       const items = await db
         .select({
           quotationItem: quotationItems,
@@ -1018,7 +1108,7 @@ export class DatabaseStorage implements IStorage {
       quotation.costs = costs;
     }
 
-    return quotationsList;
+    return Array.from(quotationsMap.values());
   }
 
   async getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
@@ -1060,8 +1150,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Fetch items and costs for each quotation
-    const quotationsList2 = [...quotationsMap.values()];
-    for (const quotation of quotationsList2) {
+    for (const quotation of quotationsMap.values()) {
       const items = await db
         .select({
           quotationItem: quotationItems,
@@ -1084,7 +1173,7 @@ export class DatabaseStorage implements IStorage {
       quotation.costs = costs;
     }
 
-    return quotationsList2;
+    return Array.from(quotationsMap.values());
   }
 
   async getCustomersByUser(userId: string): Promise<Customer[]> {
