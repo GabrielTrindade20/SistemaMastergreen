@@ -529,13 +529,25 @@ export default function Employees() {
                         <div className="flex justify-between">
                           <span>Valor da Nota Fiscal (5%):</span>
                           <span className="font-semibold text-red-600">
-                            {formatCurrency(parseFloat(selectedQuotation.total) * 0.05)}
+                            {(() => {
+                              const finalTotal = parseFloat(selectedQuotation.total);
+                              const discountPercent = parseFloat(selectedQuotation.discountPercent);
+                              const grossValue = discountPercent > 0 ? finalTotal / (1 - discountPercent / 100) : finalTotal;
+                              return formatCurrency(grossValue * 0.05);
+                            })()}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Total com Nota Fiscal:</span>
                           <span className="font-semibold text-red-600">
-                            {formatCurrency((selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) + (parseFloat(selectedQuotation.total) * 0.05))}
+                            {(() => {
+                              const finalTotal = parseFloat(selectedQuotation.total);
+                              const discountPercent = parseFloat(selectedQuotation.discountPercent);
+                              const grossValue = discountPercent > 0 ? finalTotal / (1 - discountPercent / 100) : finalTotal;
+                              const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
+                              const invoiceAmount = grossValue * 0.05;
+                              return formatCurrency(totalCosts + invoiceAmount);
+                            })()}
                           </span>
                         </div>
                       </div>
@@ -548,10 +560,12 @@ export default function Employees() {
                           {(() => {
                             // Calculate values considering discount
                             const finalTotal = parseFloat(selectedQuotation.total);
+                            const discountPercent = parseFloat(selectedQuotation.discountPercent);
+                            const grossValue = discountPercent > 0 ? finalTotal / (1 - discountPercent / 100) : finalTotal;
                             const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                            const invoiceAmount = finalTotal * 0.05;
+                            const invoiceAmount = grossValue * 0.05; // Invoice on gross value
                             const totalWithInvoice = totalCosts + invoiceAmount;
-                            const companyProfit = finalTotal - totalWithInvoice;
+                            const companyProfit = finalTotal - totalWithInvoice; // Profit on final total
                             const profitPercent = finalTotal > 0 ? (companyProfit / finalTotal) * 100 : 0;
                             const tithe = companyProfit * 0.10;
                             const employeeCommission = parseFloat(selectedQuotation.total) * (parseFloat(getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "") || "0") / 100);
@@ -592,10 +606,12 @@ export default function Employees() {
                           {(() => {
                             // Calculate final results considering discount
                             const finalTotal = parseFloat(selectedQuotation.total);
+                            const discountPercent = parseFloat(selectedQuotation.discountPercent);
+                            const grossValue = discountPercent > 0 ? finalTotal / (1 - discountPercent / 100) : finalTotal;
                             const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                            const invoiceAmount = finalTotal * 0.05;
+                            const invoiceAmount = grossValue * 0.05; // Invoice on gross value
                             const totalWithInvoice = totalCosts + invoiceAmount;
-                            const companyProfit = finalTotal - totalWithInvoice;
+                            const companyProfit = finalTotal - totalWithInvoice; // Profit on final total
                             const tithe = companyProfit * 0.10;
                             const employeeCommission = parseFloat(selectedQuotation.total) * (parseFloat(getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "") || "0") / 100);
                             const netProfit = companyProfit - tithe - employeeCommission;

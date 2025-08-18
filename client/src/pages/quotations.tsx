@@ -583,11 +583,13 @@ export default function Quotations() {
                     <h4 className="font-semibold text-gray-700">Lucro da Empresa</h4>
                     {(() => {
                       // Calculate values considering discount
-                      const finalTotal = parseFloat(selectedQuotation.total); // This is the final value after discount
+                      const finalTotal = parseFloat(selectedQuotation.total); // Final value after discount
+                      const subtotal = parseFloat(selectedQuotation.subtotal || "0");
+                      const grossValue = subtotal > finalTotal ? subtotal : finalTotal; // Gross value before discount
                       const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                      const invoiceAmount = finalTotal * 0.05;
+                      const invoiceAmount = grossValue * 0.05; // Invoice calculated on gross value
                       const totalWithInvoice = totalCosts + invoiceAmount;
-                      const companyProfit = finalTotal - totalWithInvoice;
+                      const companyProfit = finalTotal - totalWithInvoice; // Profit based on final total minus all costs
                       const profitPercent = finalTotal > 0 ? (companyProfit / finalTotal) * 100 : 0;
                       const tithe = companyProfit * 0.10;
                       const netProfit = companyProfit - tithe;
@@ -640,10 +642,12 @@ export default function Quotations() {
                     {(() => {
                       // Calculate final results considering discount
                       const finalTotal = parseFloat(selectedQuotation.total);
+                      const subtotal = parseFloat(selectedQuotation.subtotal || "0");
+                      const grossValue = subtotal > finalTotal ? subtotal : finalTotal;
                       const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                      const invoiceAmount = finalTotal * 0.05;
+                      const invoiceAmount = grossValue * 0.05; // Invoice on gross value
                       const totalWithInvoice = totalCosts + invoiceAmount;
-                      const companyProfit = finalTotal - totalWithInvoice;
+                      const companyProfit = finalTotal - totalWithInvoice; // Profit on final total
                       const tithe = companyProfit * 0.10;
                       const netProfit = companyProfit - tithe;
                       
