@@ -369,7 +369,7 @@ export default function Employees() {
       {/* Propostas com abas */}
       <Tabs defaultValue="original" className="w-full mt-[10px] mb-[10px]">
         
-        <TabsList className="h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground grid w-full grid-cols-2 mt-[60px] mb-[60px] pt-[4px] pb-[4px]">
+        <TabsList className="h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground grid w-full grid-cols-2 mt-[60px] mb-[60px] pt-[0px] pb-[0px]">
           <TabsTrigger value="original" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Propostas dos Funcionários
