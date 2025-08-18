@@ -368,11 +368,13 @@ export default function Employees() {
       </div>
       {/* Propostas com abas */}
       <Tabs defaultValue="original" className="w-full mt-[10px] mb-[10px]">
-        <TabsList className="grid w-full grid-cols-2">
+        
+        <TabsList className="h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground grid w-full grid-cols-2 mt-[60px] mb-[60px] pt-[4px] pb-[4px]">
           <TabsTrigger value="original" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             Propostas dos Funcionários
           </TabsTrigger>
+          
           <TabsTrigger value="validated" className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4" />
             Propostas Validadas
