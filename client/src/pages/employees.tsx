@@ -193,7 +193,7 @@ export default function Employees() {
   // Component para renderizar lista de propostas
   const QuotationsList = ({ quotations, title, canEdit = false }: { quotations: Quotation[], title: string, canEdit?: boolean }) => (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-col space-y-1.5 p-6 mt-[25px] mb-[25px]">
         <CardTitle className="text-2xl font-semibold leading-none tracking-tight ml-[0px] mr-[0px] mt-[0px] mb-[0px]">{title}</CardTitle>
         <CardDescription>
           {quotations.length} proposta(s) encontrada(s)
