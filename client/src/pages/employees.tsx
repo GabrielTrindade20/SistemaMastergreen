@@ -194,7 +194,7 @@ export default function Employees() {
   const QuotationsList = ({ quotations, title, canEdit = false }: { quotations: Quotation[], title: string, canEdit?: boolean }) => (
     <Card>
       <CardHeader>
-        <CardTitle className="text-2xl font-semibold leading-none tracking-tight ml-[0px] mr-[0px] mt-[33px] mb-[33px]">{title}</CardTitle>
+        <CardTitle className="text-2xl font-semibold leading-none tracking-tight ml-[0px] mr-[0px] mt-[0px] mb-[0px]">{title}</CardTitle>
         <CardDescription>
           {quotations.length} proposta(s) encontrada(s)
         </CardDescription>
