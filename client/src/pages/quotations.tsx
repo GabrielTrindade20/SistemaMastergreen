@@ -340,12 +340,12 @@ export default function Quotations() {
           >
             ← Voltar
           </Button>
-          <div className="flex items-center justify-between">
+          <div className="flex- items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
                 Proposta {selectedQuotation.quotationNumber}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 ml-[0px] mr-[0px] mt-[4px] mb-[4px]">
                 Cliente: {selectedQuotation.customer.name}
               </p>
             </div>
@@ -370,7 +370,6 @@ export default function Quotations() {
             </div>
           </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -409,7 +408,6 @@ export default function Quotations() {
             </CardContent>
           </Card>
         </div>
-
         <Card className="mt-6">
           <CardHeader>
             <CardTitle>Itens da Proposta</CardTitle>
@@ -470,7 +468,6 @@ export default function Quotations() {
             </div>
           </CardContent>
         </Card>
-
         {/* Seção de Custos */}
         {selectedQuotation.costs && selectedQuotation.costs.length > 0 && (
           <Card className="mt-6">
@@ -512,7 +509,6 @@ export default function Quotations() {
             </CardContent>
           </Card>
         )}
-
         {/* Seção de Cálculos - Apenas para Administradores */}
         {user?.type === "admin" && (
           <Card className="mt-6">
@@ -599,7 +595,6 @@ export default function Quotations() {
             </CardContent>
           </Card>
         )}
-
         {selectedQuotation.status === "pending" && (
           <div className="mt-6 flex gap-4">
             <Button
@@ -620,7 +615,6 @@ export default function Quotations() {
             </Button>
           </div>
         )}
-
         {selectedQuotation.notes && (
           <Card className="mt-6">
             <CardHeader>
