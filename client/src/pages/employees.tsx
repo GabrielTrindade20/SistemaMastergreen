@@ -89,6 +89,10 @@ export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const currentDate = new Date();
+    return `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [calculatingCosts, setCalculatingCosts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -148,7 +152,14 @@ export default function Employees() {
       const matchesEmployee = selectedEmployee === "all" || employeeId === selectedEmployee;
       const matchesStatus = selectedStatus === "all" || quotation.status === selectedStatus;
       
-      return matchesSearch && matchesEmployee && matchesStatus && employeeId !== currentUser?.id;
+      // Month filter
+      const matchesMonth = !quotation.createdAt || (() => {
+        const quotationDate = new Date(quotation.createdAt);
+        const quotationMonth = `${quotationDate.getFullYear()}-${String(quotationDate.getMonth() + 1).padStart(2, '0')}`;
+        return quotationMonth === selectedMonth;
+      })();
+      
+      return matchesSearch && matchesEmployee && matchesStatus && matchesMonth && employeeId !== currentUser?.id;
     });
   };
 
@@ -159,7 +170,15 @@ export default function Employees() {
   const allQuotations = [...originalQuotations, ...validatedQuotations];
   const filteredQuotationsForSummary = allQuotations.filter(quotation => {
     const employeeId = quotation.responsibleId || quotation.userId;
-    return employeeId !== currentUser?.id;
+    
+    // Apply month filter to summary cards
+    const matchesMonth = !quotation.createdAt || (() => {
+      const quotationDate = new Date(quotation.createdAt);
+      const quotationMonth = `${quotationDate.getFullYear()}-${String(quotationDate.getMonth() + 1).padStart(2, '0')}`;
+      return quotationMonth === selectedMonth;
+    })();
+    
+    return employeeId !== currentUser?.id && matchesMonth;
   });
 
   // Helper functions
@@ -294,6 +313,31 @@ export default function Employees() {
                 />
               </div>
             </div>
+            
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-full md:w-[200px]" data-testid="select-month">
+                <SelectValue placeholder="Selecionar mês" />
+              </SelectTrigger>
+              <SelectContent>
+                {(() => {
+                  const months = [];
+                  const currentDate = new Date();
+                  
+                  // Generate last 12 months
+                  for (let i = 0; i < 12; i++) {
+                    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                    const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                    months.push(
+                      <SelectItem key={value} value={value}>
+                        {label.charAt(0).toUpperCase() + label.slice(1)}
+                      </SelectItem>
+                    );
+                  }
+                  return months;
+                })()}
+              </SelectContent>
+            </Select>
             
             <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
               <SelectTrigger className="w-full md:w-[200px]" data-testid="select-employee">
@@ -554,7 +598,7 @@ export default function Employees() {
                             const companyProfit = finalTotal - totalWithInvoice;
                             const profitPercent = finalTotal > 0 ? (companyProfit / finalTotal) * 100 : 0;
                             const tithe = companyProfit * 0.10;
-                            const employeeCommission = parseFloat(selectedQuotation.total) * (parseFloat(getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "") || "0") / 100);
+                            const employeeCommission = parseFloat(selectedQuotation.total) * (getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "") / 100);
 
                             return (
                               <>
@@ -597,7 +641,7 @@ export default function Employees() {
                             const totalWithInvoice = totalCosts + invoiceAmount;
                             const companyProfit = finalTotal - totalWithInvoice;
                             const tithe = companyProfit * 0.10;
-                            const employeeCommission = parseFloat(selectedQuotation.total) * (parseFloat(getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "") || "0") / 100);
+                            const employeeCommission = parseFloat(selectedQuotation.total) * (getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "") / 100);
                             const netProfit = companyProfit - tithe - employeeCommission;
                             
                             return (
