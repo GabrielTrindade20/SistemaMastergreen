@@ -228,63 +228,63 @@ export function NewQuotationForm({
   }, [items, costs, form.watch('discountPercent')]);
 
   const calculateTotals = () => {
-    // 1. Valor Total da Venda: quantidade * valor por metro escolhido pelo cliente
+    // 1. Valor Total da Venda (bruto): quantidade * valor por metro escolhido pelo cliente
     const valorTotalVenda = items.reduce((sum, item) => {
       const quantity = Number(item.quantity) || 0;
       const salePrice = Number(item.salePrice) || 0;
       return sum + (quantity * salePrice);
     }, 0);
 
-    // 2. Custos dos Produtos: custo unitário * quantidade
+    // 2. Aplicar desconto primeiro
+    const discountPercent = parseFloat(form.getValues('discountPercent') || '0');
+    const discount = valorTotalVenda * (discountPercent / 100);
+    const valorComDesconto = valorTotalVenda - discount;
+
+    // 3. Custos dos Produtos: custo unitário * quantidade
     const custoProdutos = items.reduce((sum, item) => {
       const quantity = Number(item.quantity) || 0;
       const unitPrice = Number(item.unitPrice) || 0;
       return sum + (quantity * unitPrice);
     }, 0);
 
-    // 3. Total de Custos: soma custos dos produtos + outros custos
+    // 4. Total de Custos: soma custos dos produtos + outros custos
     const totalCosts = custoProdutos + costs.reduce((sum, cost) => {
       return sum + cost.totalValue;
     }, 0);
 
-    // 4. Valor da Nota Fiscal (5%): 5% do Valor Total da Venda
+    // 5. Valor da Nota Fiscal (5%): 5% do valor COM DESCONTO
     const invoicePercent = 5.00;
-    const valorNotaFiscal = valorTotalVenda * 0.05;
+    const valorNotaFiscal = valorComDesconto * 0.05;
 
-    // 5. Total com Nota Fiscal: Total de Custos + Valor da Nota Fiscal
+    // 6. Total com Nota Fiscal: Total de Custos + Valor da Nota Fiscal
     const totalComNotaFiscal = totalCosts + valorNotaFiscal;
 
-    // 6. Lucro da Empresa: Valor Total da Venda - Total com Nota Fiscal
-    const lucroEmpresa = valorTotalVenda - totalComNotaFiscal;
+    // 7. Lucro da Empresa: Valor COM DESCONTO - Total com Nota Fiscal
+    const lucroEmpresa = valorComDesconto - totalComNotaFiscal;
 
-    // 7. Porcentagem de Lucro: (lucro * 100) / Valor Total da Venda
-    const profitPercent = valorTotalVenda > 0 ? (lucroEmpresa * 100) / valorTotalVenda : 0;
+    // 8. Porcentagem de Lucro: (lucro * 100) / Valor COM DESCONTO
+    const profitPercent = valorComDesconto > 0 ? (lucroEmpresa * 100) / valorComDesconto : 0;
 
-    // 8. Dízimo (10%): 10% do Lucro da Empresa
+    // 9. Dízimo (10%): 10% do Lucro da Empresa
     const dizimo = lucroEmpresa * 0.10;
 
-    // 9. Lucro Líquido: Lucro da Empresa - Dízimo
+    // 10. Lucro Líquido: Lucro da Empresa - Dízimo
     const lucroLiquido = lucroEmpresa - dizimo;
 
-    // 10. Calcular desconto
-    const discountPercent = parseFloat(form.getValues('discountPercent') || '0');
-    const discount = valorTotalVenda * (discountPercent / 100);
-    const finalTotal = valorTotalVenda - discount;
-
     setCalculations({
-      subtotal: valorTotalVenda, // Valor Total da Venda
+      subtotal: valorTotalVenda, // Valor bruto (antes do desconto)
       totalCosts, // Total de Custos (produtos + outros custos)
       totalWithoutInvoice: totalCosts, // Total sem nota fiscal
       invoicePercent,
-      invoiceAmount: valorNotaFiscal, // Valor da Nota Fiscal (5%)
+      invoiceAmount: valorNotaFiscal, // Valor da Nota Fiscal (5% do valor com desconto)
       totalWithInvoice: totalComNotaFiscal, // Total com Nota Fiscal
-      companyProfit: lucroEmpresa, // Lucro da Empresa
+      companyProfit: lucroEmpresa, // Lucro da Empresa (baseado no valor com desconto)
       profitPercent, // Porcentagem de Lucro
       tithe: dizimo, // Dízimo (10%)
       netProfit: lucroLiquido, // Lucro Líquido
-      total: valorTotalVenda, // Total Final ao Cliente
+      total: valorComDesconto, // Total Final ao Cliente (com desconto)
       discount, // Valor do desconto
-      finalTotal, // Total final com desconto
+      finalTotal: valorComDesconto, // Total final com desconto
     });
   };
 
@@ -1027,10 +1027,16 @@ export function NewQuotationForm({
               </div> */}
               
               {calculations.discount > 0 && (
-                <div className="flex justify-between">
-                  <span>Desconto ({form.getValues('discountPercent')}%):</span>
-                  <span className="text-red-600">-{formatCurrency(calculations.discount)}</span>
-                </div>
+                <>
+                  <div className="flex justify-between">
+                    <span>Valor Bruto:</span>
+                    <span className="font-semibold">{formatCurrency(calculations.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Desconto ({form.getValues('discountPercent')}%):</span>
+                    <span className="text-red-600">-{formatCurrency(calculations.discount)}</span>
+                  </div>
+                </>
               )}
               
               <div className="flex justify-between">
@@ -1068,7 +1074,7 @@ export function NewQuotationForm({
                     </div>
                     
                     <div className="flex justify-between">
-                      <span>Valor da Nota Fiscal (5%):</span>
+                      <span>Valor da Nota Fiscal (5% do valor {calculations.discount > 0 ? 'com desconto' : 'total'}):</span>
                       <span>{formatCurrency(calculations.invoiceAmount)}</span>
                     </div>
                     

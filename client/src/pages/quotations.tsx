@@ -538,22 +538,21 @@ export default function Quotations() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-3">
                   <h4 className="font-semibold text-gray-700">Receitas</h4>
-                  {/* Mostrar valor bruto e desconto se houver desconto */}
-                  {parseFloat((selectedQuotation as any).discountPercent || "0") > 0 && (
-                    <>
-                      <div className="flex justify-between">
-                        <span>Valor Bruto:</span>
-                        <span className="font-semibold">
-                          {formatCurrency(parseFloat(selectedQuotation.total) / (1 - parseFloat((selectedQuotation as any).discountPercent) / 100))}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Desconto ({(selectedQuotation as any).discountPercent}%):</span>
-                        <span className="font-semibold text-red-600">
-                          -{formatCurrency((parseFloat(selectedQuotation.total) / (1 - parseFloat((selectedQuotation as any).discountPercent) / 100)) - parseFloat(selectedQuotation.total))}
-                        </span>
-                      </div>
-                    </>
+                  {/* Mostrar subtotal (valor bruto) se houver desconto */}
+                  {parseFloat(selectedQuotation.subtotal || "0") > parseFloat(selectedQuotation.total) && (
+                    <div className="flex justify-between">
+                      <span>Valor Bruto:</span>
+                      <span className="font-semibold">{formatCurrency(parseFloat(selectedQuotation.subtotal || "0"))}</span>
+                    </div>
+                  )}
+                  {/* Mostrar desconto se houver */}
+                  {parseFloat(selectedQuotation.subtotal || "0") > parseFloat(selectedQuotation.total) && (
+                    <div className="flex justify-between">
+                      <span>Desconto ({(((parseFloat(selectedQuotation.subtotal) - parseFloat(selectedQuotation.total)) / parseFloat(selectedQuotation.subtotal)) * 100).toFixed(1)}%):</span>
+                      <span className="font-semibold text-red-600">
+                        -{formatCurrency(parseFloat(selectedQuotation.subtotal) - parseFloat(selectedQuotation.total))}
+                      </span>
+                    </div>
                   )}
                   <div className="flex justify-between">
                     <span>Total Final ao Cliente:</span>
@@ -570,14 +569,9 @@ export default function Quotations() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>NF (5%):</span>
+                    <span>NF (5% do valor {parseFloat((selectedQuotation as any).discountPercent || "0") > 0 ? 'com desconto' : 'total'}):</span>
                     <span className="font-semibold text-red-600">
-                      {(() => {
-                        const discountPercent = parseFloat((selectedQuotation as any).discountPercent || "0");
-                        const finalTotal = parseFloat(selectedQuotation.total);
-                        const grossValue = discountPercent > 0 ? finalTotal / (1 - discountPercent / 100) : finalTotal;
-                        return formatCurrency(grossValue * 0.05);
-                      })()}
+                      {formatCurrency(parseFloat(selectedQuotation.total) * 0.05)}
                     </span>
                   </div>
                 </div>
@@ -589,13 +583,11 @@ export default function Quotations() {
                     <h4 className="font-semibold text-gray-700">Lucro da Empresa</h4>
                     {(() => {
                       // Calculate values considering discount
-                      const finalTotal = parseFloat(selectedQuotation.total); // Final value after discount
-                      const subtotal = parseFloat(selectedQuotation.subtotal || "0");
-                      const grossValue = subtotal > finalTotal ? subtotal : finalTotal; // Gross value before discount
+                      const finalTotal = parseFloat(selectedQuotation.total); // This is the final value after discount
                       const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                      const invoiceAmount = grossValue * 0.05; // Invoice calculated on gross value
+                      const invoiceAmount = finalTotal * 0.05;
                       const totalWithInvoice = totalCosts + invoiceAmount;
-                      const companyProfit = finalTotal - totalWithInvoice; // Profit based on final total minus all costs
+                      const companyProfit = finalTotal - totalWithInvoice;
                       const profitPercent = finalTotal > 0 ? (companyProfit / finalTotal) * 100 : 0;
                       const tithe = companyProfit * 0.10;
                       const netProfit = companyProfit - tithe;
@@ -648,12 +640,10 @@ export default function Quotations() {
                     {(() => {
                       // Calculate final results considering discount
                       const finalTotal = parseFloat(selectedQuotation.total);
-                      const subtotal = parseFloat(selectedQuotation.subtotal || "0");
-                      const grossValue = subtotal > finalTotal ? subtotal : finalTotal;
                       const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                      const invoiceAmount = grossValue * 0.05; // Invoice on gross value
+                      const invoiceAmount = finalTotal * 0.05;
                       const totalWithInvoice = totalCosts + invoiceAmount;
-                      const companyProfit = finalTotal - totalWithInvoice; // Profit on final total
+                      const companyProfit = finalTotal - totalWithInvoice;
                       const tithe = companyProfit * 0.10;
                       const netProfit = companyProfit - tithe;
                       
