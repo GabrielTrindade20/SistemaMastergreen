@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Users, Search, Filter, Calculator, ShieldCheck } from "lucide-react";
+import { Eye, Users, Search, Filter, Calculator, ShieldCheck, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
@@ -93,6 +93,28 @@ export default function Employees() {
     const currentDate = new Date();
     return `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  // Navigation functions for month/year selection
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const currentDate = new Date(year, month - 1);
+    
+    if (direction === 'prev') {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+    } else {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    
+    const newYear = currentDate.getFullYear();
+    const newMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
+    setSelectedMonth(`${newYear}-${newMonth}`);
+  };
+
+  const getMonthName = (dateStr: string) => {
+    const [year, month] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1);
+    return date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
+  };
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [calculatingCosts, setCalculatingCosts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -314,30 +336,30 @@ export default function Employees() {
               </div>
             </div>
             
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-full md:w-[200px]" data-testid="select-month">
-                <SelectValue placeholder="Selecionar mês" />
-              </SelectTrigger>
-              <SelectContent>
-                {(() => {
-                  const months = [];
-                  const currentDate = new Date();
-                  
-                  // Generate last 12 months
-                  for (let i = 0; i < 12; i++) {
-                    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-                    const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-                    const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-                    months.push(
-                      <SelectItem key={value} value={value}>
-                        {label.charAt(0).toUpperCase() + label.slice(1)}
-                      </SelectItem>
-                    );
-                  }
-                  return months;
-                })()}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2 w-full md:w-[280px] bg-white border rounded-md px-3 py-2">
+              <Calendar className="h-4 w-4 text-gray-500" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigateMonth('prev')}
+                className="p-1 h-auto"
+                data-testid="button-prev-month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="flex-1 text-center font-medium">
+                {getMonthName(selectedMonth).charAt(0).toUpperCase() + getMonthName(selectedMonth).slice(1)}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigateMonth('next')}
+                className="p-1 h-auto"
+                data-testid="button-next-month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             
             <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
               <SelectTrigger className="w-full md:w-[200px]" data-testid="select-employee">
