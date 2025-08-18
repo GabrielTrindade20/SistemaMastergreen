@@ -484,6 +484,144 @@ export default function Employees() {
                 </Card>
               )}
 
+              {/* Financial Analysis - Only for admin-calculated quotations */}
+              {selectedQuotation.adminCalculated === 1 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Resumo Financeiro</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-gray-700">Receitas</h4>
+                        {/* Show gross value if there's a discount */}
+                        {parseFloat(selectedQuotation.subtotal || "0") > parseFloat(selectedQuotation.total) && (
+                          <div className="flex justify-between">
+                            <span>Valor Bruto:</span>
+                            <span className="font-semibold">{formatCurrency(parseFloat(selectedQuotation.subtotal || "0"))}</span>
+                          </div>
+                        )}
+                        {/* Show discount if applicable */}
+                        {parseFloat(selectedQuotation.subtotal || "0") > parseFloat(selectedQuotation.total) && (
+                          <div className="flex justify-between">
+                            <span>Desconto ({(((parseFloat(selectedQuotation.subtotal) - parseFloat(selectedQuotation.total)) / parseFloat(selectedQuotation.subtotal)) * 100).toFixed(1)}%):</span>
+                            <span className="font-semibold text-red-600">
+                              -{formatCurrency(parseFloat(selectedQuotation.subtotal) - parseFloat(selectedQuotation.total))}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span>Total Final ao Cliente:</span>
+                          <span className="font-semibold text-green-600">{formatCurrency(parseFloat(selectedQuotation.total))}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-gray-700">Custos e Impostos</h4>
+                        <div className="flex justify-between">
+                          <span>Total dos Custos:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatCurrency(parseFloat(selectedQuotation.totalCosts || "0") || (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Valor da Nota Fiscal (5%):</span>
+                          <span className="font-semibold text-red-600">
+                            {formatCurrency(parseFloat(selectedQuotation.invoiceAmount || "0") || (parseFloat(selectedQuotation.total) * 0.05))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total com Nota Fiscal:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatCurrency(parseFloat(selectedQuotation.totalWithInvoice || "0") || 
+                              ((parseFloat(selectedQuotation.totalCosts || "0") || (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0)) + 
+                              (parseFloat(selectedQuotation.invoiceAmount || "0") || (parseFloat(selectedQuotation.total) * 0.05))))}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 pt-4 border-t">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-700">Lucro da Empresa</h4>
+                          {(() => {
+                            // Calculate values when needed
+                            const totalCosts = parseFloat(selectedQuotation.totalCosts || "0") || (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0);
+                            const invoiceAmount = parseFloat(selectedQuotation.invoiceAmount || "0") || (parseFloat(selectedQuotation.total) * 0.05);
+                            const totalWithInvoice = parseFloat(selectedQuotation.totalWithInvoice || "0") || (totalCosts + invoiceAmount);
+                            const companyProfit = parseFloat(selectedQuotation.companyProfit || "0") || (parseFloat(selectedQuotation.total) - totalWithInvoice);
+                            const profitPercent = parseFloat(selectedQuotation.profitPercent || "0") || (parseFloat(selectedQuotation.total) > 0 ? (companyProfit / parseFloat(selectedQuotation.total)) * 100 : 0);
+                            const tithe = parseFloat(selectedQuotation.tithe || "0") || (companyProfit * 0.10);
+                            const employeeCommission = parseFloat(selectedQuotation.total) * (parseFloat(getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "")) / 100);
+
+                            return (
+                              <>
+                                <div className="flex justify-between">
+                                  <span>Lucro da Empresa:</span>
+                                  <span className="font-semibold text-blue-600">
+                                    {formatCurrency(companyProfit)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Porcentagem de Lucro:</span>
+                                  <span className="font-semibold">
+                                    {profitPercent.toFixed(2)}%
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Dízimo (10%):</span>
+                                  <span className="font-semibold text-red-600">
+                                    {formatCurrency(tithe)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Comissão Vendedor:</span>
+                                  <span className="font-semibold text-orange-600">
+                                    {formatCurrency(employeeCommission)}
+                                  </span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-700">Resultado Final</h4>
+                          {(() => {
+                            // Calculate values when needed
+                            const totalCosts = parseFloat(selectedQuotation.totalCosts || "0") || (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0);
+                            const invoiceAmount = parseFloat(selectedQuotation.invoiceAmount || "0") || (parseFloat(selectedQuotation.total) * 0.05);
+                            const totalWithInvoice = parseFloat(selectedQuotation.totalWithInvoice || "0") || (totalCosts + invoiceAmount);
+                            const companyProfit = parseFloat(selectedQuotation.companyProfit || "0") || (parseFloat(selectedQuotation.total) - totalWithInvoice);
+                            const tithe = parseFloat(selectedQuotation.tithe || "0") || (companyProfit * 0.10);
+                            const employeeCommission = parseFloat(selectedQuotation.total) * (parseFloat(getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId || "")) / 100);
+                            const netProfit = parseFloat(selectedQuotation.netProfit || "0") || (companyProfit - tithe - employeeCommission);
+
+                            return (
+                              <>
+                                <div className="flex justify-between text-lg">
+                                  <span>Lucro Líquido:</span>
+                                  <span className="font-bold text-green-600">
+                                    {formatCurrency(netProfit)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Margem Líquida:</span>
+                                  <span className="font-semibold">
+                                    {parseFloat(selectedQuotation.total) > 0 ? ((netProfit / parseFloat(selectedQuotation.total)) * 100).toFixed(2) : "0.00"}%
+                                  </span>
+                                </div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Additional Info */}
               {selectedQuotation.notes && (
                 <Card>
