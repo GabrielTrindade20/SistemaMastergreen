@@ -331,7 +331,7 @@ export default function Quotations() {
 
   if (selectedQuotation) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <div className="mb-6">
           <Button
             variant="outline"
@@ -340,50 +340,61 @@ export default function Quotations() {
           >
             ← Voltar
           </Button>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+          
+          {/* Mobile-first responsive header */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">
                 Proposta {selectedQuotation.quotationNumber}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 mt-1 break-words">
                 Cliente: {selectedQuotation.customer.name}
               </p>
             </div>
-            <div className="flex gap-2">
+            
+            {/* Status and buttons container for mobile */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
               {getStatusBadge(selectedQuotation.status)}
-              <Button
-                onClick={() => handleGeneratePDF(selectedQuotation)}
-                className="btn-primary"
-                data-testid="button-generate-pdf"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Gerar PDF
-              </Button>
-              <Button
-                onClick={() => handleSharePDF(selectedQuotation)}
-                variant="outline"
-                data-testid="button-share-quotation"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Compartilhar PDF
-              </Button>
+              
+              {/* Button group with mobile-friendly layout */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+                <Button
+                  onClick={() => handleGeneratePDF(selectedQuotation)}
+                  className="btn-primary w-full sm:w-auto text-sm"
+                  size="sm"
+                  data-testid="button-generate-pdf"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Gerar PDF
+                </Button>
+                <Button
+                  onClick={() => handleSharePDF(selectedQuotation)}
+                  variant="outline"
+                  className="w-full sm:w-auto text-sm"
+                  size="sm"
+                  data-testid="button-share-quotation"
+                >
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Compartilhar PDF
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Informações do Cliente</CardTitle>
+              <CardTitle className="text-lg">Informações do Cliente</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <p><strong>Nome:</strong> {selectedQuotation.customer.name}</p>
-                <p><strong>Email:</strong> {selectedQuotation.customer.email}</p>
-                <p><strong>Telefone:</strong> {selectedQuotation.customer.phone}</p>
-                <p><strong>CPF/CNPJ:</strong> {selectedQuotation.customer.cpfCnpj}</p>
+              <div className="space-y-2 text-sm">
+                <p className="break-words"><strong>Nome:</strong> {selectedQuotation.customer.name}</p>
+                <p className="break-words"><strong>Email:</strong> {selectedQuotation.customer.email}</p>
+                <p className="break-words"><strong>Telefone:</strong> {selectedQuotation.customer.phone}</p>
+                <p className="break-words"><strong>CPF/CNPJ:</strong> {selectedQuotation.customer.cpfCnpj}</p>
                 {selectedQuotation.customer.address && (
-                  <p><strong>Endereço:</strong> {selectedQuotation.customer.address}</p>
+                  <p className="break-words"><strong>Endereço:</strong> {selectedQuotation.customer.address}</p>
                 )}
               </div>
             </CardContent>
@@ -391,32 +402,33 @@ export default function Quotations() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Detalhes do Orçamento</CardTitle>
+              <CardTitle className="text-lg">Detalhes do Orçamento</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <p><strong>Data:</strong> {formatDate(selectedQuotation.createdAt!)}</p>
-                <p><strong>Válido até:</strong> {formatDate(selectedQuotation.validUntil)}</p>
-                <div className="flex items-center gap-2">
+              <div className="space-y-2 text-sm">
+                <p className="break-words"><strong>Data:</strong> {formatDate(selectedQuotation.createdAt!)}</p>
+                <p className="break-words"><strong>Válido até:</strong> {formatDate(selectedQuotation.validUntil)}</p>
+                <div className="flex items-center gap-2 flex-wrap">
                   <strong>Status:</strong> {getStatusBadge(selectedQuotation.status)}
                 </div>
-                <p><strong>Responsável:</strong> {selectedQuotation.responsibleName || selectedQuotation.user?.name}</p>
-                <p><strong>Comissão:</strong> {getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId)}%</p>
-                <p><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, selectedQuotation.responsibleId || selectedQuotation.userId))}</p>
-                <p><strong>Frete:</strong> {selectedQuotation.shippingIncluded ? 'Incluso' : 'Não incluso'}</p>
-                <p><strong>Garantia:</strong> {selectedQuotation.warrantyText}</p>
+                <p className="break-words"><strong>Responsável:</strong> {selectedQuotation.responsibleName || selectedQuotation.user?.name}</p>
+                <p className="break-words"><strong>Comissão:</strong> {getEmployeeCommissionPercent(selectedQuotation.responsibleId || selectedQuotation.userId)}%</p>
+                <p className="break-words"><strong>Valor Comissão:</strong> {formatCurrency(calculateCommission(selectedQuotation.total, selectedQuotation.responsibleId || selectedQuotation.userId))}</p>
+                <p className="break-words"><strong>Frete:</strong> {selectedQuotation.shippingIncluded ? 'Incluso' : 'Não incluso'}</p>
+                <p className="break-words"><strong>Garantia:</strong> {selectedQuotation.warrantyText}</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <Card className="mt-6">
+        <Card className="mt-4 md:mt-6">
           <CardHeader>
-            <CardTitle>Itens da Proposta</CardTitle>
+            <CardTitle className="text-lg">Itens da Proposta</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto p-4">
+              <Table className="min-w-full">
+                <TableHeader>
                 <TableRow>
                   <TableHead>Produto</TableHead>
                   <TableHead>Quantidade</TableHead>
@@ -468,17 +480,19 @@ export default function Quotations() {
                 </div>
               )}
             </div>
+            </div>
           </CardContent>
         </Card>
 
         {/* Seção de Custos */}
         {selectedQuotation.costs && selectedQuotation.costs.length > 0 && (
-          <Card className="mt-6">
+          <Card className="mt-4 md:mt-6">
             <CardHeader>
-              <CardTitle>Custos da Proposta</CardTitle>
+              <CardTitle className="text-lg">Custos da Proposta</CardTitle>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto p-4">
+                <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
@@ -509,18 +523,19 @@ export default function Quotations() {
                   </span>
                 </div>
               </div>
+              </div>
             </CardContent>
           </Card>
         )}
 
         {/* Seção de Cálculos - Apenas para Administradores */}
         {user?.type === "admin" && (
-          <Card className="mt-6">
+          <Card className="mt-4 md:mt-6">
             <CardHeader>
-              <CardTitle>Análise Financeira</CardTitle>
+              <CardTitle className="text-lg">Análise Financeira</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CardContent className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-3">
                   <h4 className="font-semibold text-gray-700">Receitas</h4>
                   <div className="flex justify-between">
@@ -601,10 +616,10 @@ export default function Quotations() {
         )}
 
         {selectedQuotation.status === "pending" && (
-          <div className="mt-6 flex gap-4">
+          <div className="mt-4 md:mt-6 flex flex-col sm:flex-row gap-3 sm:gap-4">
             <Button
               onClick={() => handleStatusUpdate(selectedQuotation.id, "approved")}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className="bg-green-600 hover:bg-green-700 text-white flex-1 min-h-[44px]"
               disabled={updateStatusMutation.isPending}
             >
               <Check className="w-4 h-4 mr-2" />
@@ -613,6 +628,7 @@ export default function Quotations() {
             <Button
               onClick={() => handleStatusUpdate(selectedQuotation.id, "rejected")}
               variant="destructive"
+              className="flex-1 min-h-[44px]"
               disabled={updateStatusMutation.isPending}
             >
               <X className="w-4 h-4 mr-2" />
@@ -622,12 +638,12 @@ export default function Quotations() {
         )}
 
         {selectedQuotation.notes && (
-          <Card className="mt-6">
+          <Card className="mt-4 md:mt-6">
             <CardHeader>
-              <CardTitle>Observações</CardTitle>
+              <CardTitle className="text-lg">Observações</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p>{selectedQuotation.notes}</p>
+            <CardContent className="p-4">
+              <p className="text-sm md:text-base">{selectedQuotation.notes}</p>
             </CardContent>
           </Card>
         )}
