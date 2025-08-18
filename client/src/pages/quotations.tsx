@@ -538,11 +538,26 @@ export default function Quotations() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="space-y-3">
                   <h4 className="font-semibold text-gray-700">Receitas</h4>
-                  <div className="flex justify-between">
-                    <span>Valor da Venda:</span>
-                    <span className="font-semibold">{formatCurrency(parseFloat(selectedQuotation.total))}</span>
-                  </div>
+                  {/* Mostrar subtotal (valor bruto) se houver desconto */}
+                  {parseFloat(selectedQuotation.subtotal || "0") > parseFloat(selectedQuotation.total) && (
+                    <div className="flex justify-between">
+                      <span>Valor Bruto:</span>
+                      <span className="font-semibold">{formatCurrency(parseFloat(selectedQuotation.subtotal || "0"))}</span>
+                    </div>
+                  )}
                   {/* Mostrar desconto se houver */}
+                  {parseFloat(selectedQuotation.subtotal || "0") > parseFloat(selectedQuotation.total) && (
+                    <div className="flex justify-between">
+                      <span>Desconto ({(((parseFloat(selectedQuotation.subtotal) - parseFloat(selectedQuotation.total)) / parseFloat(selectedQuotation.subtotal)) * 100).toFixed(1)}%):</span>
+                      <span className="font-semibold text-red-600">
+                        -{formatCurrency(parseFloat(selectedQuotation.subtotal) - parseFloat(selectedQuotation.total))}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span>Total Final ao Cliente:</span>
+                    <span className="font-semibold text-green-600">{formatCurrency(parseFloat(selectedQuotation.total))}</span>
+                  </div>
                 </div>
                 
                 <div className="space-y-3">
@@ -567,23 +582,39 @@ export default function Quotations() {
                   <div className="space-y-3">
                     <h4 className="font-semibold text-gray-700">Lucro da Empresa</h4>
                     <div className="flex justify-between">
-                      <span>Lucro Bruto:</span>
-                      <span className="font-semibold text-green-600">
-                        {formatCurrency(
-                          parseFloat(selectedQuotation.total) - 
-                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
-                          (parseFloat(selectedQuotation.total) * 0.05)
-                        )}
+                      <span>Total de Custos:</span>
+                      <span className="font-semibold text-red-600">
+                        {formatCurrency(parseFloat(selectedQuotation.totalCosts || "0"))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Valor da Nota Fiscal (5%):</span>
+                      <span className="font-semibold text-red-600">
+                        {formatCurrency(parseFloat(selectedQuotation.invoiceAmount || "0"))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total com Nota Fiscal:</span>
+                      <span className="font-semibold text-red-600">
+                        {formatCurrency(parseFloat(selectedQuotation.totalWithInvoice || "0"))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Lucro da Empresa:</span>
+                      <span className="font-semibold text-blue-600">
+                        {formatCurrency(parseFloat(selectedQuotation.companyProfit || "0"))}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Porcentagem de Lucro:</span>
+                      <span className="font-semibold">
+                        {parseFloat(selectedQuotation.profitPercent || "0").toFixed(2)}%
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Dízimo (10%):</span>
                       <span className="font-semibold text-red-600">
-                        {formatCurrency(
-                          (parseFloat(selectedQuotation.total) - 
-                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
-                          (parseFloat(selectedQuotation.total) * 0.05)) * 0.1
-                        )}
+                        {formatCurrency(parseFloat(selectedQuotation.tithe || "0"))}
                       </span>
                     </div>
                   </div>
@@ -593,19 +624,13 @@ export default function Quotations() {
                     <div className="flex justify-between text-lg">
                       <span>Lucro Líquido:</span>
                       <span className="font-bold text-green-600">
-                        {formatCurrency(
-                          (parseFloat(selectedQuotation.total) - 
-                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
-                          (parseFloat(selectedQuotation.total) * 0.05)) * 0.9
-                        )}
+                        {formatCurrency(parseFloat(selectedQuotation.netProfit || "0"))}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Margem de Lucro:</span>
+                      <span>Margem Líquida:</span>
                       <span className="font-semibold">
-                        {(((parseFloat(selectedQuotation.total) - 
-                          (selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0) - 
-                          (parseFloat(selectedQuotation.total) * 0.05)) * 0.9) / parseFloat(selectedQuotation.total) * 100).toFixed(2)}%
+                        {parseFloat(selectedQuotation.total) > 0 ? ((parseFloat(selectedQuotation.netProfit || "0") / parseFloat(selectedQuotation.total)) * 100).toFixed(2) : "0.00"}%
                       </span>
                     </div>
                   </div>

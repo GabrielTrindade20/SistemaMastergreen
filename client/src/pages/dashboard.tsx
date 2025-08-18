@@ -230,74 +230,82 @@ export default function Dashboard() {
         {user?.type === "admin" ? (
           // Admin Dashboard
           <>
-            {/* Admin KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl md:text-2xl font-bold">
-                    R$ {data.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {data.approvedQuotations || 0} vendas aprovadas
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Comissões Pagas</CardTitle>
-                  <DollarSign className="h-4 w-4 text-red-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl md:text-2xl font-bold text-red-600">
-                    R$ {data.totalCommissionsPaid?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Comissões dos vendedores
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Lucro Líquido</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl md:text-2xl font-bold text-green-600">
-                    R$ {data.totalNetProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Lucro das propostas processadas
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{data.conversionRate?.toFixed(1) || '0'}%</div>
-                  <p className="text-xs text-muted-foreground">
-                    {data.approvedQuotations || 0} de {data.totalQuotations || 0} propostas
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-
             {/* Admin Performance Card */}
-            {data.adminPerformance && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Minha Performance (Admin)</CardTitle>
+                <CardDescription>
+                  Performance geral do sistema administrado por mim
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      R$ {data.totalRevenue?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Receita Total</p>
+                    <p className="text-xs text-muted-foreground">
+                      {data.approvedQuotations || 0} vendas aprovadas
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      R$ {data.totalNetProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Lucro Líquido</p>
+                    <p className="text-xs text-muted-foreground">Lucro das propostas processadas</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">
+                      {data.conversionRate?.toFixed(1) || '0'}%
+                    </div>
+                    <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
+                    <p className="text-xs text-muted-foreground">
+                      {data.approvedQuotations || 0} de {data.totalQuotations || 0} propostas
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Employee Performance Summary Card */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Performance dos Vendedores</CardTitle>
+                <CardDescription>
+                  Resumo das vendas e comissões dos vendedores neste mês
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      R$ {(data.commissionsByEmployee?.reduce((sum: number, emp: any) => sum + emp.totalSales, 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Receita Total dos Vendedores</p>
+                    <p className="text-xs text-muted-foreground">
+                      {data.commissionsByEmployee?.reduce((sum: number, emp: any) => sum + emp.quotationsCount, 0) || 0} vendas dos funcionários
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">
+                      R$ {data.totalCommissionsPaid?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                    </div>
+                    <p className="text-sm text-muted-foreground">Comissões Pagas</p>
+                    <p className="text-xs text-muted-foreground">Total de comissões dos vendedores</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Admin Personal Performance (if admin made sales) */}
+            {data.adminPerformance && data.adminPerformance.quotationsCount > 0 && (
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Minha Performance (Admin)</CardTitle>
+                  <CardTitle>Minhas Vendas Pessoais</CardTitle>
                   <CardDescription>
-                    Minhas vendas e performance pessoal neste mês
+                    Propostas que eu criei pessoalmente neste mês
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
