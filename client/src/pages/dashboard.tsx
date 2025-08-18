@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, FileText, Users, TrendingUp, Clock, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { DollarSign, FileText, Users, TrendingUp, Clock, ChevronLeft, ChevronRight, Download, Calendar } from "lucide-react";
 import type { User } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
@@ -202,24 +202,29 @@ export default function Dashboard() {
         </div>
         
         {/* Month Navigation */}
-        <div className="flex items-center justify-center sm:justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center">
+          <div className="flex items-center gap-2 bg-white border rounded-md px-3 py-2">
+            <Calendar className="h-4 w-4 text-gray-500" />
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => navigateMonth('prev')}
+              className="p-1 h-auto"
+              data-testid="button-prev-month-dashboard"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-lg font-semibold min-w-[150px] sm:min-w-[200px] text-center">
-              {getMonthName(selectedDate)}
+            <span className="flex-1 text-center font-medium min-w-[200px]">
+              {getMonthName(selectedDate).charAt(0).toUpperCase() + getMonthName(selectedDate).slice(1)}
             </span>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => navigateMonth('next')}
+              className="p-1 h-auto"
+              data-testid="button-next-month-dashboard"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
