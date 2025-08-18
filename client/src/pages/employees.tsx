@@ -272,7 +272,6 @@ export default function Employees() {
           <p className="text-gray-600">Visualize e gerencie as propostas de todos os funcionários</p>
         </div>
       </div>
-
       {/* Filters */}
       <Card>
         <CardHeader>
@@ -324,7 +323,6 @@ export default function Employees() {
           </div>
         </CardContent>
       </Card>
-
       {/* Employee Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {employees.map((employee) => {
@@ -368,9 +366,8 @@ export default function Employees() {
           );
         })}
       </div>
-
       {/* Propostas com abas */}
-      <Tabs defaultValue="original" className="w-full">
+      <Tabs defaultValue="original" className="w-full mt-[10px] mb-[10px]">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="original" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
@@ -398,7 +395,6 @@ export default function Employees() {
           />
         </TabsContent>
       </Tabs>
-
       {/* Quotation Details Modal */}
       {selectedQuotation && (
         <Dialog open={!!selectedQuotation} onOpenChange={() => setSelectedQuotation(null)}>
