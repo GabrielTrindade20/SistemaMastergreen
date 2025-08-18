@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from com"@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -119,7 +119,7 @@ export default function Products() {
   const getMarginPercent = (price: string, cost: string) => {
     const priceNum = parseFloat(price || "0");
     const costNum = parseFloat(cost || "0");
-    if (priceNum === 0) return 0;
+    if (priceNum === 0) return "0.0";
     return ((priceNum - costNum) / priceNum * 100).toFixed(1);
   };
 
