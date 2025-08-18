@@ -2,15 +2,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, DollarSign, FileText, TrendingUp, Calendar, Users } from "lucide-react";
+import { Download, DollarSign, FileText, TrendingUp, Users } from "lucide-react";
 import type { QuotationWithDetails, Customer } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import jsPDF from "jspdf";
+import { MonthYearPicker } from "@/components/MonthYearPicker";
 
 export default function Reports() {
   const { user } = useAuth();
-  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
   
   const { data: quotations = [] } = useQuery<QuotationWithDetails[]>({
     queryKey: ["/api/quotations"],
@@ -26,8 +30,10 @@ export default function Reports() {
     : quotations.filter(q => q.userId === user?.id);
 
   const filteredQuotations = userQuotations.filter(q => {
-    const quotationDate = new Date(q.createdAt!).toISOString().slice(0, 7);
-    return quotationDate === selectedMonth;
+    if (!q.createdAt) return false;
+    const quotationDate = new Date(q.createdAt);
+    const quotationMonth = `${quotationDate.getFullYear()}-${String(quotationDate.getMonth() + 1).padStart(2, '0')}`;
+    return quotationMonth === selectedMonth;
   });
 
   // Calculate financial metrics for selected month
@@ -51,12 +57,7 @@ export default function Reports() {
   const quotationsApproved = approvedQuotations.length;
   const conversionRate = quotationsCreated > 0 ? (quotationsApproved / quotationsCreated) * 100 : 0;
 
-  // Generate available months from quotations
-  const availableMonths = Array.from(
-    new Set(
-      userQuotations.map(q => new Date(q.createdAt!).toISOString().slice(0, 7))
-    )
-  ).sort().reverse();
+  // Remove the availableMonths logic since we're using MonthYearPicker
 
   // Product analysis for selected month
   const productStats = approvedQuotations.reduce((acc, quotation) => {
@@ -106,18 +107,6 @@ export default function Reports() {
 
   const productArray = Object.values(productStats).sort((a, b) => b.revenue - a.revenue);
 
-  if (availableMonths.length === 0) {
-    return (
-      <div className="p-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-gray-500">Nenhum orçamento encontrado para gerar relatórios.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div>
       {/* Header */}
@@ -130,22 +119,13 @@ export default function Reports() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-full sm:w-48">
-                <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Selecionar mês" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableMonths.map(month => (
-                  <SelectItem key={month} value={month}>
-                    {new Date(month + '-01').toLocaleDateString('pt-BR', { 
-                      month: 'long', 
-                      year: 'numeric' 
-                    })}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex justify-center sm:justify-start">
+              <MonthYearPicker
+                value={selectedMonth}
+                onChange={setSelectedMonth}
+                className="w-full sm:w-auto"
+              />
+            </div>
             <Button onClick={generateReport} className="btn-primary w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
               <span className="sm:hidden">Gerar PDF</span>

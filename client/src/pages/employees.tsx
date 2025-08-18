@@ -7,12 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Users, Search, Filter, Calculator, ShieldCheck, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Eye, Users, Search, Filter, Calculator, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { MonthYearPicker } from "@/components/MonthYearPicker";
 
 // Types
 interface User {
@@ -94,27 +95,7 @@ export default function Employees() {
     return `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Navigation functions for month/year selection
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const currentDate = new Date(year, month - 1);
-    
-    if (direction === 'prev') {
-      currentDate.setMonth(currentDate.getMonth() - 1);
-    } else {
-      currentDate.setMonth(currentDate.getMonth() + 1);
-    }
-    
-    const newYear = currentDate.getFullYear();
-    const newMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
-    setSelectedMonth(`${newYear}-${newMonth}`);
-  };
 
-  const getMonthName = (dateStr: string) => {
-    const [year, month] = dateStr.split('-').map(Number);
-    const date = new Date(year, month - 1);
-    return date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
-  };
   const [selectedQuotation, setSelectedQuotation] = useState<Quotation | null>(null);
   const [calculatingCosts, setCalculatingCosts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
@@ -322,8 +303,9 @@ export default function Employees() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
+          <div className="flex flex-col gap-4">
+            {/* First row - Search */}
+            <div className="w-full">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
@@ -336,56 +318,44 @@ export default function Employees() {
               </div>
             </div>
             
-            <div className="flex items-center gap-2 w-full md:w-[280px] bg-white border rounded-md px-3 py-2">
-              <Calendar className="h-4 w-4 text-gray-500" />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigateMonth('prev')}
-                className="p-1 h-auto"
-                data-testid="button-prev-month"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="flex-1 text-center font-medium">
-                {getMonthName(selectedMonth).charAt(0).toUpperCase() + getMonthName(selectedMonth).slice(1)}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigateMonth('next')}
-                className="p-1 h-auto"
-                data-testid="button-next-month"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+            {/* Second row - Filters */}
+            <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center">
+              <div className="flex justify-center sm:justify-start">
+                <MonthYearPicker
+                  value={selectedMonth}
+                  onChange={setSelectedMonth}
+                  className="w-full sm:w-auto"
+                />
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2 flex-1">
+                <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                  <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-employee">
+                    <SelectValue placeholder="Todos os funcionários" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os funcionários</SelectItem>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                  <SelectTrigger className="w-full sm:w-[200px]" data-testid="select-status">
+                    <SelectValue placeholder="Todas as situações" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as situações</SelectItem>
+                    <SelectItem value="pending">Pendente</SelectItem>
+                    <SelectItem value="approved">Aprovado</SelectItem>
+                    <SelectItem value="rejected">Rejeitado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            
-            <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-              <SelectTrigger className="w-full md:w-[200px]" data-testid="select-employee">
-                <SelectValue placeholder="Todos os funcionários" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os funcionários</SelectItem>
-                {employees.map((employee) => (
-                  <SelectItem key={employee.id} value={employee.id}>
-                    {employee.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full md:w-[200px]" data-testid="select-status">
-                <SelectValue placeholder="Todas as situações" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as situações</SelectItem>
-                <SelectItem value="pending">Pendente</SelectItem>
-                <SelectItem value="approved">Aprovado</SelectItem>
-                <SelectItem value="rejected">Rejeitado</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardContent>
       </Card>
