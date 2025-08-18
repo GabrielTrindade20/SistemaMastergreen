@@ -14,6 +14,12 @@ MasterGreen is a full-stack business management system for a company specializin
   - Implemented touch-friendly interfaces with 44px minimum button sizes
   - Added separate mobile/desktop layouts for better user experience
   - Fixed TypeScript compilation errors and enhanced responsive grid systems
+- Enhanced financial analysis display in quotation details (August 18, 2025)
+  - Reorganized dashboard to properly separate admin system metrics from employee performance data
+  - Added comprehensive financial analysis section for admin-calculated quotations
+  - Improved discount calculation display with proper breakdown showing gross value, discount amount/percentage, and final total
+  - Enhanced profit calculations to use stored database values while providing fallback calculations
+  - Added commission display in financial analysis for better transparency
 
 ## User Preferences
 
