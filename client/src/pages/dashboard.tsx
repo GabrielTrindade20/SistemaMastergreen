@@ -3,13 +3,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, FileText, Users, TrendingUp, Clock, ChevronLeft, ChevronRight, Download, Calendar } from "lucide-react";
+import { DollarSign, FileText, Users, TrendingUp, Clock, Download } from "lucide-react";
 import type { User } from "@shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import { MonthYearPicker } from "@/components/MonthYearPicker";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -30,27 +31,7 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  // Navigation functions for month selection
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const [year, month] = selectedDate.split('-').map(Number);
-    const currentDate = new Date(year, month - 1);
-    
-    if (direction === 'prev') {
-      currentDate.setMonth(currentDate.getMonth() - 1);
-    } else {
-      currentDate.setMonth(currentDate.getMonth() + 1);
-    }
-    
-    const newYear = currentDate.getFullYear();
-    const newMonth = String(currentDate.getMonth() + 1).padStart(2, '0');
-    setSelectedDate(`${newYear}-${newMonth}`);
-  };
 
-  const getMonthName = (dateStr: string) => {
-    const [year, month] = dateStr.split('-').map(Number);
-    const date = new Date(year, month - 1);
-    return date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long' });
-  };
 
   const generateExtract = async () => {
     try {
@@ -188,44 +169,27 @@ export default function Dashboard() {
               {user?.type === "admin" ? "Visão geral do sistema" : "Seus dados pessoais"}
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <Button onClick={generateExtract} variant="outline" size="sm" className="w-full sm:w-auto">
-              <Download className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Gerar Extrato PDF</span>
-              <span className="sm:hidden">PDF</span>
-            </Button>
-            <div className="text-xs md:text-sm text-gray-500 text-center sm:text-left">
-              <Clock className="w-4 h-4 inline mr-2" />
-              Atualizado agora
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className="text-xs md:text-sm text-gray-500">
+                Atualizado agora
+              </span>
             </div>
-          </div>
-        </div>
-        
-        {/* Month Navigation */}
-        <div className="flex items-center justify-center">
-          <div className="flex items-center gap-2 bg-white border rounded-md px-3 py-2">
-            <Calendar className="h-4 w-4 text-gray-500" />
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigateMonth('prev')}
-              className="p-1 h-auto"
-              data-testid="button-prev-month-dashboard"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="flex-1 text-center font-medium min-w-[200px]">
-              {getMonthName(selectedDate).charAt(0).toUpperCase() + getMonthName(selectedDate).slice(1)}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigateMonth('next')}
-              className="p-1 h-auto"
-              data-testid="button-next-month-dashboard"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <MonthYearPicker
+                value={selectedDate}
+                onChange={setSelectedDate}
+                className="justify-center sm:justify-start"
+              />
+              
+              <Button onClick={generateExtract} variant="outline" size="sm" className="w-full sm:w-auto">
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Gerar Extrato PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
