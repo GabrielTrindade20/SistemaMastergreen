@@ -457,123 +457,6 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async updateQuotation(id: string, quotationData: any): Promise<QuotationWithDetails> {
-    // Prepare quotation update data with financial calculations
-    const updateData: any = {
-      ...quotationData,
-      updatedAt: new Date(),
-    };
-    
-    // If calculations are provided (admin editing), include all financial calculations
-    if (quotationData.calculations) {
-      const calc = quotationData.calculations;
-      updateData.subtotal = calc.subtotal?.toString();
-      updateData.totalCosts = calc.totalCosts?.toString();
-      updateData.totalWithoutInvoice = calc.totalWithoutInvoice?.toString();
-      updateData.invoicePercent = calc.invoicePercent?.toString();
-      updateData.invoiceAmount = calc.invoiceAmount?.toString();
-      updateData.totalWithInvoice = calc.totalWithInvoice?.toString();
-      updateData.companyProfit = calc.companyProfit?.toString();
-      updateData.profitPercent = calc.profitPercent?.toString();
-      updateData.tithe = calc.tithe?.toString();
-      updateData.netProfit = calc.netProfit?.toString();
-      updateData.total = calc.finalTotal?.toString();
-      updateData.adminCalculated = true;
-      
-      console.log('Saving financial calculations:', {
-        companyProfit: calc.companyProfit,
-        netProfit: calc.netProfit,
-        totalCosts: calc.totalCosts
-      });
-    }
-    
-    // Remove calculations from the data to be inserted
-    delete updateData.calculations;
-    delete updateData.items;
-    delete updateData.costs;
-
-    // Update the quotation
-    const [updatedQuotation] = await db
-      .update(quotations)
-      .set(updateData)
-      .where(eq(quotations.id, id))
-      .returning();
-
-    if (!updatedQuotation) {
-      throw new Error("Quotation not found");
-    }
-
-    // Update items if provided
-    if (quotationData.items) {
-      // Delete existing items
-      await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
-      
-      // Insert new items
-      for (const item of quotationData.items) {
-        const product = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
-        if (product.length > 0) {
-          const unitPrice = parseFloat(product[0].pricePerM2);
-          const unitCost = parseFloat(product[0].costPerM2 || "0");
-          const subtotal = item.quantity * unitPrice;
-          const totalCost = item.quantity * unitCost;
-          
-          await db.insert(quotationItems).values({
-            quotationId: id,
-            productId: item.productId,
-            quantity: item.quantity.toString(),
-            unitPrice: unitPrice.toString(),
-            unitCost: unitCost.toString(),
-            subtotal: subtotal.toString(),
-            totalCost: totalCost.toString()
-          });
-        }
-      }
-    }
-
-    // Update costs if provided
-    if (quotationData.costs) {
-      // Delete existing costs
-      await db.delete(quotationCosts).where(eq(quotationCosts.quotationId, id));
-      
-      // Insert new costs
-      for (const cost of quotationData.costs) {
-        if (cost.costId && cost.costId !== 'manual') {
-          // Use existing cost from database
-          const costData = await db.select().from(costs).where(eq(costs.id, cost.costId)).limit(1);
-          if (costData.length > 0) {
-            await db.insert(quotationCosts).values({
-              quotationId: id,
-              costId: cost.costId,
-              name: costData[0].name,
-              supplier: costData[0].supplier,
-              quantity: cost.quantity?.toString() || "1",
-              unitValue: cost.unitValue?.toString() || "0",
-              totalValue: cost.totalValue?.toString() || "0",
-              description: costData[0].description
-            });
-          }
-        } else {
-          // Manual cost
-          await db.insert(quotationCosts).values({
-            quotationId: id,
-            costId: null,
-            name: cost.name || 'Custo Manual',
-            supplier: cost.supplier || '',
-            quantity: cost.quantity?.toString() || "1",
-            unitValue: cost.unitValue?.toString() || "0",
-            totalValue: cost.totalValue?.toString() || "0",
-            description: cost.description || ''
-          });
-        }
-      }
-    }
-
-    const result = await this.getQuotation(id);
-    if (!result) {
-      throw new Error("Failed to retrieve updated quotation");
-    }
-    return result;
-  }
 
   async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
     const result = await db
@@ -760,9 +643,9 @@ export class DatabaseStorage implements IStorage {
               productId: item.productId,
               quantity: item.quantity.toString(),
               unitPrice: item.unitPrice.toString(),
-              unitCost: product.costPerM2,
+              unitCost: product.costPerM2 || "0",
               subtotal: (Number(item.quantity) * Number(item.unitPrice)).toString(),
-              totalCost: (Number(item.quantity) * Number(product.costPerM2)).toString(),
+              totalCost: (Number(item.quantity) * Number(product.costPerM2 || "0")).toString(),
             });
           }
         }
@@ -994,7 +877,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Fetch items and costs for each quotation
-    const quotationsList = [...quotationsMap.values()];
+    const quotationsList = Array.from(quotationsMap.values());
     for (const quotation of quotationsList) {
       const items = await db
         .select({
@@ -1060,7 +943,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Fetch items and costs for each quotation
-    const quotationsList2 = [...quotationsMap.values()];
+    const quotationsList2 = Array.from(quotationsMap.values());
     for (const quotation of quotationsList2) {
       const items = await db
         .select({
