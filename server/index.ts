@@ -36,7 +36,8 @@ app.use((req, res, next) => {
     // setupVite(app, server) aqui no seu código
   } else {
     // 👉 Servir React build em produção
-    const distPath = path.join(__dirname, "../dist");
+    // CORREÇÃO: O caminho foi alterado para dist/public para corresponder ao vite.config.ts
+    const distPath = path.join(__dirname, "../dist/public");
     app.use(express.static(distPath));
 
     // catch-all para React Router
