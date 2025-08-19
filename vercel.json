@@ -1,23 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist/public",
-  "functions": {
-    "server/index.ts": {
-      "runtime": "@vercel/node@3.0.7"
-    }
-  },
+  "builds": [
+    { "src": "client/vite.config.ts", "use": "@vercel/static-build" },
+    { "src": "api/**/*.ts", "use": "@vercel/node" }
+  ],
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/server/index.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/dist/public/$1"
-    }
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/(.*)", "dest": "client/dist/$1" }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "DATABASE_URL": "postgresql://neondb_owner:npg_fdq2oKe0uVjy@ep-steep-pine-acytb2mw-pooler.sa-east-1.aws.neon.tech/mastergreen?sslmode=require&channel_binding=require",
+    "NODE_ENV": "@node_env"
   }
 }
