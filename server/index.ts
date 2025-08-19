@@ -1,53 +1,47 @@
-import express, { Request, Response, NextFunction } from "express";
-import path from "path";
-import { fileURLToPath } from "url";
-import { registerRoutes } from "../server/routes.js";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// server/index.ts
+import express from "express";
+import { createServer } from "http";
+import { setupVite, serveStatic, log } from "./vite";
+import { setupRoutes } from "./routes";
+import { setupDb } from "./db";
+// import { setupStorage } from "./storage"; // Exemplo, se você tiver uma função de configuração de armazenamento
 
 const app = express();
+const server = createServer(app);
+const port = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === "production";
+
+// Use middlewares que você precisa em ambas as etapas
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// ... outros middlewares globais
 
-// Logs simplificados
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (req.path.startsWith("/api")) {
-      console.log(`${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
+// Configuração do servidor Vite ou de arquivos estáticos
+async function main() {
+  try {
+    if (isProduction) {
+      log("Running in production mode...", "server");
+      // Certifique-se de que a build do cliente foi feita
+      serveStatic(app);
+    } else {
+      log("Running in development mode...", "server");
+      // Configura o servidor Vite para o desenvolvimento
+      await setupVite(app, server);
     }
-  });
-  next();
-});
 
-(async () => {
-  const server = await registerRoutes(app);
+    // Rotas da sua API
+    setupRoutes(app);
 
-  // Error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
+    // Conecta-se ao banco de dados, se necessário
+    // await setupDb();
 
-  if (app.get("env") === "development") {
-    // setupVite(app, server) aqui no seu código
-  } else {
-    // 👉 Servir React build em produção
-    // CORREÇÃO: O caminho foi alterado para dist/public para corresponder ao vite.config.ts
-    const distPath = path.join(__dirname, "../dist/public");
-    app.use(express.static(distPath));
-
-    // catch-all para React Router
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    // Inicia o servidor
+    server.listen(port, () => {
+      log(`Server listening on http://localhost:${port}`, "server");
     });
+  } catch (error) {
+    log(`Failed to start server: ${error}`, "error");
+    process.exit(1);
   }
+}
 
-  const port = parseInt(process.env.PORT || "3000", 10);
-  server.listen(port, "0.0.0.0", () => {
-    console.log(`🚀 Server running on port ${port}`);
-  });
-})();
+main();
