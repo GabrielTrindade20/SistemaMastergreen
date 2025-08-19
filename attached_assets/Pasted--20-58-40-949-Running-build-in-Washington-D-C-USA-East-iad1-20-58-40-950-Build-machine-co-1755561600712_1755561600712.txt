@@ -1,0 +1,34 @@
+[20:58:40.949] Running build in Washington, D.C., USA (East) – iad1
+[20:58:40.950] Build machine configuration: 4 cores, 8 GB
+[20:58:40.964] Cloning github.com/GabrielTrindade20/SistemaMastergreen (Branch: main, Commit: 32d1f9e)
+[20:58:41.085] Previous build caches not available
+[20:58:41.687] Cloning completed: 723.000ms
+[20:58:43.649] Running "vercel build"
+[20:58:44.424] Vercel CLI 46.0.2
+[20:58:44.611] WARN! Due to `builds` existing in your configuration file, the Build and Development Settings defined in your Project Settings will not apply. Learn More: https://vercel.link/unused-build-settings
+[20:58:45.122] Installing dependencies...
+[20:58:48.387] npm warn deprecated path-match@1.2.4: This package is archived and no longer maintained. For support, visit https://github.com/expressjs/express/discussions
+[20:58:50.797] npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+[20:58:50.887] npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+[20:58:58.633] 
+[20:58:58.633] added 741 packages in 13s
+[20:58:58.633] 
+[20:58:58.634] 86 packages are looking for funding
+[20:58:58.634]   run `npm fund` for details
+[20:58:59.034] Using TypeScript 5.6.3 (local user-provided)
+[20:59:04.366] server/storage.ts(460,9): error TS2393: Duplicate function implementation.
+[20:59:04.367] server/storage.ts(702,9): error TS2393: Duplicate function implementation.
+[20:59:04.367] server/storage.ts(758,45): error TS2769: No overload matches this call.
+[20:59:04.367]   Overload 1 of 2, '(value: { subtotal: string | SQL<unknown> | Placeholder<string, any>; quotationId: string | SQL<unknown> | Placeholder<string, any>; productId: string | SQL<...> | Placeholder<...>; ... 4 more ...; id?: string | ... 2 more ... | undefined; }): PgInsertBase<...>', gave the following error.
+[20:59:04.367]     Type 'string | null' is not assignable to type 'string | SQL<unknown> | Placeholder<string, any>'.
+[20:59:04.367]       Type 'null' is not assignable to type 'string | SQL<unknown> | Placeholder<string, any>'.
+[20:59:04.367]   Overload 2 of 2, '(values: { subtotal: string | SQL<unknown> | Placeholder<string, any>; quotationId: string | SQL<unknown> | Placeholder<string, any>; productId: string | SQL<...> | Placeholder<...>; ... 4 more ...; id?: string | ... 2 more ... | undefined; }[]): PgInsertBase<...>', gave the following error.
+[20:59:04.367]     Object literal may only specify known properties, and 'quotationId' does not exist in type '{ subtotal: string | SQL<unknown> | Placeholder<string, any>; quotationId: string | SQL<unknown> | Placeholder<string, any>; productId: string | SQL<unknown> | Placeholder<...>; ... 4 more ...; id?: string | ... 2 more ... | undefined; }[]'.
+[20:59:04.367] 
+[20:59:05.993] Build Completed in /vercel/output [21s]
+[20:59:06.186] Deploying outputs...
+[20:59:12.425] Deployment completed
+[20:59:13.273] Creating build cache...
+[20:59:26.959] Created build cache: 13.685s
+[20:59:26.959] Uploading build cache [117.19 MB]
+[20:59:29.132] Build cache uploaded: 2.173s
