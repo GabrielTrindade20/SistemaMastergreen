@@ -499,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId: existingQuotation.userId, // Manter vendedor original
             status: existingQuotation.status, // INHERIT STATUS FROM ORIGINAL QUOTATION
             responsibleId: existingQuotation.userId, // Referência ao vendedor
-            adminCalculated: true,
+            adminCalculated: 1,
             originalQuotationId: id,
           });
           return res.json(updatedCalculated);
@@ -532,7 +532,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             responsibleName: req.body.responsibleName || existingQuotation.responsibleName,
             responsiblePosition: req.body.responsiblePosition || "Administrador",
             responsibleId: existingQuotation.userId, // Referência ao vendedor
-            adminCalculated: true,
+            adminCalculated: 1,
             originalQuotationId: id,
           };
           
@@ -824,14 +824,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // NOVA REGRA: Apenas propostas APROVADAS contam para comissão e vendas
         const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
         // REGRA: Vendedor vê apenas propostas pendentes ORIGINAIS (que ele criou, não as do admin)
-        const pendingQuotations = userQuotations.filter(q => q.status === 'pending' && q.adminCalculated === false);
+        const pendingQuotations = userQuotations.filter(q => q.status === 'pending' && q.adminCalculated === 0);
         
         // REGRA VENDEDOR: Comissão baseada APENAS nas propostas APROVADAS originais
-        const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === false);
+        const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === 0);
         console.log(`Vendedor Dashboard - Total quotations: ${userQuotations.length}, Approved: ${approvedQuotations.length}, Original approved: ${vendedorOriginalApproved.length}`);
 
         // REGRA: Taxa de conversão baseada apenas nas propostas originais do vendedor
-        const originalQuotations = userQuotations.filter(q => q.adminCalculated === false);
+        const originalQuotations = userQuotations.filter(q => q.adminCalculated === 0);
         const conversionRate = originalQuotations.length > 0 
           ? (vendedorOriginalApproved.length / originalQuotations.length) * 100 
           : 0;
@@ -849,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quotationTotal: parseFloat(q.total),
           commissionPercent,
           commissionAmount: parseFloat(q.total) * commissionPercent / 100,
-          approvedDate: q.updatedAt || q.createdAt
+          approvedDate: q.createdAt
         }));
 
         console.log(`Vendedor Dashboard - Original approved: ${vendedorOriginalApproved.length}, Total sales: ${totalSales}, Commission: ${totalCommission}`);
@@ -910,7 +910,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // REGRA: Vendedor vê apenas suas propostas ORIGINAIS (não as calculadas pelo admin)
         const allUserQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
-        quotations = allUserQuotations.filter(q => q.adminCalculated === false);
+        quotations = allUserQuotations.filter(q => q.adminCalculated === 0);
         console.log(`Recent Activities - User ${user.name}: found ${allUserQuotations.length} total, showing ${quotations.length} originals`);
       }
 
@@ -1015,7 +1015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             customerName: q.customer.name,
             quotationTotal: parseFloat(q.total),
             commissionAmount: parseFloat(q.total) * commissionPercent / 100,
-            approvedDate: new Date(q.updatedAt || q.createdAt).toLocaleDateString('pt-BR')
+            approvedDate: new Date(q.createdAt || Date.now()).toLocaleDateString('pt-BR')
           }));
 
           const totalCommission = commissionBreakdown.reduce((sum, item) => sum + item.commissionAmount, 0);

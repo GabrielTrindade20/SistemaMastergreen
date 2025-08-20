@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import type { QuotationWithDetails } from '@shared/schema';
 import { formatCurrency, formatPhone, formatDocument, formatCEP } from './calculations';
 import Quotations from '@/pages/quotations';
+import logoMasterGreen from '@assets/mastergreen-logo.png';
 
 export interface CompanyInfo {
   name: string;
@@ -54,7 +55,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
 
     // Try to load logo, if fails continue without it
     try {
-      const logoBase64 = await getImageAsBase64('/src/imagem/logoSemFundo.png');
+      const logoBase64 = await getImageAsBase64(logoMasterGreen);
       if (logoBase64) {
         const logoWidth = 50;
         const logoHeight = 50;

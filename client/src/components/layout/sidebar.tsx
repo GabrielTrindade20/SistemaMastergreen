@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import logoMasterGreen from "@assets/mastergreen-logo.png";
 import { 
   LayoutDashboard, 
   FileText, 
@@ -75,7 +76,14 @@ export default function Sidebar() {
       `}>
         {/* Logo/Brand */}
         <div className="p-6 border-b border-green-800">
-          <h1 className="text-2xl font-bold md:text-2xl sm:text-xl">MasterGreen</h1>
+          <div className="flex items-center mb-2">
+            <img 
+              src={logoMasterGreen} 
+              alt="Logo MasterGreen" 
+              className="w-8 h-8 object-contain mr-3"
+            />
+            <h1 className="text-2xl font-bold md:text-2xl sm:text-xl">MasterGreen</h1>
+          </div>
           <p className="text-green-200 text-sm mt-1">Sistema de Gestão</p>
         </div>
         

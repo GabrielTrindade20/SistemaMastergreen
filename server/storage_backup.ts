@@ -322,9 +322,100 @@ export class DatabaseStorage implements IStorage {
     return quotationsWithDetails;
   }
 
+  // Buscar apenas propostas originais de funcionários (não calculadas pelo admin) - PRIMEIRA VERSÃO
+  async getEmployeeOriginalQuotationsOriginal(): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(and(
+        eq(users.type, "vendedor"), // Apenas propostas de vendedores
+        eq(quotations.adminCalculated, 0) // Apenas propostas originais
+      ))
+      .orderBy(quotations.createdAt);
 
+    const quotationsWithDetails: QuotationWithDetails[] = [];
 
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
 
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
+
+  // Buscar propostas calculadas pelo admin (propostas validadas) - PRIMEIRA VERSÃO
+  async getAdminCalculatedQuotationsOriginal(): Promise<QuotationWithDetails[]> {
+    const result = await db
+      .select()
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .leftJoin(users, eq(quotations.userId, users.id))
+      .where(eq(quotations.adminCalculated, 1)) // Apenas propostas calculadas pelo admin
+      .orderBy(quotations.createdAt);
+
+    const quotationsWithDetails: QuotationWithDetails[] = [];
+
+    for (const row of result) {
+      if (row.quotations && row.customers && row.users) {
+        const items = await db
+          .select()
+          .from(quotationItems)
+          .leftJoin(products, eq(quotationItems.productId, products.id))
+          .where(eq(quotationItems.quotationId, row.quotations.id));
+
+        // Get costs for this quotation
+        const quotationCostsData = await db
+          .select()
+          .from(quotationCosts)
+          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+          .where(eq(quotationCosts.quotationId, row.quotations.id));
+
+        quotationsWithDetails.push({
+          ...row.quotations,
+          customer: row.customers,
+          user: row.users,
+          items: items.map(item => ({
+            ...item.quotation_items!,
+            product: item.products!
+          })),
+          costs: quotationCostsData.map(costData => ({
+            ...costData.quotation_costs!,
+            cost: costData.costs || undefined
+          }))
+        });
+      }
+    }
+
+    return quotationsWithDetails;
+  }
 
   // Buscar todas as propostas de funcionários para o admin gerenciar
   async getEmployeeQuotations(): Promise<QuotationWithDetails[]> {
@@ -457,6 +548,123 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async updateQuotation(id: string, quotationData: any): Promise<QuotationWithDetails> {
+    // Prepare quotation update data with financial calculations
+    const updateData: any = {
+      ...quotationData,
+      updatedAt: new Date(),
+    };
+    
+    // If calculations are provided (admin editing), include all financial calculations
+    if (quotationData.calculations) {
+      const calc = quotationData.calculations;
+      updateData.subtotal = calc.subtotal?.toString();
+      updateData.totalCosts = calc.totalCosts?.toString();
+      updateData.totalWithoutInvoice = calc.totalWithoutInvoice?.toString();
+      updateData.invoicePercent = calc.invoicePercent?.toString();
+      updateData.invoiceAmount = calc.invoiceAmount?.toString();
+      updateData.totalWithInvoice = calc.totalWithInvoice?.toString();
+      updateData.companyProfit = calc.companyProfit?.toString();
+      updateData.profitPercent = calc.profitPercent?.toString();
+      updateData.tithe = calc.tithe?.toString();
+      updateData.netProfit = calc.netProfit?.toString();
+      updateData.total = calc.finalTotal?.toString();
+      updateData.adminCalculated = true;
+      
+      console.log('Saving financial calculations:', {
+        companyProfit: calc.companyProfit,
+        netProfit: calc.netProfit,
+        totalCosts: calc.totalCosts
+      });
+    }
+    
+    // Remove calculations from the data to be inserted
+    delete updateData.calculations;
+    delete updateData.items;
+    delete updateData.costs;
+
+    // Update the quotation
+    const [updatedQuotation] = await db
+      .update(quotations)
+      .set(updateData)
+      .where(eq(quotations.id, id))
+      .returning();
+
+    if (!updatedQuotation) {
+      throw new Error("Quotation not found");
+    }
+
+    // Update items if provided
+    if (quotationData.items) {
+      // Delete existing items
+      await db.delete(quotationItems).where(eq(quotationItems.quotationId, id));
+      
+      // Insert new items
+      for (const item of quotationData.items) {
+        const product = await db.select().from(products).where(eq(products.id, item.productId)).limit(1);
+        if (product.length > 0) {
+          const unitPrice = parseFloat(product[0].pricePerM2);
+          const unitCost = parseFloat(product[0].costPerM2 || "0");
+          const subtotal = item.quantity * unitPrice;
+          const totalCost = item.quantity * unitCost;
+          
+          await db.insert(quotationItems).values({
+            quotationId: id,
+            productId: item.productId,
+            quantity: item.quantity.toString(),
+            unitPrice: unitPrice.toString(),
+            unitCost: unitCost.toString(),
+            subtotal: subtotal.toString(),
+            totalCost: totalCost.toString()
+          });
+        }
+      }
+    }
+
+    // Update costs if provided
+    if (quotationData.costs) {
+      // Delete existing costs
+      await db.delete(quotationCosts).where(eq(quotationCosts.quotationId, id));
+      
+      // Insert new costs
+      for (const cost of quotationData.costs) {
+        if (cost.costId && cost.costId !== 'manual') {
+          // Use existing cost from database
+          const costData = await db.select().from(costs).where(eq(costs.id, cost.costId)).limit(1);
+          if (costData.length > 0) {
+            await db.insert(quotationCosts).values({
+              quotationId: id,
+              costId: cost.costId,
+              name: costData[0].name,
+              supplier: costData[0].supplier,
+              quantity: cost.quantity?.toString() || "1",
+              unitValue: cost.unitValue?.toString() || "0",
+              totalValue: cost.totalValue?.toString() || "0",
+              description: costData[0].description
+            });
+          }
+        } else {
+          // Manual cost
+          await db.insert(quotationCosts).values({
+            quotationId: id,
+            costId: null,
+            name: cost.name || 'Custo Manual',
+            supplier: cost.supplier || '',
+            quantity: cost.quantity?.toString() || "1",
+            unitValue: cost.unitValue?.toString() || "0",
+            totalValue: cost.totalValue?.toString() || "0",
+            description: cost.description || ''
+          });
+        }
+      }
+    }
+
+    const result = await this.getQuotation(id);
+    if (!result) {
+      throw new Error("Failed to retrieve updated quotation");
+    }
+    return result;
+  }
 
   async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
     const result = await db
@@ -616,8 +824,8 @@ export class DatabaseStorage implements IStorage {
 
       // Remover campos undefined
       Object.keys(quotationUpdateData).forEach(key => {
-        if ((quotationUpdateData as any)[key] === undefined) {
-          delete (quotationUpdateData as any)[key];
+        if (quotationUpdateData[key] === undefined) {
+          delete quotationUpdateData[key];
         }
       });
 
@@ -643,9 +851,9 @@ export class DatabaseStorage implements IStorage {
               productId: item.productId,
               quantity: item.quantity.toString(),
               unitPrice: item.unitPrice.toString(),
-              unitCost: product.costPerM2 || "0",
+              unitCost: product.costPerM2,
               subtotal: (Number(item.quantity) * Number(item.unitPrice)).toString(),
-              totalCost: (Number(item.quantity) * Number(product.costPerM2 || "0")).toString(),
+              totalCost: (Number(item.quantity) * Number(product.costPerM2)).toString(),
             });
           }
         }
@@ -660,13 +868,13 @@ export class DatabaseStorage implements IStorage {
         for (const cost of quotationData.costs) {
           await db.insert(quotationCosts).values({
             quotationId: id,
-            costId: cost.costId,
+            costId: cost.costId || null,
             name: cost.name,
             unitValue: cost.unitValue.toString(),
             quantity: cost.quantity.toString(),
             totalValue: cost.totalValue.toString(),
-            supplier: cost.supplier,
-            description: cost.description,
+            supplier: cost.supplier || null,
+            description: cost.description || null,
           });
         }
       }
@@ -751,7 +959,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(quotations.adminCalculated, 0), // Apenas propostas originais
         eq(users.type, 'vendedor'), // Apenas de vendedores
-        validatedIds.length > 0 ? notInArray(quotations.id, validatedIds.filter(Boolean) as string[]) : undefined // Excluir as já validadas
+        validatedIds.length > 0 ? notInArray(quotations.id, validatedIds) : undefined // Excluir as já validadas
       ))
       .orderBy(desc(quotations.createdAt));
 
@@ -877,8 +1085,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Fetch items and costs for each quotation
-    const quotationsList = Array.from(quotationsMap.values());
-    for (const quotation of quotationsList) {
+    for (const quotation of quotationsMap.values()) {
       const items = await db
         .select({
           quotationItem: quotationItems,
@@ -901,7 +1108,7 @@ export class DatabaseStorage implements IStorage {
       quotation.costs = costs;
     }
 
-    return quotationsList;
+    return Array.from(quotationsMap.values());
   }
 
   async getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
@@ -943,8 +1150,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Fetch items and costs for each quotation
-    const quotationsList2 = Array.from(quotationsMap.values());
-    for (const quotation of quotationsList2) {
+    for (const quotation of quotationsMap.values()) {
       const items = await db
         .select({
           quotationItem: quotationItems,
@@ -967,7 +1173,7 @@ export class DatabaseStorage implements IStorage {
       quotation.costs = costs;
     }
 
-    return quotationsList2;
+    return Array.from(quotationsMap.values());
   }
 
   async getCustomersByUser(userId: string): Promise<Customer[]> {
