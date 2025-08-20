@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import logoMasterGreen from "@assets/mastergreen-logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +25,7 @@ export default function Login() {
         <CardHeader className="text-center">
           <div className="w-32 h-16 bg-[#ffffff] rounded-full flex items-center justify-center mx-auto mb-4">
             <img
-              src="/src/imagem/logoSemFundo.png"
+              src={logoMasterGreen}
               alt="Logo MasterGreen"
               className="w-32 h-32 object-contain"
             />
