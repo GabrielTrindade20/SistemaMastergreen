@@ -269,9 +269,9 @@ export default function Dashboard() {
             {data.adminPerformance && data.adminPerformance.quotationsCount > 0 && (
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Minhas Vendas Pessoais</CardTitle>
+                  <CardTitle>Minha Peformace: {user.name}</CardTitle>
                   <CardDescription>
-                    Propostas que eu criei pessoalmente neste mês
+                    Propostas que eu criei neste mês
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
