@@ -739,14 +739,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // REGRA: Lucro Líquido = de TODAS as propostas aprovadas (admin + vendedores)
         approvedQuotations.forEach(q => {
-          // Se foi calculada pelo admin, usar netProfit calculado
-          if (q.adminCalculated) {
-            const netProfit = parseFloat(q.netProfit || '0');
+          // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
+          if (q.netProfit && parseFloat(q.netProfit) > 0) {
+            const netProfit = parseFloat(q.netProfit);
             totalNetProfit += netProfit;
-            console.log(`Dashboard - Admin calculated profit from ${q.quotationNumber}: ${netProfit}`);
+            console.log(`Dashboard - Using calculated netProfit from ${q.quotationNumber}: ${netProfit}`);
           } else {
-            // Se não foi calculada, assumir lucro básico (sem custos detalhados)
-            // Para propostas de vendedores não calculadas, usar valor total menos comissão
+            // Se não tem netProfit, calcular lucro básico (valor total menos comissão)
             const revenue = parseFloat(q.total || '0');
             const commissionPercent = parseFloat(q.user?.commissionPercent || '0');
             const commission = revenue * commissionPercent / 100;
@@ -793,11 +792,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calcular lucro das vendas pessoais do admin
         let adminTotalProfit = 0;
         adminApproved.forEach(q => {
-          if (q.adminCalculated) {
-            // Se foi calculada, usar netProfit
-            adminTotalProfit += parseFloat(q.netProfit || '0');
+          // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
+          if (q.netProfit && parseFloat(q.netProfit) > 0) {
+            adminTotalProfit += parseFloat(q.netProfit);
           } else {
-            // Se não foi calculada, usar valor total (admin não paga comissão para si mesmo)
+            // Se não tem netProfit, usar valor total (admin não paga comissão para si mesmo)
             adminTotalProfit += parseFloat(q.total || '0');
           }
         });
@@ -826,9 +825,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           let adminProfit = 0;
           adminApprovedQuotations.forEach(q => {
-            if (q.adminCalculated) {
-              adminProfit += parseFloat(q.netProfit || '0');
+            // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
+            if (q.netProfit && parseFloat(q.netProfit) > 0) {
+              adminProfit += parseFloat(q.netProfit);
             } else {
+              // Se não tem netProfit, usar valor total (admin não paga comissão para si mesmo)
               adminProfit += parseFloat(q.total || '0');
             }
           });
