@@ -204,7 +204,7 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle>Minha Performance (Admin)</CardTitle>
                 <CardDescription>
-                  Performance geral do sistema administrado por mim
+                  Performance geral da empresa - soma de todos os admins e vendedores
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -223,7 +223,7 @@ export default function Dashboard() {
                       R$ {data.totalNetProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                     </div>
                     <p className="text-sm text-muted-foreground">Lucro Líquido</p>
-                    <p className="text-xs text-muted-foreground">Lucro das propostas processadas</p>
+                    <p className="text-xs text-muted-foreground">Lucro de todas as propostas aprovadas</p>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
@@ -283,7 +283,13 @@ export default function Dashboard() {
                       <div className="text-2xl font-bold text-green-600">
                         R$ {data.adminPerformance.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
-                      <p className="text-sm text-muted-foreground">Minhas Vendas</p>
+                      <p className="text-sm text-muted-foreground">Receita Total</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        R$ {data.adminPerformance.totalProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                      </div>
+                      <p className="text-sm text-muted-foreground">Lucro Líquido</p>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold">
@@ -297,12 +303,50 @@ export default function Dashboard() {
                       </div>
                       <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
-                        R$ {data.adminPerformance.totalProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Other Admins Performance */}
+            {data.otherAdminsPerformance && data.otherAdminsPerformance.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Performance de Outros Admins</CardTitle>
+                  <CardDescription>
+                    Comparativo de vendas e lucros dos outros administradores
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {data.otherAdminsPerformance.map((admin: any) => (
+                      <div key={admin.adminId} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-semibold">{admin.adminName}</h4>
+                          <span className="text-sm text-muted-foreground">{admin.adminBranch}</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                          <div>
+                            <div className="text-lg font-bold text-green-600">
+                              R$ {admin.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Receita Total</p>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-green-600">
+                              R$ {admin.totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Lucro Líquido</p>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold">
+                              {admin.quotationsCount}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Propostas Aprovadas</p>
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-sm text-muted-foreground">Meu Lucro</p>
-                    </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
