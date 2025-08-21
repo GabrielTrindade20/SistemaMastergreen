@@ -507,7 +507,12 @@ export default function Quotations() {
                     <TableRow key={index}>
                       <TableCell>{cost.name}</TableCell>
                       <TableCell>{cost.supplier || '-'}</TableCell>
-                      <TableCell>{parseFloat(cost.quantity || 0).toFixed(2)}</TableCell>
+                      <TableCell>
+                        {cost.calculationType === 'percentage' 
+                          ? `${parseFloat(cost.quantity || 0).toFixed(2)}%`
+                          : parseFloat(cost.quantity || 0).toFixed(2)
+                        }
+                      </TableCell>
                       <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
                       <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
                     </TableRow>

@@ -435,6 +435,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalValue: cost.totalValue.toString(),
         supplier: cost.supplier || null,
         description: cost.description || null,
+        calculationType: cost.calculationType || 'fixed',
       })) : [];
       
       console.log("Processed quotation:", quotationData);

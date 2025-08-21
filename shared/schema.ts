@@ -92,6 +92,7 @@ export const quotationCosts = pgTable("quotation_costs", {
   totalValue: decimal("total_value", { precision: 10, scale: 2 }).notNull(),
   supplier: text("supplier"),
   description: text("description"),
+  calculationType: text("calculation_type").default("fixed"), // 'fixed' or 'percentage'
 });
 
 export const users = pgTable("users", {
