@@ -344,7 +344,7 @@ export function NewQuotationForm({
       description: firstCost.description || '',
       calculationType: 'fixed',
       percentageValue: 0,
-      productId: items.length > 0 ? items[0].productId : undefined, // Associar ao primeiro produto por padrão
+      productId: items.length === 1 ? items[0].productId : undefined, // Apenas associar se há um produto único
     };
     
     setCosts([...costs, newCost]);
@@ -916,17 +916,18 @@ export function NewQuotationForm({
                       <div>
                         <label className="text-sm font-medium">Produto</label>
                         <Select 
-                          value={cost.productId || ''} 
-                          onValueChange={(value) => updateCost(index, 'productId', value)}
+                          value={cost.productId || 'none'} 
+                          onValueChange={(value) => updateCost(index, 'productId', value === 'none' ? undefined : value)}
                         >
                           <SelectTrigger data-testid={`select-product-${index}`}>
-                            <SelectValue placeholder="Selecionar" />
+                            <SelectValue placeholder="Selecionar produto" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="none">Custo geral (não específico)</SelectItem>
                             {items.map((item, itemIndex) => {
                               const product = products.find(p => p.id === item.productId);
                               return (
-                                <SelectItem key={item.productId} value={item.productId}>
+                                <SelectItem key={`product-${itemIndex}-${item.productId}`} value={item.productId || `item-${itemIndex}`}>
                                   {product?.name || `Produto ${itemIndex + 1}`}
                                 </SelectItem>
                               );
