@@ -717,7 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calculate admin dashboard metrics according to new business rules
         let totalRevenue = 0; // Valor bruto total (nunca muda)
         let totalCosts = 0; // Custos adicionados pelo admin
-        let totalNetProfit = 0; // Lucro líquido calculado pelo admin
+        let totalNetProfit = 0; // Lucro líquido de TODAS as propostas aprovadas
         
         // REGRA: Receita Total = soma do valor bruto das propostas aprovadas (SEM DUPLICAÇÃO)
         // Agora usando apenas a versão final de cada proposta
@@ -730,15 +730,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Separar propostas com custos calculados pelo admin
         const adminCalculatedQuotations = approvedQuotations.filter(q => q.adminCalculated === true);
         
-        // REGRA: Custos e Lucro Líquido = apenas das propostas que o admin já processou
+        // REGRA: Custos = apenas das propostas que o admin já processou
         adminCalculatedQuotations.forEach(q => {
           const costs = parseFloat(q.totalCosts || '0');
-          const netProfit = parseFloat(q.netProfit || '0');
-          
           totalCosts += costs;
-          totalNetProfit += netProfit;
-          
-          console.log(`Dashboard - Admin processed quotation ${q.quotationNumber}: costs=${costs}, netProfit=${netProfit}`);
+          console.log(`Dashboard - Admin processed quotation ${q.quotationNumber}: costs=${costs}`);
+        });
+        
+        // REGRA: Lucro Líquido = de TODAS as propostas aprovadas (admin + vendedores)
+        approvedQuotations.forEach(q => {
+          // Se foi calculada pelo admin, usar netProfit calculado
+          if (q.adminCalculated) {
+            const netProfit = parseFloat(q.netProfit || '0');
+            totalNetProfit += netProfit;
+            console.log(`Dashboard - Admin calculated profit from ${q.quotationNumber}: ${netProfit}`);
+          } else {
+            // Se não foi calculada, assumir lucro básico (sem custos detalhados)
+            // Para propostas de vendedores não calculadas, usar valor total menos comissão
+            const revenue = parseFloat(q.total || '0');
+            const commissionPercent = parseFloat(q.user?.commissionPercent || '0');
+            const commission = revenue * commissionPercent / 100;
+            const basicProfit = revenue - commission;
+            totalNetProfit += basicProfit;
+            console.log(`Dashboard - Basic profit from ${q.quotationNumber}: ${basicProfit} (revenue: ${revenue}, commission: ${commission})`);
+          }
         });
         const conversionRate = allQuotations.length > 0 
           ? (approvedQuotations.length / allQuotations.length) * 100 
@@ -770,12 +785,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         });
 
-        // NOVA FUNCIONALIDADE: Performance do próprio Admin
+        // Performance do próprio Admin (vendas pessoais)
         const adminApproved = approvedQuotations.filter(q => q.userId === user.id);
         const adminQuotations = allQuotations.filter(q => q.userId === user.id);
-        const adminCommissionPercent = parseFloat(user.commissionPercent || '0');
         const adminTotalSales = adminApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
-        const adminTotalCommission = adminTotalSales * adminCommissionPercent / 100;
+        
+        // Calcular lucro das vendas pessoais do admin
+        let adminTotalProfit = 0;
+        adminApproved.forEach(q => {
+          if (q.adminCalculated) {
+            // Se foi calculada, usar netProfit
+            adminTotalProfit += parseFloat(q.netProfit || '0');
+          } else {
+            // Se não foi calculada, usar valor total (admin não paga comissão para si mesmo)
+            adminTotalProfit += parseFloat(q.total || '0');
+          }
+        });
+        
         const adminConversionRate = adminQuotations.length > 0 
           ? (adminApproved.length / adminQuotations.length) * 100 
           : 0;
@@ -784,13 +810,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
           employeeId: user.id,
           employeeName: user.name,
           employeeBranch: user.branch,
-          commissionPercent: adminCommissionPercent,
           totalSales: adminTotalSales,
-          totalCommission: adminTotalCommission,
+          totalProfit: adminTotalProfit, // Novo campo: lucro das vendas pessoais
           quotationsCount: adminApproved.length,
           allQuotationsCount: adminQuotations.length,
           conversionRate: adminConversionRate
         };
+        
+        // Performance de outros admins
+        const otherAdmins = allUsers.filter(u => u.type === "admin" && u.id !== user.id);
+        const otherAdminsPerformance = otherAdmins.map(admin => {
+          const adminApprovedQuotations = approvedQuotations.filter(q => q.userId === admin.id);
+          const adminAllQuotations = allQuotations.filter(q => q.userId === admin.id);
+          const adminSales = adminApprovedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          
+          let adminProfit = 0;
+          adminApprovedQuotations.forEach(q => {
+            if (q.adminCalculated) {
+              adminProfit += parseFloat(q.netProfit || '0');
+            } else {
+              adminProfit += parseFloat(q.total || '0');
+            }
+          });
+          
+          return {
+            adminId: admin.id,
+            adminName: admin.name,
+            adminBranch: admin.branch,
+            totalSales: adminSales,
+            totalProfit: adminProfit,
+            quotationsCount: adminApprovedQuotations.length,
+            allQuotationsCount: adminAllQuotations.length,
+            conversionRate: adminAllQuotations.length > 0 
+              ? (adminApprovedQuotations.length / adminAllQuotations.length) * 100 
+              : 0
+          };
+        });
 
         const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
         
@@ -812,8 +867,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Dados adicionais para o dashboard do admin
           processedQuotations: adminCalculatedQuotations.length, // Quantas propostas já foram processadas
           pendingProcessing: approvedQuotations.length - adminCalculatedQuotations.length, // Quantas ainda precisam ser processadas
-          // NOVA FUNCIONALIDADE: Performance do próprio Admin
-          adminPerformance
+          // Performance do próprio Admin
+          adminPerformance,
+          // Performance de outros admins
+          otherAdminsPerformance
         });
       } else {
         // Employee dashboard - personal view

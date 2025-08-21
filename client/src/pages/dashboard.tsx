@@ -66,16 +66,16 @@ export default function Dashboard() {
         pdf.text(`Propostas Aprovadas: ${extractData.approvedQuotationsCount}`, 20, yPos);
         yPos += 20;
 
-        // NOVA FUNCIONALIDADE: Incluir performance do admin no PDF
+        // Performance do admin no PDF
         if (extractData.adminPerformance && extractData.adminPerformance.quotationsCount > 0) {
           pdf.setFontSize(14);
-          pdf.text('MINHA PERFORMANCE (ADMIN)', 20, yPos);
+          pdf.text('MINHAS VENDAS PESSOAIS', 20, yPos);
           yPos += 15;
           
           pdf.setFontSize(12);
           pdf.text(`Vendas: R$ ${extractData.adminPerformance.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${extractData.adminPerformance.quotationsCount} propostas)`, 20, yPos);
           yPos += 10;
-          pdf.text(`Comissão: R$ ${extractData.adminPerformance.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${extractData.adminPerformance.commissionPercent}%)`, 20, yPos);
+          pdf.text(`Lucro: R$ ${extractData.adminPerformance.totalProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}`, 20, yPos);
           yPos += 10;
           pdf.text(`Taxa de Conversão: ${extractData.adminPerformance.conversionRate.toFixed(1)}%`, 20, yPos);
           yPos += 20;
