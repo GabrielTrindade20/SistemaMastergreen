@@ -513,11 +513,16 @@ export default function Quotations() {
                           const unitValue = parseFloat(cost.unitValue || 0);
                           const totalValue = parseFloat(cost.totalValue || 0);
                           
-                          // Se quantity é 0 mas temos totalValue, provavelmente é porcentagem
-                          // Calcula a porcentagem baseada em totalValue/unitValue
-                          if (quantity === 0 && totalValue > 0 && unitValue > 0) {
-                            const percentage = (totalValue / unitValue) * 100;
-                            return `${percentage.toFixed(2)}%`;
+                          // Detectar se é cálculo por porcentagem
+                          // Se totalValue = unitValue * (quantity/100), então quantity representa uma porcentagem
+                          if (unitValue > 0 && totalValue > 0 && quantity > 0) {
+                            const expectedTotalFromPercentage = unitValue * (quantity / 100);
+                            const expectedTotalFromQuantity = unitValue * quantity;
+                            
+                            // Se o cálculo por porcentagem está mais próximo do totalValue real
+                            if (Math.abs(totalValue - expectedTotalFromPercentage) < Math.abs(totalValue - expectedTotalFromQuantity)) {
+                              return `${quantity.toFixed(2)}%`;
+                            }
                           }
                           
                           return quantity.toFixed(2);
