@@ -519,8 +519,11 @@ export default function Quotations() {
                             const expectedTotalFromPercentage = unitValue * (quantity / 100);
                             const expectedTotalFromQuantity = unitValue * quantity;
                             
-                            // Se o cálculo por porcentagem está mais próximo do totalValue real
-                            if (Math.abs(totalValue - expectedTotalFromPercentage) < Math.abs(totalValue - expectedTotalFromQuantity)) {
+                            // Se o cálculo por porcentagem bate melhor (com uma tolerância de 0.01)
+                            const diffPercentage = Math.abs(totalValue - expectedTotalFromPercentage);
+                            const diffQuantity = Math.abs(totalValue - expectedTotalFromQuantity);
+                            
+                            if (diffPercentage <= 0.01 || diffPercentage < diffQuantity) {
                               return `${quantity.toFixed(2)}%`;
                             }
                           }

@@ -456,7 +456,7 @@ export function NewQuotationForm({
         costId: cost.costId === 'manual' ? null : cost.costId,
         name: cost.name,
         unitValue: cost.unitValue,
-        quantity: cost.quantity,
+        quantity: cost.calculationType === 'percentage' ? cost.percentageValue || 0 : cost.quantity,
         totalValue: cost.totalValue,
         supplier: cost.supplier,
         description: cost.description,
