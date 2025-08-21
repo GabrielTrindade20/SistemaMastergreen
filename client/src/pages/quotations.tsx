@@ -484,8 +484,9 @@ export default function Quotations() {
           </CardContent>
         </Card>
 
-        {/* Seção de Custos */}
-        {selectedQuotation.costs && selectedQuotation.costs.length > 0 && (
+        {/* Seção de Custos - Visível para todos os status */}
+        {selectedQuotation.costs && selectedQuotation.costs.length > 0 && 
+         ['pending', 'approved', 'rejected'].includes(selectedQuotation.status) && (
           <Card className="mt-4 md:mt-6">
             <CardHeader>
               <CardTitle className="text-lg">Custos da Proposta</CardTitle>
