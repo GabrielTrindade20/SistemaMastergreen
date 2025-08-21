@@ -508,10 +508,20 @@ export default function Quotations() {
                       <TableCell>{cost.name}</TableCell>
                       <TableCell>{cost.supplier || '-'}</TableCell>
                       <TableCell>
-                        {cost.calculationType === 'percentage' 
-                          ? `${parseFloat(cost.quantity || 0).toFixed(2)}%`
-                          : parseFloat(cost.quantity || 0).toFixed(2)
-                        }
+                        {(() => {
+                          const quantity = parseFloat(cost.quantity || 0);
+                          const unitValue = parseFloat(cost.unitValue || 0);
+                          const totalValue = parseFloat(cost.totalValue || 0);
+                          
+                          // Se quantity é 0 mas temos totalValue, provavelmente é porcentagem
+                          // Calcula a porcentagem baseada em totalValue/unitValue
+                          if (quantity === 0 && totalValue > 0 && unitValue > 0) {
+                            const percentage = (totalValue / unitValue) * 100;
+                            return `${percentage.toFixed(2)}%`;
+                          }
+                          
+                          return quantity.toFixed(2);
+                        })()}
                       </TableCell>
                       <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
                       <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
