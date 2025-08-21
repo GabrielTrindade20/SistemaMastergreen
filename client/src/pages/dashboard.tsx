@@ -299,9 +299,9 @@ export default function Dashboard() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">
-                        R$ {data.adminPerformance.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {data.adminPerformance.totalProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                       </div>
-                      <p className="text-sm text-muted-foreground">Minha Comissão ({data.adminPerformance.commissionPercent}%)</p>
+                      <p className="text-sm text-muted-foreground">Meu Lucro</p>
                     </div>
                   </div>
                 </CardContent>
