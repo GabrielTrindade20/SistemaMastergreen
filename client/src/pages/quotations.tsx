@@ -494,50 +494,47 @@ export default function Quotations() {
             <CardContent className="p-0">
               <div className="overflow-x-auto p-4">
                 <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead>Qtd</TableHead>
-                    <TableHead>Valor Unit.</TableHead>
-                    <TableHead>Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedQuotation.costs.map((cost: any, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell>{cost.name}</TableCell>
-                      <TableCell>{cost.supplier || '-'}</TableCell>
-                      <TableCell>
-                        {(() => {
-                          const quantity = parseFloat(cost.quantity || 0);
-                          const unitValue = parseFloat(cost.unitValue || 0);
-                          const totalValue = parseFloat(cost.totalValue || 0);
-                          
-                          // Detectar se é cálculo por porcentagem
-                          // Se totalValue = unitValue * (quantity/100), então quantity representa uma porcentagem
-                          if (unitValue > 0 && totalValue > 0 && quantity > 0) {
-                            const expectedTotalFromPercentage = unitValue * (quantity / 100);
-                            const expectedTotalFromQuantity = unitValue * quantity;
-                            
-                            // Se o cálculo por porcentagem bate melhor (com uma tolerância de 0.01)
-                            const diffPercentage = Math.abs(totalValue - expectedTotalFromPercentage);
-                            const diffQuantity = Math.abs(totalValue - expectedTotalFromQuantity);
-                            
-                            if (diffPercentage <= 0.01 || diffPercentage < diffQuantity) {
-                              return `${quantity.toFixed(2)}%`;
-                            }
-                          }
-                          
-                          return quantity.toFixed(2);
-                        })()}
-                      </TableCell>
-                      <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
-                      <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead>Qtd</TableHead>
+                      <TableHead>Valor Unit.</TableHead>
+                      <TableHead>Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedQuotation.costs.map((cost: any, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell>{cost.name}</TableCell>
+                        <TableCell>{cost.supplier || '-'}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const quantity = parseFloat(cost.quantity || 0);
+                            const unitValue = parseFloat(cost.unitValue || 0);
+                            const totalValue = parseFloat(cost.totalValue || 0);
+                            
+                            if (unitValue > 0 && totalValue > 0 && quantity > 0) {
+                              const expectedTotalFromPercentage = unitValue * (quantity / 100);
+                              const expectedTotalFromQuantity = unitValue * quantity;
+                              
+                              const diffPercentage = Math.abs(totalValue - expectedTotalFromPercentage);
+                              const diffQuantity = Math.abs(totalValue - expectedTotalFromQuantity);
+                              
+                              if (diffPercentage <= 0.01 || diffPercentage < diffQuantity) {
+                                return `${quantity.toFixed(2)}%`;
+                              }
+                            }
+                            
+                            return quantity.toFixed(2);
+                          })()}
+                        </TableCell>
+                        <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
+                        <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between items-center text-lg font-semibold">

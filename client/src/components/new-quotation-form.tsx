@@ -51,6 +51,7 @@ interface QuotationCost {
   description?: string;
   calculationType: 'fixed' | 'percentage'; // R$ ou %
   percentageValue?: number; // Valor da porcentagem quando calculationType é 'percentage'
+  productId?: string; // Produto associado ao custo (para múltiplos produtos)
 }
 
 interface QuotationCalculations {
@@ -343,6 +344,7 @@ export function NewQuotationForm({
       description: firstCost.description || '',
       calculationType: 'fixed',
       percentageValue: 0,
+      productId: items.length > 0 ? items[0].productId : undefined, // Associar ao primeiro produto por padrão
     };
     
     setCosts([...costs, newCost]);
@@ -888,7 +890,7 @@ export function NewQuotationForm({
                 {costs.map((cost, index) => (
                   <Card key={index} className="border-l-4 border-l-red-500">
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
                     <div>
                       <label className="text-sm font-medium">Custo</label>
                       <Select 
@@ -908,6 +910,31 @@ export function NewQuotationForm({
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Seleção de Produto - Apenas quando há múltiplos produtos */}
+                    {items.length > 1 && (
+                      <div>
+                        <label className="text-sm font-medium">Produto</label>
+                        <Select 
+                          value={cost.productId || ''} 
+                          onValueChange={(value) => updateCost(index, 'productId', value)}
+                        >
+                          <SelectTrigger data-testid={`select-product-${index}`}>
+                            <SelectValue placeholder="Selecionar" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {items.map((item, itemIndex) => {
+                              const product = products.find(p => p.id === item.productId);
+                              return (
+                                <SelectItem key={item.productId} value={item.productId}>
+                                  {product?.name || `Produto ${itemIndex + 1}`}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     
                     <div>
                       <label className="text-sm font-medium">Tipo de Cálculo</label>
