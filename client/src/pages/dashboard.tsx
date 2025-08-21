@@ -193,16 +193,15 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
       {/* Dashboard Content */}
       <div className="p-4 md:p-6">
         {user?.type === "admin" ? (
           // Admin Dashboard
-          <>
+          (<>
             {/* Admin Performance Card */}
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Minha Performance (Admin)</CardTitle>
+                <CardTitle>Performance da Empresa (Mastergreen)</CardTitle>
                 <CardDescription>
                   Performance geral da empresa - soma de todos os admins e vendedores
                 </CardDescription>
@@ -237,7 +236,6 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Employee Performance Summary Card */}
             <Card className="mb-6">
               <CardHeader>
@@ -267,7 +265,6 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Admin Personal Performance (if admin made sales) */}
             {data.adminPerformance && data.adminPerformance.quotationsCount > 0 && (
               <Card className="mb-6">
@@ -307,7 +304,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
-            
             {/* Other Admins Performance */}
             {data.otherAdminsPerformance && data.otherAdminsPerformance.length > 0 && (
               <Card className="mb-6">
@@ -351,7 +347,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
-
             {/* Employee Performance Table */}
             <Card className="mb-6">
               <CardHeader>
@@ -401,10 +396,10 @@ export default function Dashboard() {
                 </Table>
               </CardContent>
             </Card>
-          </>
+          </>)
         ) : (
           // Employee Dashboard
-          <>
+          (<>
             {/* Employee KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
               <Card>
@@ -463,7 +458,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
-
             {/* Commission Breakdown Table */}
             <Card className="mb-6">
               <CardHeader>
@@ -509,7 +503,7 @@ export default function Dashboard() {
                 </Table>
               </CardContent>
             </Card>
-          </>
+          </>)
         )}
 
         {/* Recent Activities */}
