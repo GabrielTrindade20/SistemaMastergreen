@@ -14,8 +14,6 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
-import { pool } from "./db";
 
 const createQuotationSchema = z.object({
   quotation: insertQuotationSchema.omit({ userId: true, branch: true }).extend({
@@ -48,21 +46,13 @@ function requireAdmin(req: any, res: any, next: any) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Configure PostgreSQL session store
-  const PgSession = connectPgSimple(session);
-  
   // Configure sessions
   app.use(session({
-    store: new PgSession({
-      pool: pool,
-      tableName: 'user_sessions',
-      createTableIfMissing: true
-    }),
     secret: process.env.SESSION_SECRET || 'your-secret-key-here',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+      secure: false, // Set to true in production with HTTPS
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   }));
