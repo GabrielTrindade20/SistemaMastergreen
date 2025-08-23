@@ -34,25 +34,35 @@ export function useAuth() {
 
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginUser) => {
+      console.log("Attempting login with:", credentials.email);
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
         credentials: 'include' // Importante para incluir cookies
       });
+      console.log("Login response status:", response.status);
+      console.log("Login response ok:", response.ok);
+      
       if (!response.ok) {
         const error = await response.json();
+        console.log("Login failed with error:", error);
         throw new Error(error.message || "Login failed");
       }
-      return response.json();
+      
+      const result = await response.json();
+      console.log("Login successful, response:", result);
+      return result;
     },
     onSuccess: (data) => {
-      console.log("Login successful, reloading to update interface");
+      console.log("Login onSuccess triggered with data:", data);
+      setUser(data.user);
+      setError(null);
       // Usar window.location.href para recarregar completamente
       window.location.href = "/dashboard";
     },
     onError: (error) => {
-      console.log("Login error:", error);
+      console.log("Login onError triggered with error:", error);
       setError(error);
     },
   });
