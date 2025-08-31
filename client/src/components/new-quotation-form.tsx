@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Calculator, Check, ChevronsUpDown, Share2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -97,6 +99,7 @@ export function NewQuotationForm({
   }]);
   
   const [costs, setCosts] = useState<QuotationCost[]>([]);
+  const [customerOpen, setCustomerOpen] = useState(false);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -630,32 +633,63 @@ export function NewQuotationForm({
         })(e);
       }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente - Dropdown Simples */}
+          {/* Cliente - Combobox com Busca */}
           <FormField
             control={form.control}
             name="customerId"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="flex flex-col">
                 <FormLabel>Cliente</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-customer">
-                      <SelectValue placeholder="Selecione um cliente" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent className="max-h-60">
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{customer.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {customer.email} {customer.phone && `• ${customer.phone}`}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={customerOpen}
+                        className="w-full justify-between"
+                        data-testid="button-customer-search"
+                      >
+                        {field.value
+                          ? customers.find((customer) => customer.id === field.value)?.name
+                          : "Selecione um cliente..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Digite para buscar cliente..." />
+                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {customers.map((customer) => (
+                          <CommandItem
+                            key={customer.id}
+                            value={`${customer.name} ${customer.email} ${customer.phone}`}
+                            onSelect={() => {
+                              field.onChange(customer.id);
+                              setCustomerOpen(false);
+                            }}
+                            data-testid={`option-customer-${customer.id}`}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                field.value === customer.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col">
+                              <span className="font-medium">{customer.name}</span>
+                              <span className="text-sm text-muted-foreground">
+                                {customer.email} {customer.phone && `• ${customer.phone}`}
+                              </span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
