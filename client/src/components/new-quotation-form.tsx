@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// Select removido - usando HTML simples
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -797,21 +797,27 @@ export function NewQuotationForm({
                 <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
                   <div>
                     <label className="text-sm font-medium">Produto</label>
-                    <Select 
-                      value={item.productId} 
-                      onValueChange={(value) => updateItem(index, 'productId', value)}
+                    <select
+                      value={item.productId || ''}
+                      onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                      data-testid={`select-product-${index}`}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        backgroundColor: 'white',
+                        outline: 'none'
+                      }}
                     >
-                      <SelectTrigger data-testid={`select-product-${index}`}>
-                        <SelectValue placeholder="Selecionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <option value="">Selecionar produto...</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   
                   <div>
@@ -932,47 +938,58 @@ export function NewQuotationForm({
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
                     <div>
                       <label className="text-sm font-medium">Custo</label>
-                      <Select 
-                        value={cost.costId} 
-                        onValueChange={(value) => updateCost(index, 'costId', value)}
+                      <select
+                        value={cost.costId || ''}
+                        onChange={(e) => updateCost(index, 'costId', e.target.value)}
+                        data-testid={`select-cost-${index}`}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          backgroundColor: 'white',
+                          outline: 'none'
+                        }}
                       >
-                        <SelectTrigger data-testid={`select-cost-${index}`}>
-                          <SelectValue placeholder="Selecionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableCosts.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="manual">Custo Manual</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="">Selecionar custo...</option>
+                        {availableCosts.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                        <option value="manual">Custo Manual</option>
+                      </select>
                     </div>
 
                     {/* Seleção de Produto - Apenas quando há múltiplos produtos */}
                     {items.length > 1 && (
                       <div>
                         <label className="text-sm font-medium">Produto</label>
-                        <Select 
-                          value={cost.productId || 'none'} 
-                          onValueChange={(value) => updateCost(index, 'productId', value === 'none' ? undefined : value)}
+                        <select
+                          value={cost.productId || 'none'}
+                          onChange={(e) => updateCost(index, 'productId', e.target.value === 'none' ? undefined : e.target.value)}
+                          data-testid={`select-product-cost-${index}`}
+                          style={{
+                            width: '100%',
+                            padding: '8px 12px',
+                            border: '1px solid #d1d5db',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            backgroundColor: 'white',
+                            outline: 'none'
+                          }}
                         >
-                          <SelectTrigger data-testid={`select-product-${index}`}>
-                            <SelectValue placeholder="Selecionar produto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Custo geral (não específico)</SelectItem>
-                            {items.map((item, itemIndex) => {
-                              const product = products.find(p => p.id === item.productId);
-                              return (
-                                <SelectItem key={`product-${itemIndex}-${item.productId}`} value={item.productId || `item-${itemIndex}`}>
-                                  {product?.name || `Produto ${itemIndex + 1}`}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
+                          <option value="none">Custo geral (não específico)</option>
+                          {items.map((item, itemIndex) => {
+                            const product = products.find(p => p.id === item.productId);
+                            return (
+                              <option key={`product-${itemIndex}-${item.productId}`} value={item.productId || `item-${itemIndex}`}>
+                                {product?.name || `Produto ${itemIndex + 1}`}
+                              </option>
+                            );
+                          })}
+                        </select>
                       </div>
                     )}
                     
