@@ -9,9 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Calculator, Check, ChevronsUpDown, Share2 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Plus, Trash2, Calculator, Search, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -99,7 +97,9 @@ export function NewQuotationForm({
   }]);
   
   const [costs, setCosts] = useState<QuotationCost[]>([]);
-  const [customerOpen, setCustomerOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showCustomerList, setShowCustomerList] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -194,7 +194,14 @@ export function NewQuotationForm({
         setCosts(loadedCosts);
       }
       
-      // Customer is automatically set via form.setValue above
+      // Configurar o cliente selecionado
+      if (initialData.customerId && customers.length > 0) {
+        const selectedCustomer = customers.find(c => c.id === initialData.customerId);
+        if (selectedCustomer) {
+          setCustomerSearch(selectedCustomer.name);
+          setSelectedCustomer(selectedCustomer);
+        }
+      }
     }
   }, [initialData, form, customers, user]);
 
@@ -633,66 +640,89 @@ export function NewQuotationForm({
         })(e);
       }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente - Combobox com Busca */}
+          {/* Cliente - Busca Simples */}
           <FormField
             control={form.control}
             name="customerId"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Cliente</FormLabel>
-                <Popover open={customerOpen} onOpenChange={setCustomerOpen}>
-                  <PopoverTrigger asChild>
+            render={({ field }) => {
+              // Filtrar clientes baseado na busca
+              const filteredCustomers = customers.filter(customer =>
+                customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                customer.email?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                customer.phone?.includes(customerSearch)
+              );
+
+              return (
+                <FormItem>
+                  <FormLabel>Cliente</FormLabel>
+                  <div className="relative">
                     <FormControl>
-                      <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={customerOpen}
-                        className="w-full justify-between"
-                        data-testid="button-customer-search"
-                      >
-                        {field.value
-                          ? customers.find((customer) => customer.id === field.value)?.name
-                          : "Selecione um cliente..."}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                      </Button>
+                      <Input
+                        placeholder="Digite para buscar cliente..."
+                        value={customerSearch}
+                        onChange={(e) => {
+                          setCustomerSearch(e.target.value);
+                          setShowCustomerList(e.target.value.length > 0);
+                          if (e.target.value === "") {
+                            field.onChange("");
+                            setSelectedCustomer(null);
+                          }
+                        }}
+                        onFocus={() => setShowCustomerList(customerSearch.length > 0)}
+                        data-testid="input-customer-search"
+                        className="pr-10"
+                      />
                     </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Digite para buscar cliente..." />
-                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                      <CommandGroup className="max-h-64 overflow-auto">
-                        {customers.map((customer) => (
-                          <CommandItem
+                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    
+                    {/* Lista de clientes filtrados */}
+                    {showCustomerList && filteredCustomers.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {filteredCustomers.map((customer) => (
+                          <div
                             key={customer.id}
-                            value={`${customer.name} ${customer.email} ${customer.phone}`}
-                            onSelect={() => {
+                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                            onClick={() => {
                               field.onChange(customer.id);
-                              setCustomerOpen(false);
+                              setCustomerSearch(customer.name);
+                              setSelectedCustomer(customer);
+                              setShowCustomerList(false);
                             }}
                             data-testid={`option-customer-${customer.id}`}
                           >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                field.value === customer.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
                             <div className="flex flex-col">
                               <span className="font-medium">{customer.name}</span>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-gray-500">
                                 {customer.email} {customer.phone && `• ${customer.phone}`}
                               </span>
                             </div>
-                          </CommandItem>
+                          </div>
                         ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
+                      </div>
+                    )}
+                    
+                    {/* Mostrar "Nenhum cliente encontrado" apenas se busca não estiver vazia */}
+                    {showCustomerList && filteredCustomers.length === 0 && customerSearch.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
+                        <div className="px-3 py-2 text-gray-500 text-center">
+                          Nenhum cliente encontrado
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Clique fora para fechar */}
+                  {showCustomerList && (
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowCustomerList(false)}
+                    />
+                  )}
+                  
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
 
           {/* Data de Validade */}
