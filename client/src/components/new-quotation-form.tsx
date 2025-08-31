@@ -9,9 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Plus, Trash2, Calculator, Check, ChevronsUpDown, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -99,9 +97,6 @@ export function NewQuotationForm({
   }]);
   
   const [costs, setCosts] = useState<QuotationCost[]>([]);
-  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
-  const [customerSearchValue, setCustomerSearchValue] = useState("");
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -146,24 +141,7 @@ export function NewQuotationForm({
     }
   }, [user, form, initialData]);
 
-  // Inicializar lista de clientes filtrados
-  useEffect(() => {
-    setFilteredCustomers(customers);
-  }, [customers]);
-
-  // Filtrar clientes conforme digitação
-  useEffect(() => {
-    if (customerSearchValue.trim() === '') {
-      setFilteredCustomers(customers);
-    } else {
-      const filtered = customers.filter(customer =>
-        customer.name.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
-        customer.email?.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
-        customer.phone?.includes(customerSearchValue)
-      );
-      setFilteredCustomers(filtered);
-    }
-  }, [customerSearchValue, customers]);
+  // Removed customer search state and effects for simplicity
 
   // Carregar dados quando initialData for fornecido (edição)
   useEffect(() => {
@@ -213,13 +191,7 @@ export function NewQuotationForm({
         setCosts(loadedCosts);
       }
       
-      // Configurar o cliente selecionado
-      if (initialData.customerId && customers.length > 0) {
-        const selectedCustomer = customers.find(c => c.id === initialData.customerId);
-        if (selectedCustomer) {
-          setCustomerSearchValue(selectedCustomer.name);
-        }
-      }
+      // Customer is automatically set via form.setValue above
     }
   }, [initialData, form, customers, user]);
 
@@ -658,74 +630,32 @@ export function NewQuotationForm({
         })(e);
       }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente com Pesquisa Melhorada */}
+          {/* Cliente - Dropdown Simples */}
           <FormField
             control={form.control}
             name="customerId"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Cliente</FormLabel>
-                <div className="relative">
+                <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
-                    <Input
-                      placeholder="Digite o nome do cliente ou clique para ver todos"
-                      value={customerSearchValue}
-                      onChange={(e) => {
-                        setCustomerSearchValue(e.target.value);
-                        setCustomerSearchOpen(true);
-                      }}
-                      onFocus={() => setCustomerSearchOpen(true)}
-                      data-testid="input-customer-search"
-                      className="pr-10"
-                    />
+                    <SelectTrigger data-testid="select-customer">
+                      <SelectValue placeholder="Selecione um cliente" />
+                    </SelectTrigger>
                   </FormControl>
-                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                </div>
-                
-                {customerSearchOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                    {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map((customer) => (
-                        <div
-                          key={customer.id}
-                          className={cn(
-                            "px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0",
-                            field.value === customer.id && "bg-blue-50"
-                          )}
-                          onClick={() => {
-                            field.onChange(customer.id);
-                            setCustomerSearchValue(customer.name);
-                            setCustomerSearchOpen(false);
-                          }}
-                          data-testid={`option-customer-${customer.id}`}
-                        >
-                          <div className="flex flex-col">
-                            <span className="font-medium text-gray-900">{customer.name}</span>
-                            {customer.email && (
-                              <span className="text-sm text-gray-500">{customer.email}</span>
-                            )}
-                            {customer.phone && (
-                              <span className="text-sm text-gray-500">{customer.phone}</span>
-                            )}
-                          </div>
+                  <SelectContent className="max-h-60">
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{customer.name}</span>
+                          <span className="text-sm text-gray-500">
+                            {customer.email} {customer.phone && `• ${customer.phone}`}
+                          </span>
                         </div>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-gray-500 text-center">
-                        Nenhum cliente encontrado
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Campo oculto para clique fora fechar dropdown */}
-                {customerSearchOpen && (
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setCustomerSearchOpen(false)}
-                  />
-                )}
-                
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
@@ -755,7 +685,7 @@ export function NewQuotationForm({
           <CardContent>
             <div className="space-y-4">
               {items.map((item, index) => (
-                <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
+                <div key={`item-${index}-${item.productId || 'empty'}`} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
                   <div>
                     <label className="text-sm font-medium">Produto</label>
                     <Select 
@@ -767,7 +697,7 @@ export function NewQuotationForm({
                       </SelectTrigger>
                       <SelectContent>
                         {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
+                          <SelectItem key={`product-select-${product.id}`} value={product.id}>
                             {product.name}
                           </SelectItem>
                         ))}
@@ -888,7 +818,7 @@ export function NewQuotationForm({
             <CardContent>
               <div className="space-y-6">
                 {costs.map((cost, index) => (
-                  <Card key={index} className="border-l-4 border-l-red-500">
+                  <Card key={`cost-${index}-${cost.costId || 'manual'}`} className="border-l-4 border-l-red-500">
                     <CardContent className="pt-6">
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
                     <div>
