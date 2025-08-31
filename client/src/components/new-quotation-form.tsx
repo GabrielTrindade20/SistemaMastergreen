@@ -9,7 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Calculator, Search, Share2 } from "lucide-react";
+import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import type { Customer, Product, Cost } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -99,7 +101,6 @@ export function NewQuotationForm({
   const [costs, setCosts] = useState<QuotationCost[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerList, setShowCustomerList] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -144,7 +145,7 @@ export function NewQuotationForm({
     }
   }, [user, form, initialData]);
 
-  // Removed customer search state and effects for simplicity
+  // UseEffects removidos - implementação mais simples
 
   // Carregar dados quando initialData for fornecido (edição)
   useEffect(() => {
@@ -199,7 +200,6 @@ export function NewQuotationForm({
         const selectedCustomer = customers.find(c => c.id === initialData.customerId);
         if (selectedCustomer) {
           setCustomerSearch(selectedCustomer.name);
-          setSelectedCustomer(selectedCustomer);
         }
       }
     }
@@ -640,13 +640,22 @@ export function NewQuotationForm({
         })(e);
       }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente - Busca Simples */}
+          {/* Cliente - Dropdown Ultra Simples */}
           <FormField
             control={form.control}
             name="customerId"
             render={({ field }) => {
-              // Filtrar clientes baseado na busca
-              const filteredCustomers = customers.filter(customer =>
+              // Filtrar clientes baseado na busca e tipo de usuário
+              let availableCustomers = customers;
+              
+              // Se for vendedor, mostrar apenas clientes criados por ele
+              if (user?.type === 'vendedor') {
+                availableCustomers = customers.filter(customer => 
+                  customer.createdById === user.id
+                );
+              }
+              
+              const filteredCustomers = availableCustomers.filter(customer =>
                 customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
                 customer.email?.toLowerCase().includes(customerSearch.toLowerCase()) ||
                 customer.phone?.includes(customerSearch)
@@ -655,67 +664,103 @@ export function NewQuotationForm({
               return (
                 <FormItem>
                   <FormLabel>Cliente</FormLabel>
-                  <div className="relative">
-                    <FormControl>
-                      <Input
-                        placeholder="Digite para buscar cliente..."
-                        value={customerSearch}
-                        onChange={(e) => {
-                          setCustomerSearch(e.target.value);
-                          setShowCustomerList(e.target.value.length > 0);
-                          if (e.target.value === "") {
-                            field.onChange("");
-                            setSelectedCustomer(null);
-                          }
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="Digite para buscar cliente..."
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        setShowCustomerList(true);
+                        if (e.target.value === "") {
+                          field.onChange("");
+                        }
+                      }}
+                      onFocus={() => setShowCustomerList(true)}
+                      data-testid="input-customer-search"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        outline: 'none'
+                      }}
+                    />
+                    
+                    {/* Lista de clientes - usando div simples */}
+                    {showCustomerList && (
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          backgroundColor: 'white',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          marginTop: '4px',
+                          maxHeight: '240px',
+                          overflowY: 'auto',
+                          zIndex: 1000,
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                         }}
-                        onFocus={() => setShowCustomerList(customerSearch.length > 0)}
-                        data-testid="input-customer-search"
-                        className="pr-10"
-                      />
-                    </FormControl>
-                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    
-                    {/* Lista de clientes filtrados */}
-                    {showCustomerList && filteredCustomers.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                        {filteredCustomers.map((customer) => (
-                          <div
-                            key={customer.id}
-                            className="px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                            onClick={() => {
-                              field.onChange(customer.id);
-                              setCustomerSearch(customer.name);
-                              setSelectedCustomer(customer);
-                              setShowCustomerList(false);
-                            }}
-                            data-testid={`option-customer-${customer.id}`}
-                          >
-                            <div className="flex flex-col">
-                              <span className="font-medium">{customer.name}</span>
-                              <span className="text-sm text-gray-500">
+                      >
+                        {filteredCustomers.length > 0 ? (
+                          filteredCustomers.map((customer) => (
+                            <div
+                              key={customer.id}
+                              onClick={() => {
+                                field.onChange(customer.id);
+                                setCustomerSearch(customer.name);
+                                setShowCustomerList(false);
+                              }}
+                              data-testid={`option-customer-${customer.id}`}
+                              style={{
+                                padding: '8px 12px',
+                                cursor: 'pointer',
+                                borderBottom: '1px solid #f3f4f6'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#f9fafb';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'white';
+                              }}
+                            >
+                              <div style={{ fontWeight: '500', marginBottom: '2px' }}>
+                                {customer.name}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
                                 {customer.email} {customer.phone && `• ${customer.phone}`}
-                              </span>
+                              </div>
                             </div>
+                          ))
+                        ) : customerSearch.length > 0 ? (
+                          <div style={{ padding: '8px 12px', color: '#6b7280', textAlign: 'center' }}>
+                            Nenhum cliente encontrado
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Mostrar "Nenhum cliente encontrado" apenas se busca não estiver vazia */}
-                    {showCustomerList && filteredCustomers.length === 0 && customerSearch.length > 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg">
-                        <div className="px-3 py-2 text-gray-500 text-center">
-                          Nenhum cliente encontrado
-                        </div>
+                        ) : (
+                          <div style={{ padding: '8px 12px', color: '#6b7280', textAlign: 'center' }}>
+                            Digite para buscar clientes...
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                   
-                  {/* Clique fora para fechar */}
+                  {/* Overlay para fechar quando clicar fora */}
                   {showCustomerList && (
                     <div
-                      className="fixed inset-0 z-40"
                       onClick={() => setShowCustomerList(false)}
+                      style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        zIndex: 999
+                      }}
                     />
                   )}
                   
@@ -749,7 +794,7 @@ export function NewQuotationForm({
           <CardContent>
             <div className="space-y-4">
               {items.map((item, index) => (
-                <div key={`item-${index}-${item.productId || 'empty'}`} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
+                <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
                   <div>
                     <label className="text-sm font-medium">Produto</label>
                     <Select 
@@ -761,7 +806,7 @@ export function NewQuotationForm({
                       </SelectTrigger>
                       <SelectContent>
                         {products.map((product) => (
-                          <SelectItem key={`product-select-${product.id}`} value={product.id}>
+                          <SelectItem key={product.id} value={product.id}>
                             {product.name}
                           </SelectItem>
                         ))}
@@ -882,7 +927,7 @@ export function NewQuotationForm({
             <CardContent>
               <div className="space-y-6">
                 {costs.map((cost, index) => (
-                  <Card key={`cost-${index}-${cost.costId || 'manual'}`} className="border-l-4 border-l-red-500">
+                  <Card key={index} className="border-l-4 border-l-red-500">
                     <CardContent className="pt-6">
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
                     <div>
