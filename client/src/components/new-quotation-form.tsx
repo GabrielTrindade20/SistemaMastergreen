@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// Select removido - usando HTML simples
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -99,8 +99,9 @@ export function NewQuotationForm({
   }]);
   
   const [costs, setCosts] = useState<QuotationCost[]>([]);
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [showCustomerList, setShowCustomerList] = useState(false);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearchValue, setCustomerSearchValue] = useState("");
+  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -145,7 +146,24 @@ export function NewQuotationForm({
     }
   }, [user, form, initialData]);
 
-  // UseEffects removidos - implementação mais simples
+  // Inicializar lista de clientes filtrados
+  useEffect(() => {
+    setFilteredCustomers(customers);
+  }, [customers]);
+
+  // Filtrar clientes conforme digitação
+  useEffect(() => {
+    if (customerSearchValue.trim() === '') {
+      setFilteredCustomers(customers);
+    } else {
+      const filtered = customers.filter(customer =>
+        customer.name.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+        customer.email?.toLowerCase().includes(customerSearchValue.toLowerCase()) ||
+        customer.phone?.includes(customerSearchValue)
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [customerSearchValue, customers]);
 
   // Carregar dados quando initialData for fornecido (edição)
   useEffect(() => {
@@ -199,7 +217,7 @@ export function NewQuotationForm({
       if (initialData.customerId && customers.length > 0) {
         const selectedCustomer = customers.find(c => c.id === initialData.customerId);
         if (selectedCustomer) {
-          setCustomerSearch(selectedCustomer.name);
+          setCustomerSearchValue(selectedCustomer.name);
         }
       }
     }
@@ -640,134 +658,77 @@ export function NewQuotationForm({
         })(e);
       }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Cliente - Dropdown Ultra Simples */}
+          {/* Cliente com Pesquisa Melhorada */}
           <FormField
             control={form.control}
             name="customerId"
-            render={({ field }) => {
-              // Filtrar clientes baseado na busca e tipo de usuário
-              let availableCustomers = customers;
-              
-              // Se for vendedor, mostrar apenas clientes criados por ele
-              if (user?.type === 'vendedor') {
-                availableCustomers = customers.filter(customer => 
-                  customer.createdById === user.id
-                );
-              }
-              
-              const filteredCustomers = availableCustomers.filter(customer =>
-                customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                customer.email?.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                customer.phone?.includes(customerSearch)
-              );
-
-              return (
-                <FormItem>
-                  <FormLabel>Cliente</FormLabel>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="text"
-                      placeholder="Digite para buscar cliente..."
-                      value={customerSearch}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cliente</FormLabel>
+                <div className="relative">
+                  <FormControl>
+                    <Input
+                      placeholder="Digite o nome do cliente ou clique para ver todos"
+                      value={customerSearchValue}
                       onChange={(e) => {
-                        setCustomerSearch(e.target.value);
-                        setShowCustomerList(true);
-                        if (e.target.value === "") {
-                          field.onChange("");
-                        }
+                        setCustomerSearchValue(e.target.value);
+                        setCustomerSearchOpen(true);
                       }}
-                      onFocus={() => setShowCustomerList(true)}
+                      onFocus={() => setCustomerSearchOpen(true)}
                       data-testid="input-customer-search"
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        outline: 'none'
-                      }}
+                      className="pr-10"
                     />
-                    
-                    {/* Lista de clientes - usando div simples */}
-                    {showCustomerList && (
-                      <div 
-                        style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          backgroundColor: 'white',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          marginTop: '4px',
-                          maxHeight: '240px',
-                          overflowY: 'auto',
-                          zIndex: 1000,
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                        }}
-                      >
-                        {filteredCustomers.length > 0 ? (
-                          filteredCustomers.map((customer) => (
-                            <div
-                              key={customer.id}
-                              onClick={() => {
-                                field.onChange(customer.id);
-                                setCustomerSearch(customer.name);
-                                setShowCustomerList(false);
-                              }}
-                              data-testid={`option-customer-${customer.id}`}
-                              style={{
-                                padding: '8px 12px',
-                                cursor: 'pointer',
-                                borderBottom: '1px solid #f3f4f6'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#f9fafb';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'white';
-                              }}
-                            >
-                              <div style={{ fontWeight: '500', marginBottom: '2px' }}>
-                                {customer.name}
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                {customer.email} {customer.phone && `• ${customer.phone}`}
-                              </div>
-                            </div>
-                          ))
-                        ) : customerSearch.length > 0 ? (
-                          <div style={{ padding: '8px 12px', color: '#6b7280', textAlign: 'center' }}>
-                            Nenhum cliente encontrado
+                  </FormControl>
+                  <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+                
+                {customerSearchOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map((customer) => (
+                        <div
+                          key={customer.id}
+                          className={cn(
+                            "px-3 py-2 cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0",
+                            field.value === customer.id && "bg-blue-50"
+                          )}
+                          onClick={() => {
+                            field.onChange(customer.id);
+                            setCustomerSearchValue(customer.name);
+                            setCustomerSearchOpen(false);
+                          }}
+                          data-testid={`option-customer-${customer.id}`}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium text-gray-900">{customer.name}</span>
+                            {customer.email && (
+                              <span className="text-sm text-gray-500">{customer.email}</span>
+                            )}
+                            {customer.phone && (
+                              <span className="text-sm text-gray-500">{customer.phone}</span>
+                            )}
                           </div>
-                        ) : (
-                          <div style={{ padding: '8px 12px', color: '#6b7280', textAlign: 'center' }}>
-                            Digite para buscar clientes...
-                          </div>
-                        )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-gray-500 text-center">
+                        Nenhum cliente encontrado
                       </div>
                     )}
                   </div>
-                  
-                  {/* Overlay para fechar quando clicar fora */}
-                  {showCustomerList && (
-                    <div
-                      onClick={() => setShowCustomerList(false)}
-                      style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 999
-                      }}
-                    />
-                  )}
-                  
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
+                )}
+                
+                {/* Campo oculto para clique fora fechar dropdown */}
+                {customerSearchOpen && (
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setCustomerSearchOpen(false)}
+                  />
+                )}
+                
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           {/* Data de Validade */}
@@ -797,27 +758,21 @@ export function NewQuotationForm({
                 <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
                   <div>
                     <label className="text-sm font-medium">Produto</label>
-                    <select
-                      value={item.productId || ''}
-                      onChange={(e) => updateItem(index, 'productId', e.target.value)}
-                      data-testid={`select-product-${index}`}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        backgroundColor: 'white',
-                        outline: 'none'
-                      }}
+                    <Select 
+                      value={item.productId} 
+                      onValueChange={(value) => updateItem(index, 'productId', value)}
                     >
-                      <option value="">Selecionar produto...</option>
-                      {products.map((product) => (
-                        <option key={product.id} value={product.id}>
-                          {product.name}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger data-testid={`select-product-${index}`}>
+                        <SelectValue placeholder="Selecionar" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {products.map((product) => (
+                          <SelectItem key={product.id} value={product.id}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div>
@@ -938,58 +893,47 @@ export function NewQuotationForm({
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
                     <div>
                       <label className="text-sm font-medium">Custo</label>
-                      <select
-                        value={cost.costId || ''}
-                        onChange={(e) => updateCost(index, 'costId', e.target.value)}
-                        data-testid={`select-cost-${index}`}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          border: '1px solid #d1d5db',
-                          borderRadius: '6px',
-                          fontSize: '14px',
-                          backgroundColor: 'white',
-                          outline: 'none'
-                        }}
+                      <Select 
+                        value={cost.costId} 
+                        onValueChange={(value) => updateCost(index, 'costId', value)}
                       >
-                        <option value="">Selecionar custo...</option>
-                        {availableCosts.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                        <option value="manual">Custo Manual</option>
-                      </select>
+                        <SelectTrigger data-testid={`select-cost-${index}`}>
+                          <SelectValue placeholder="Selecionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableCosts.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="manual">Custo Manual</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Seleção de Produto - Apenas quando há múltiplos produtos */}
                     {items.length > 1 && (
                       <div>
                         <label className="text-sm font-medium">Produto</label>
-                        <select
-                          value={cost.productId || 'none'}
-                          onChange={(e) => updateCost(index, 'productId', e.target.value === 'none' ? undefined : e.target.value)}
-                          data-testid={`select-product-cost-${index}`}
-                          style={{
-                            width: '100%',
-                            padding: '8px 12px',
-                            border: '1px solid #d1d5db',
-                            borderRadius: '6px',
-                            fontSize: '14px',
-                            backgroundColor: 'white',
-                            outline: 'none'
-                          }}
+                        <Select 
+                          value={cost.productId || 'none'} 
+                          onValueChange={(value) => updateCost(index, 'productId', value === 'none' ? undefined : value)}
                         >
-                          <option value="none">Custo geral (não específico)</option>
-                          {items.map((item, itemIndex) => {
-                            const product = products.find(p => p.id === item.productId);
-                            return (
-                              <option key={`product-${itemIndex}-${item.productId}`} value={item.productId || `item-${itemIndex}`}>
-                                {product?.name || `Produto ${itemIndex + 1}`}
-                              </option>
-                            );
-                          })}
-                        </select>
+                          <SelectTrigger data-testid={`select-product-${index}`}>
+                            <SelectValue placeholder="Selecionar produto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Custo geral (não específico)</SelectItem>
+                            {items.map((item, itemIndex) => {
+                              const product = products.find(p => p.id === item.productId);
+                              return (
+                                <SelectItem key={`product-${itemIndex}-${item.productId}`} value={item.productId || `item-${itemIndex}`}>
+                                  {product?.name || `Produto ${itemIndex + 1}`}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
                       </div>
                     )}
                     
