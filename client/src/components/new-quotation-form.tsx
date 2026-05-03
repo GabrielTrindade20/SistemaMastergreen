@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2 } from "lucide-react";
+import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2, Clock, RotateCcw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -18,6 +18,29 @@ import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+
+const DRAFT_KEY = "mastergreen_quotation_draft";
+
+const loadDraft = () => {
+  try {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveDraftToStorage = (data: object) => {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, savedAt: new Date().toISOString() }));
+  } catch {}
+};
+
+const clearDraftFromStorage = () => {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {}
+};
 
 const quotationSchema = z.object({
   customerId: z.string().min(1, "Selecione um cliente"),
@@ -104,6 +127,9 @@ export function NewQuotationForm({
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearchValue, setCustomerSearchValue] = useState("");
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [hasDraft, setHasDraft] = useState(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftLoadedRef = useRef(false);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -156,6 +182,72 @@ export function NewQuotationForm({
       form.setValue('responsibleName', user.name);
     }
   }, [user, form, initialData]);
+
+  // Carregar rascunho salvo ao montar (apenas para novas propostas)
+  useEffect(() => {
+    if (isEditMode || initialData || draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    const draft = loadDraft();
+    if (!draft) return;
+    setHasDraft(true);
+    const fv = draft.formValues || {};
+    if (fv.customerId) form.setValue('customerId', fv.customerId);
+    if (fv.validUntil) form.setValue('validUntil', fv.validUntil);
+    if (fv.notes !== undefined) form.setValue('notes', fv.notes);
+    if (fv.shippingIncluded !== undefined) form.setValue('shippingIncluded', fv.shippingIncluded);
+    if (fv.warrantyText) form.setValue('warrantyText', fv.warrantyText);
+    if (fv.pdfTitle !== undefined) form.setValue('pdfTitle', fv.pdfTitle);
+    if (fv.discountPercent !== undefined) form.setValue('discountPercent', fv.discountPercent);
+    if (draft.items && draft.items.length > 0) setItems(draft.items);
+    if (draft.costs && draft.costs.length > 0) setCosts(draft.costs);
+    if (draft.customerSearchValue) setCustomerSearchValue(draft.customerSearchValue);
+  }, []); // only on mount
+
+  // Auto-salvar rascunho quando form muda (apenas novas propostas)
+  useEffect(() => {
+    if (isEditMode) return;
+    const { unsubscribe } = form.watch((values) => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = setTimeout(() => {
+        saveDraftToStorage({ formValues: values, items, costs, customerSearchValue });
+      }, 800);
+    });
+    return () => {
+      unsubscribe();
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [form, isEditMode]);
+
+  // Auto-salvar rascunho quando items/costs/customerSearchValue mudam
+  useEffect(() => {
+    if (isEditMode) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      saveDraftToStorage({ formValues: form.getValues(), items, costs, customerSearchValue });
+    }, 800);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [items, costs, customerSearchValue, isEditMode]);
+
+  const discardDraft = () => {
+    clearDraftFromStorage();
+    setHasDraft(false);
+    form.reset({
+      customerId: "",
+      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      notes: "",
+      shippingIncluded: true,
+      warrantyText: "1 ano de garantia de fábrica",
+      pdfTitle: "",
+      responsibleName: user?.name || "",
+      responsiblePosition: "Administrador",
+      discountPercent: "",
+    });
+    setItems([{ productId: '', quantity: 0, unitPrice: 0, salePrice: 0, originalUnitPrice: 0 }]);
+    setCosts([]);
+    setCustomerSearchValue("");
+  };
 
   // Inicializar lista de clientes filtrados
   useEffect(() => {
@@ -481,6 +573,8 @@ export function NewQuotationForm({
     console.log('About to call onSubmit function...');
     
     try {
+      clearDraftFromStorage();
+      setHasDraft(false);
       onSubmit(quotationData);
       console.log('onSubmit called successfully');
     } catch (error) {
@@ -668,6 +762,28 @@ export function NewQuotationForm({
           console.log('Form validation errors:', errors);
         })(e);
       }} className="space-y-6">
+
+        {/* Banner de rascunho restaurado */}
+        {hasDraft && !isEditMode && (
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-amber-800">
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-medium">Rascunho restaurado automaticamente</span>
+              <span className="text-xs text-amber-600 hidden sm:inline">— seus dados preenchidos anteriormente foram recuperados</span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={discardDraft}
+              className="text-amber-700 hover:text-amber-900 hover:bg-amber-100 shrink-0 ml-2"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Descartar
+            </Button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Cliente com Pesquisa Melhorada */}
           <FormField
