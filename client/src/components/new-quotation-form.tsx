@@ -77,6 +77,7 @@ interface NewQuotationFormProps {
   onCancel: () => void;
   isLoading: boolean;
   initialData?: any;
+  isEditMode?: boolean;
 }
 
 export function NewQuotationForm({ 
@@ -85,7 +86,8 @@ export function NewQuotationForm({
   onSubmit, 
   onCancel, 
   isLoading,
-  initialData 
+  initialData,
+  isEditMode = false,
 }: NewQuotationFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1338,7 +1340,7 @@ export function NewQuotationForm({
                 console.log('Form dirty:', form.formState.isDirty);
               }}
             >
-              {isLoading ? "Salvando..." : "Salvar Orçamento"}
+              {isLoading ? "Salvando..." : isEditMode ? "Salvar Alterações" : "Salvar Orçamento"}
             </Button>
           </div>
         </div>

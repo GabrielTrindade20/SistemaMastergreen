@@ -485,6 +485,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Quotation not found" });
       }
       
+      // Authorization check: non-admin users can only edit their own quotations
+      if (user.type !== 'admin' && existingQuotation.userId !== user.id) {
+        return res.status(403).json({ message: "Access denied: you can only edit your own quotations" });
+      }
+      
       // LÓGICA CRÍTICA: Se admin está editando proposta de vendedor, criar nova proposta calculada
       if (user.type === 'admin' && req.body.adminCalculated && existingQuotation.userId !== user.id) {
         console.log('ADMIN CREATING CALCULATED VERSION - Do not modify original!');
@@ -561,16 +566,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json(newCalculatedQuotation);
         }
       } else {
-        console.log('NORMAL UPDATE - Vendor editing own quotation');
-        // Edição normal (vendedor editando própria proposta)
-        const mergedData = {
-          ...req.body,
+        console.log('NORMAL UPDATE - User editing own quotation');
+        // Edição normal (vendedor ou admin editando própria proposta)
+        const { customerId, validUntil, notes, items, costs, calculations } = req.body;
+        
+        const quotationUpdateData = {
+          customerId,
           userId: existingQuotation.userId,
-          createdAt: existingQuotation.createdAt,
           quotationNumber: existingQuotation.quotationNumber,
+          branch: existingQuotation.branch,
+          validUntil: validUntil ? new Date(validUntil) : existingQuotation.validUntil,
+          notes: notes || null,
+          subtotal: calculations?.subtotal?.toString() ?? existingQuotation.subtotal,
+          totalCosts: calculations?.totalCosts?.toString() ?? existingQuotation.totalCosts,
+          totalWithoutInvoice: calculations?.totalWithoutInvoice?.toString() ?? existingQuotation.totalWithoutInvoice,
+          invoicePercent: calculations?.invoicePercent?.toString() ?? existingQuotation.invoicePercent,
+          invoiceAmount: calculations?.invoiceAmount?.toString() ?? existingQuotation.invoiceAmount,
+          totalWithInvoice: calculations?.totalWithInvoice?.toString() ?? existingQuotation.totalWithInvoice,
+          companyProfit: calculations?.companyProfit?.toString() ?? existingQuotation.companyProfit,
+          profitPercent: calculations?.profitPercent?.toString() ?? existingQuotation.profitPercent,
+          tithe: calculations?.tithe?.toString() ?? existingQuotation.tithe,
+          netProfit: calculations?.netProfit?.toString() ?? existingQuotation.netProfit,
+          total: calculations?.total?.toString() ?? existingQuotation.total,
+          shippingIncluded: req.body.shippingIncluded ? 1 : 0,
+          warrantyText: req.body.warrantyText || existingQuotation.warrantyText,
+          pdfTitle: req.body.pdfTitle ?? existingQuotation.pdfTitle,
+          responsibleName: req.body.responsibleName || existingQuotation.responsibleName,
+          responsiblePosition: req.body.responsiblePosition || existingQuotation.responsiblePosition,
+          responsibleId: existingQuotation.responsibleId,
+          adminCalculated: existingQuotation.adminCalculated, // Preserve original value
+          status: existingQuotation.status, // Preserve existing status
+          items: items ? items.map((item: any) => ({
+            productId: item.productId,
+            quantity: item.quantity.toString(),
+            unitPrice: item.unitPrice.toString(),
+            unitCost: "0.00",
+            subtotal: (item.quantity * item.unitPrice).toString(),
+            totalCost: "0.00",
+          })) : undefined,
+          costs: costs ? costs.map((cost: any) => ({
+            costId: cost.costId === 'manual' ? null : cost.costId,
+            name: cost.name,
+            unitValue: cost.unitValue.toString(),
+            quantity: cost.quantity.toString(),
+            totalValue: cost.totalValue.toString(),
+            supplier: cost.supplier || null,
+            description: cost.description || null,
+          })) : undefined,
         };
         
-        const updatedQuotation = await storage.updateQuotation(id, mergedData);
+        const updatedQuotation = await storage.updateQuotation(id, quotationUpdateData);
         console.log('=== UPDATE QUOTATION END ===');
         res.json(updatedQuotation);
       }

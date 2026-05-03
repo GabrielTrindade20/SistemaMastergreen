@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -31,7 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy, Search, FilterX } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy, Search, FilterX, Pencil } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product, User } from "@shared/schema";
 import NewQuotationForm from "@/components/new-quotation-form";
 import { generateProposalPDF } from "@/lib/pdf-generator";
@@ -47,6 +48,7 @@ export default function Quotations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
 
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -179,6 +181,10 @@ export default function Quotations() {
     if (confirm('Tem certeza que deseja excluir esta proposta?')) {
       deleteMutation.mutate(id);
     }
+  };
+
+  const handleEditQuotation = (quotation: QuotationWithDetails) => {
+    setLocation(`/orcamentos/novo?edit=${quotation.id}`);
   };
 
   const handleDuplicateQuotation = async (quotation: QuotationWithDetails) => {
@@ -966,9 +972,13 @@ export default function Quotations() {
                             <Share2 className="mr-2 h-4 w-4" />
                             Compartilhar
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditQuotation(quotation)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDuplicateQuotation(quotation)}>
                             <Copy className="mr-2 h-4 w-4" />
-                            Duplicar e Editar
+                            Duplicar
                           </DropdownMenuItem>
                           {quotation.status === "pending" && (
                             <>
@@ -1050,10 +1060,16 @@ export default function Quotations() {
                             Compartilhar
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            onClick={() => handleEditQuotation(quotation)}
+                          >
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             onClick={() => handleDuplicateQuotation(quotation)}
                           >
                             <Copy className="mr-2 h-4 w-4" />
-                            Duplicar e Editar
+                            Duplicar
                           </DropdownMenuItem>
                           {/* Aprovar/Rejeitar - Funcionários não podem alterar após aprovar/rejeitar */}
                           {quotation.status === "pending" && (

@@ -134,6 +134,7 @@ export default function NewQuotation() {
               onCancel={handleCancel}
               isLoading={createQuotationMutation.isPending}
               initialData={editingQuotation}
+              isEditMode={!!editingQuotationId && !isAdminEditing}
             />
           </CardContent>
         </Card>
