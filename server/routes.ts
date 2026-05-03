@@ -60,6 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default data
   await storage.initializeDefaultProducts();
   await storage.initializeDefaultUsers();
+  await storage.initializeDefaultSettings();
 
   // Auth routes
   app.post("/api/login", async (req, res) => {
@@ -1096,6 +1097,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating extract:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // System Settings routes
+  app.get("/api/settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.put("/api/settings/:key", requireAdmin, async (req, res) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+
+      const allowedKeys = ["invoice_percent", "tithe_percent"];
+      if (!allowedKeys.includes(key)) {
+        return res.status(400).json({ message: "Invalid setting key" });
+      }
+
+      if (value === undefined || value === null) {
+        return res.status(400).json({ message: "Value is required" });
+      }
+
+      const numValue = parseFloat(String(value));
+      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+        return res.status(400).json({ message: "Value must be a number between 0 and 100" });
+      }
+
+      const setting = await storage.updateSetting(key, String(numValue));
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating setting:", error);
+      res.status(500).json({ message: "Failed to update setting" });
     }
   });
 

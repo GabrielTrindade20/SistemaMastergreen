@@ -6,6 +6,7 @@ import {
   costs,
   quotationCosts,
   users,
+  systemSettings,
   type Customer, 
   type InsertCustomer,
   type Product,
@@ -21,7 +22,8 @@ import {
   type QuotationWithDetails,
   type User,
   type InsertUser,
-  type LoginUser
+  type LoginUser,
+  type SystemSetting
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, gte, lte, isNotNull, notInArray } from "drizzle-orm";
@@ -74,6 +76,12 @@ export interface IStorage {
   deleteUser(id: string): Promise<void>;
   authenticateUser(email: string, password: string): Promise<User | null>;
   initializeDefaultUsers(): Promise<void>;
+
+  // System Settings
+  getSettings(): Promise<SystemSetting[]>;
+  getSetting(key: string): Promise<SystemSetting | undefined>;
+  updateSetting(key: string, value: string): Promise<SystemSetting>;
+  initializeDefaultSettings(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1048,6 +1056,47 @@ export class DatabaseStorage implements IStorage {
 
       for (const user of defaultUsers) {
         await this.createUser(user);
+      }
+    }
+  }
+
+  // System Settings
+  async getSettings(): Promise<SystemSetting[]> {
+    return await db.select().from(systemSettings);
+  }
+
+  async getSetting(key: string): Promise<SystemSetting | undefined> {
+    const [setting] = await db.select().from(systemSettings).where(eq(systemSettings.key, key));
+    return setting;
+  }
+
+  async updateSetting(key: string, value: string): Promise<SystemSetting> {
+    const existing = await this.getSetting(key);
+    if (existing) {
+      const [updated] = await db
+        .update(systemSettings)
+        .set({ value })
+        .where(eq(systemSettings.key, key))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(systemSettings)
+        .values({ key, value })
+        .returning();
+      return created;
+    }
+  }
+
+  async initializeDefaultSettings(): Promise<void> {
+    const defaults = [
+      { key: "invoice_percent", value: "5" },
+      { key: "tithe_percent", value: "10" },
+    ];
+    for (const setting of defaults) {
+      const existing = await this.getSetting(setting.key);
+      if (!existing) {
+        await db.insert(systemSettings).values(setting);
       }
     }
   }

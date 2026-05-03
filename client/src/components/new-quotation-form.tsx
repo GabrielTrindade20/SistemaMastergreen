@@ -13,7 +13,7 @@ import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2 } from 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import type { Customer, Product, Cost } from "@shared/schema";
+import type { Customer, Product, Cost, SystemSetting } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
 import { useAuth } from "@/hooks/useAuth";
@@ -124,6 +124,15 @@ export function NewQuotationForm({
     queryKey: ["/api/costs"],
   });
 
+  // Fetch system settings for calculation percentages
+  const { data: settings = [] } = useQuery<SystemSetting[]>({
+    queryKey: ["/api/settings"],
+  });
+  const rawInvoice = parseFloat(settings.find(s => s.key === "invoice_percent")?.value ?? "5");
+  const rawTithe = parseFloat(settings.find(s => s.key === "tithe_percent")?.value ?? "10");
+  const invoicePercentSetting = isNaN(rawInvoice) ? 5 : rawInvoice;
+  const tithePercentSetting = isNaN(rawTithe) ? 10 : rawTithe;
+
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
     defaultValues: {
@@ -223,10 +232,10 @@ export function NewQuotationForm({
     }
   }, [initialData, form, customers, user]);
 
-  // Recalcular automaticamente quando items, costs ou desconto mudarem
+  // Recalcular automaticamente quando items, costs, desconto ou configurações mudarem
   useEffect(() => {
     calculateTotals();
-  }, [items, costs, form.watch('discountPercent')]);
+  }, [items, costs, form.watch('discountPercent'), invoicePercentSetting, tithePercentSetting]);
 
   const calculateTotals = () => {
     // 1. Valor Total da Venda (bruto): quantidade * valor por metro escolhido pelo cliente
@@ -253,9 +262,9 @@ export function NewQuotationForm({
       return sum + cost.totalValue;
     }, 0);
 
-    // 5. Valor da Nota Fiscal (5%): 5% do valor COM DESCONTO
-    const invoicePercent = 5.00;
-    const valorNotaFiscal = valorComDesconto * 0.05;
+    // 5. Valor da Nota Fiscal: invoicePercentSetting% do valor COM DESCONTO
+    const invoicePercent = invoicePercentSetting;
+    const valorNotaFiscal = valorComDesconto * (invoicePercent / 100);
 
     // 6. Total com Nota Fiscal: Total de Custos + Valor da Nota Fiscal
     const totalComNotaFiscal = totalCosts + valorNotaFiscal;
@@ -266,26 +275,26 @@ export function NewQuotationForm({
     // 8. Porcentagem de Lucro: (lucro * 100) / Valor COM DESCONTO
     const profitPercent = valorComDesconto > 0 ? (lucroEmpresa * 100) / valorComDesconto : 0;
 
-    // 9. Dízimo (10%): 10% do Lucro da Empresa
-    const dizimo = lucroEmpresa * 0.10;
+    // 9. Dízimo: tithePercentSetting% do Lucro da Empresa
+    const dizimo = lucroEmpresa * (tithePercentSetting / 100);
 
     // 10. Lucro Líquido: Lucro da Empresa - Dízimo
     const lucroLiquido = lucroEmpresa - dizimo;
 
     setCalculations({
-      subtotal: valorTotalVenda, // Valor bruto (antes do desconto)
-      totalCosts, // Total de Custos (produtos + outros custos)
-      totalWithoutInvoice: totalCosts, // Total sem nota fiscal
+      subtotal: valorTotalVenda,
+      totalCosts,
+      totalWithoutInvoice: totalCosts,
       invoicePercent,
-      invoiceAmount: valorNotaFiscal, // Valor da Nota Fiscal (5% do valor com desconto)
-      totalWithInvoice: totalComNotaFiscal, // Total com Nota Fiscal
-      companyProfit: lucroEmpresa, // Lucro da Empresa (baseado no valor com desconto)
-      profitPercent, // Porcentagem de Lucro
-      tithe: dizimo, // Dízimo (10%)
-      netProfit: lucroLiquido, // Lucro Líquido
-      total: valorComDesconto, // Total Final ao Cliente (com desconto)
-      discount, // Valor do desconto
-      finalTotal: valorComDesconto, // Total final com desconto
+      invoiceAmount: valorNotaFiscal,
+      totalWithInvoice: totalComNotaFiscal,
+      companyProfit: lucroEmpresa,
+      profitPercent,
+      tithe: dizimo,
+      netProfit: lucroLiquido,
+      total: valorComDesconto,
+      discount,
+      finalTotal: valorComDesconto,
     });
   };
 
@@ -1102,7 +1111,7 @@ export function NewQuotationForm({
                     </div>
                     
                     <div className="flex justify-between">
-                      <span>Valor da Nota Fiscal (5% do valor {calculations.discount > 0 ? 'com desconto' : 'total'}):</span>
+                      <span>Valor da Nota Fiscal ({calculations.invoicePercent}% do valor {calculations.discount > 0 ? 'com desconto' : 'total'}):</span>
                       <span>{formatCurrency(calculations.invoiceAmount)}</span>
                     </div>
                     

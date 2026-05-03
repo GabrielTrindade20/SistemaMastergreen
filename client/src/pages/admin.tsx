@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Users, Plus, Edit, Trash2, Shield, User } from "lucide-react";
-import type { User as UserType, InsertUser } from "@shared/schema";
+import { Users, Plus, Edit, Trash2, Shield, User, Settings } from "lucide-react";
+import type { User as UserType, InsertUser, SystemSetting } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Admin() {
   const { user: currentUser, isLoading: authLoading } = useAuth();
@@ -19,12 +20,45 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
+  const [invoicePercentInput, setInvoicePercentInput] = useState<string>("");
+  const [tithePercentInput, setTithePercentInput] = useState<string>("");
 
   // Sempre chamar hooks na mesma ordem
   const { data: users = [], isLoading } = useQuery<UserType[]>({
     queryKey: ["/api/users"],
     enabled: !!currentUser && currentUser.type === "admin",
   });
+
+  const { data: settings = [], isLoading: settingsLoading } = useQuery<SystemSetting[]>({
+    queryKey: ["/api/settings"],
+    enabled: !!currentUser && currentUser.type === "admin",
+  });
+
+  const invoicePercentSetting = settings.find(s => s.key === "invoice_percent");
+  const tithePercentSetting = settings.find(s => s.key === "tithe_percent");
+
+  const updateSettingMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string; value: string }) => {
+      return await apiRequest(`/api/settings/${key}`, { method: "PUT", data: { value } });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({ title: "Configurações salvas com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleSaveInvoicePercent = () => {
+    const val = invoicePercentInput || invoicePercentSetting?.value || "5";
+    updateSettingMutation.mutate({ key: "invoice_percent", value: val });
+  };
+
+  const handleSaveTithePercent = () => {
+    const val = tithePercentInput || tithePercentSetting?.value || "10";
+    updateSettingMutation.mutate({ key: "tithe_percent", value: val });
+  };
 
   const createUserMutation = useMutation({
     mutationFn: async (userData: InsertUser) => {
@@ -306,6 +340,86 @@ export default function Admin() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Configurações de Cálculo */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center space-x-2">
+            <Settings className="h-5 w-5 text-[#002b17]" />
+            <div>
+              <CardTitle>Configurações de Cálculo</CardTitle>
+              <CardDescription>
+                Ajuste os parâmetros usados nos cálculos de novas propostas
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {settingsLoading ? (
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="invoicePercent">Percentual da Nota Fiscal (%)</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="invoicePercent"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder={invoicePercentSetting?.value ?? "5"}
+                    value={invoicePercentInput}
+                    onChange={(e) => setInvoicePercentInput(e.target.value)}
+                    className="max-w-[140px]"
+                  />
+                  <span className="text-sm text-gray-500">% — atual: {invoicePercentSetting?.value ?? "5"}%</span>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleSaveInvoicePercent}
+                  disabled={updateSettingMutation.isPending || !invoicePercentInput}
+                  className="bg-[#002b17] hover:bg-[#004a2a]"
+                >
+                  Salvar % NF
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tithePercent">Percentual do Dízimo (%)</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="tithePercent"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    placeholder={tithePercentSetting?.value ?? "10"}
+                    value={tithePercentInput}
+                    onChange={(e) => setTithePercentInput(e.target.value)}
+                    className="max-w-[140px]"
+                  />
+                  <span className="text-sm text-gray-500">% — atual: {tithePercentSetting?.value ?? "10"}%</span>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleSaveTithePercent}
+                  disabled={updateSettingMutation.isPending || !tithePercentInput}
+                  className="bg-[#002b17] hover:bg-[#004a2a]"
+                >
+                  Salvar % Dízimo
+                </Button>
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-4">
+            Estes valores serão aplicados em novas propostas criadas a partir de agora. Propostas existentes não são alteradas.
+          </p>
         </CardContent>
       </Card>
 

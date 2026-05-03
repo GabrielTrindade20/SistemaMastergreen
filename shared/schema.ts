@@ -157,6 +157,16 @@ export const quotationCostsRelations = relations(quotationCosts, ({ one }) => ({
   }),
 }));
 
+export const systemSettings = pgTable("system_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
+export const insertSystemSettingSchema = createInsertSchema(systemSettings);
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = z.infer<typeof insertSystemSettingSchema>;
+
 // Insert schemas
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
