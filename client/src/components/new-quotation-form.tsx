@@ -14,6 +14,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { QuickCreateProductDialog } from "@/components/quick-create-product-dialog";
+import { QuickCreateCostDialog } from "@/components/quick-create-cost-dialog";
 import type { Customer, Product, Cost, SystemSetting } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
@@ -131,6 +133,10 @@ export function NewQuotationForm({
   const [hasDraft, setHasDraft] = useState(false);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftLoadedRef = useRef(false);
+  const [quickProductDialogOpen, setQuickProductDialogOpen] = useState(false);
+  const [quickProductTargetIndex, setQuickProductTargetIndex] = useState<number | null>(null);
+  const [quickCostDialogOpen, setQuickCostDialogOpen] = useState(false);
+  const [quickCostTargetIndex, setQuickCostTargetIndex] = useState<number | null>(null);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -892,6 +898,11 @@ export function NewQuotationForm({
                       onValueChange={(value) => updateItem(index, 'productId', value)}
                       placeholder="Selecionar produto"
                       data-testid={`select-product-${index}`}
+                      onCreateNew={() => {
+                        setQuickProductTargetIndex(index);
+                        setQuickProductDialogOpen(true);
+                      }}
+                      createNewLabel="+ Criar novo produto"
                     />
                   </div>
                   
@@ -1022,6 +1033,11 @@ export function NewQuotationForm({
                         onValueChange={(value) => updateCost(index, 'costId', value)}
                         placeholder="Selecionar custo"
                         data-testid={`select-cost-${index}`}
+                        onCreateNew={() => {
+                          setQuickCostTargetIndex(index);
+                          setQuickCostDialogOpen(true);
+                        }}
+                        createNewLabel="+ Criar novo custo"
                       />
                     </div>
 
@@ -1448,6 +1464,29 @@ export function NewQuotationForm({
           </div>
         </div>
       </form>
+
+      {/* Quick-create dialogs */}
+      <QuickCreateProductDialog
+        open={quickProductDialogOpen}
+        onOpenChange={setQuickProductDialogOpen}
+        onCreated={(productId) => {
+          if (quickProductTargetIndex !== null) {
+            updateItem(quickProductTargetIndex, 'productId', productId);
+          }
+          setQuickProductTargetIndex(null);
+        }}
+      />
+
+      <QuickCreateCostDialog
+        open={quickCostDialogOpen}
+        onOpenChange={setQuickCostDialogOpen}
+        onCreated={(costId) => {
+          if (quickCostTargetIndex !== null) {
+            updateCost(quickCostTargetIndex, 'costId', costId);
+          }
+          setQuickCostTargetIndex(null);
+        }}
+      />
     </Form>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,8 @@ interface SearchableSelectProps {
   emptyText?: string;
   className?: string;
   "data-testid"?: string;
+  onCreateNew?: () => void;
+  createNewLabel?: string;
 }
 
 export function SearchableSelect({
@@ -28,6 +30,8 @@ export function SearchableSelect({
   emptyText = "Nenhum resultado encontrado.",
   className,
   "data-testid": testId,
+  onCreateNew,
+  createNewLabel = "+ Criar novo",
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
 
@@ -70,6 +74,23 @@ export function SearchableSelect({
                 </CommandItem>
               ))}
             </CommandGroup>
+            {onCreateNew && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => {
+                      setOpen(false);
+                      onCreateNew();
+                    }}
+                    className="text-green-700 font-medium"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    {createNewLabel}
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
