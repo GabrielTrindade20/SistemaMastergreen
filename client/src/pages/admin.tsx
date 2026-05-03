@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -32,10 +32,24 @@ export default function Admin() {
   const { data: settings = [], isLoading: settingsLoading } = useQuery<SystemSetting[]>({
     queryKey: ["/api/settings"],
     enabled: !!currentUser && currentUser.type === "admin",
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const invoicePercentSetting = settings.find(s => s.key === "invoice_percent");
   const tithePercentSetting = settings.find(s => s.key === "tithe_percent");
+
+  useEffect(() => {
+    if (invoicePercentSetting?.value) {
+      setInvoicePercentInput(invoicePercentSetting.value);
+    }
+  }, [invoicePercentSetting?.value]);
+
+  useEffect(() => {
+    if (tithePercentSetting?.value) {
+      setTithePercentInput(tithePercentSetting.value);
+    }
+  }, [tithePercentSetting?.value]);
 
   const updateSettingMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
@@ -51,12 +65,12 @@ export default function Admin() {
   });
 
   const handleSaveInvoicePercent = () => {
-    const val = invoicePercentInput || invoicePercentSetting?.value || "5";
+    const val = invoicePercentInput.trim() || invoicePercentSetting?.value || "5";
     updateSettingMutation.mutate({ key: "invoice_percent", value: val });
   };
 
   const handleSaveTithePercent = () => {
-    const val = tithePercentInput || tithePercentSetting?.value || "10";
+    const val = tithePercentInput.trim() || tithePercentSetting?.value || "10";
     updateSettingMutation.mutate({ key: "tithe_percent", value: val });
   };
 
@@ -383,7 +397,7 @@ export default function Admin() {
                 <Button
                   size="sm"
                   onClick={handleSaveInvoicePercent}
-                  disabled={updateSettingMutation.isPending || !invoicePercentInput}
+                  disabled={updateSettingMutation.isPending}
                   className="bg-[#002b17] hover:bg-[#004a2a]"
                 >
                   Salvar % NF
@@ -409,7 +423,7 @@ export default function Admin() {
                 <Button
                   size="sm"
                   onClick={handleSaveTithePercent}
-                  disabled={updateSettingMutation.isPending || !tithePercentInput}
+                  disabled={updateSettingMutation.isPending}
                   className="bg-[#002b17] hover:bg-[#004a2a]"
                 >
                   Salvar % Dízimo
