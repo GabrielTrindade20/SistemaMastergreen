@@ -1249,7 +1249,7 @@ export function NewQuotationForm({
                     </div>
                     
                     <div className="flex justify-between">
-                      <span>Dízimo (10%):</span>
+                      <span>Dízimo ({tithePercentSetting}%):</span>
                       <span>{formatCurrency(calculations.tithe)}</span>
                     </div>
                     

@@ -688,7 +688,7 @@ export default function Quotations() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>NF (5% do valor {parseFloat((selectedQuotation as any).discountPercent || "0") > 0 ? 'com desconto' : 'total'}):</span>
+                    <span>NF ({parseFloat(selectedQuotation.invoicePercent || "5").toFixed(2).replace(/\.?0+$/, "")}% do valor {parseFloat((selectedQuotation as any).discountPercent || "0") > 0 ? 'com desconto' : 'total'}):</span>
                     <span className="font-semibold text-red-600">
                       {formatCurrency(parseFloat(selectedQuotation.invoiceAmount || "0"))}
                     </span>
@@ -708,7 +708,7 @@ export default function Quotations() {
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Valor da Nota Fiscal (5%):</span>
+                          <span>Valor da Nota Fiscal ({parseFloat(selectedQuotation.invoicePercent || "5").toFixed(2).replace(/\.?0+$/, "")}%):</span>
                           <span className="font-semibold text-red-600">
                             {formatCurrency(parseFloat(selectedQuotation.invoiceAmount || "0"))}
                           </span>
@@ -732,7 +732,12 @@ export default function Quotations() {
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span>Dízimo (10%):</span>
+                          <span>Dízimo ({(() => {
+                            const tithe = parseFloat(selectedQuotation.tithe || "0");
+                            const profit = parseFloat(selectedQuotation.companyProfit || "0");
+                            const pct = profit !== 0 ? (tithe / profit) * 100 : 0;
+                            return pct.toFixed(2).replace(/\.?0+$/, "");
+                          })()}%):</span>
                           <span className="font-semibold text-red-600">
                             {formatCurrency(parseFloat(selectedQuotation.tithe || "0"))}
                           </span>
