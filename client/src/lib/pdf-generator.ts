@@ -156,29 +156,28 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   
   quotation.items.forEach((item, index) => {
     xPosition = tableStartX;
-    const rowHeight = 10; // Reduced row height
+    const productName = item.product.name;
+    const lines = doc.splitTextToSize(productName, columnWidths[2] - 4);
+    const rowHeight = Math.max(10, lines.length * 5 + 4);
 
     // Draw row cells with borders and centered content
     // Item number
     doc.rect(xPosition, yPosition, columnWidths[0], rowHeight);
     const itemNum = (index + 1).toString();
     const itemNumWidth = doc.getTextWidth(itemNum);
-    doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + 8);
+    doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + rowHeight / 2 + 1.5);
     xPosition += columnWidths[0];
 
     // Quantity
     doc.rect(xPosition, yPosition, columnWidths[1], rowHeight);
     const qty = parseFloat(item.quantity).toFixed(0);
     const qtyWidth = doc.getTextWidth(qty);
-    doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + 8);
+    doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + rowHeight / 2 + 1.5);
     xPosition += columnWidths[1];
 
-    // Product description - centered
+    // Product description - left-aligned, wrapped
     doc.rect(xPosition, yPosition, columnWidths[2], rowHeight);
-    const productName = item.product.name;
-    const prodWidth = doc.getTextWidth(productName);
-    const prodCenterX = xPosition + (columnWidths[2] - prodWidth) / 2;
-    doc.text(productName, prodCenterX, yPosition + 8);
+    doc.text(lines, xPosition + 2, yPosition + 6);
     xPosition += columnWidths[2];
 
     // Unit price - centered
@@ -186,7 +185,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     const unitPrice = formatCurrency(parseFloat(item.unitPrice));
     const unitPriceWidth = doc.getTextWidth(unitPrice);
     const unitCenterX = xPosition + (columnWidths[3] - unitPriceWidth) / 2;
-    doc.text(unitPrice, unitCenterX, yPosition + 8);
+    doc.text(unitPrice, unitCenterX, yPosition + rowHeight / 2 + 1.5);
     xPosition += columnWidths[3];
 
     // Total price - centered
@@ -194,7 +193,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     const totalPrice = formatCurrency(parseFloat(item.subtotal));
     const totalPriceWidth = doc.getTextWidth(totalPrice);
     const totalCenterX = xPosition + (columnWidths[4] - totalPriceWidth) / 2;
-    doc.text(totalPrice, totalCenterX, yPosition + 8);
+    doc.text(totalPrice, totalCenterX, yPosition + rowHeight / 2 + 1.5);
 
     yPosition += rowHeight;
   });
