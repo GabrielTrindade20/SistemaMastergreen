@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -9,6 +9,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -23,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy, Search, FilterX } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product, User } from "@shared/schema";
 import NewQuotationForm from "@/components/new-quotation-form";
 import { generateProposalPDF } from "@/lib/pdf-generator";
@@ -39,6 +47,11 @@ export default function Quotations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
 
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
     queryKey: ["/api/quotations"],
@@ -283,6 +296,59 @@ export default function Quotations() {
       });
     }
   };
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    quotations.forEach((q) => {
+      if (q.createdAt) years.add(new Date(q.createdAt).getFullYear());
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [quotations]);
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<number>();
+    quotations.forEach((q) => {
+      if (q.createdAt) {
+        const d = new Date(q.createdAt);
+        if (yearFilter === "all" || d.getFullYear() === parseInt(yearFilter)) {
+          months.add(d.getMonth() + 1);
+        }
+      }
+    });
+    return Array.from(months).sort((a, b) => a - b);
+  }, [quotations, yearFilter]);
+
+  const filteredQuotations = useMemo(() => {
+    return quotations.filter((q) => {
+      const search = searchText.toLowerCase();
+      if (search) {
+        const matchesName = q.customer.name.toLowerCase().includes(search);
+        const matchesNumber = q.quotationNumber.toLowerCase().includes(search);
+        if (!matchesName && !matchesNumber) return false;
+      }
+      if (statusFilter !== "all" && q.status !== statusFilter) return false;
+      if (q.createdAt) {
+        const d = new Date(q.createdAt);
+        if (yearFilter !== "all" && d.getFullYear() !== parseInt(yearFilter)) return false;
+        if (monthFilter !== "all" && d.getMonth() + 1 !== parseInt(monthFilter)) return false;
+      }
+      return true;
+    });
+  }, [quotations, searchText, statusFilter, monthFilter, yearFilter]);
+
+  const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== "all" || yearFilter !== "all";
+
+  const handleClearFilters = () => {
+    setSearchText("");
+    setStatusFilter("all");
+    setMonthFilter("all");
+    setYearFilter("all");
+  };
+
+  const monthNames = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  ];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -726,19 +792,76 @@ export default function Quotations() {
         <CardHeader>
           <CardTitle>Lista de Propostas</CardTitle>
           <CardDescription>
-            {quotations.length} proposta(s) cadastrada(s)
+            {`Mostrando ${filteredQuotations.length} de ${quotations.length} proposta(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Search and filters */}
+          <div className="mb-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por cliente ou número da proposta..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="approved">Aprovado</SelectItem>
+                  <SelectItem value="rejected">Rejeitado</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setMonthFilter("all"); }}>
+                <SelectTrigger className="w-full sm:w-36">
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os anos</SelectItem>
+                  {availableYears.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={monthFilter} onValueChange={setMonthFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os meses</SelectItem>
+                  {availableMonths.map((m) => (
+                    <SelectItem key={m} value={String(m)}>{monthNames[m - 1]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button variant="outline" onClick={handleClearFilters} className="flex items-center gap-2">
+                  <FilterX className="h-4 w-4" />
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          </div>
+
           {quotationsLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-master-green"></div>
             </div>
-          ) : quotations.length > 0 ? (
+          ) : filteredQuotations.length > 0 ? (
             <>
               {/* Mobile view */}
               <div className="block md:hidden space-y-4">
-                {quotations.map((quotation) => (
+                {filteredQuotations.map((quotation) => (
                   <Card key={quotation.id} className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -817,7 +940,7 @@ export default function Quotations() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {quotations.map((quotation) => (
+                  {filteredQuotations.map((quotation) => (
                     <TableRow key={quotation.id}>
                     <TableCell className="font-medium">
                       {quotation.quotationNumber}
@@ -896,6 +1019,14 @@ export default function Quotations() {
                 </Table>
               </div>
             </>
+          ) : hasActiveFilters ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Nenhuma proposta encontrada com os filtros aplicados.</p>
+              <Button variant="outline" onClick={handleClearFilters} className="mt-4 flex items-center gap-2 mx-auto">
+                <FilterX className="h-4 w-4" />
+                Limpar filtros
+              </Button>
+            </div>
           ) : (
             <div className="text-center py-8">
               <p className="text-gray-500">Nenhum orçamento encontrado.</p>
