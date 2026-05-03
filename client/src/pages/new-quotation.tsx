@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
+import { useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,21 +11,14 @@ import { useAuth } from "@/hooks/useAuth";
 
 export default function NewQuotation() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
-  const [isAdminEditing, setIsAdminEditing] = useState(false);
-  
-  // Get URL parameters for editing
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const editId = urlParams.get('edit');
-    const adminMode = urlParams.get('admin') === 'true';
-    
-    setEditingQuotationId(editId);
-    setIsAdminEditing(adminMode && user?.type === 'admin');
-  }, [user]);
+
+  const searchParams = new URLSearchParams(search);
+  const editingQuotationId = searchParams.get('edit');
+  const isAdminEditing = searchParams.get('admin') === 'true' && user?.type === 'admin';
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
