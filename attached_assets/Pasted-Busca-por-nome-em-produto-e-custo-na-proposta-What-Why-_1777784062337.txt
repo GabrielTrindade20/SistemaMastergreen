@@ -1,0 +1,28 @@
+Busca por nome em produto e custo na proposta
+What & Why
+Replace the plain Select dropdowns for products and costs in the quotation form with searchable comboboxes. Users currently have to scroll through the full list to find an item; with search they can type part of the name and filter instantly.
+
+Done looks like
+The product field in each quotation item shows a searchable combobox: clicking it opens a popover with a text input at the top and a filtered list below.
+Typing any part of a product name filters the list in real time.
+The cost field (admin-only) behaves identically — type to search by cost name.
+Selecting an item works exactly as before (triggers the same update logic).
+All existing behavior (calculations, validations, default values when editing a proposal) is preserved.
+Out of scope
+Searching customers (separate field, not requested).
+Creating new products/costs inline from the combobox (separate task #12).
+Steps
+Install and add shadcn Command component — Add the Command and Popover shadcn UI primitives (via the package manager tools), then create client/src/components/ui/command.tsx and ensure Popover exists in the UI folder. These are the building blocks for a combobox.
+
+Build a reusable SearchableSelect component — Create client/src/components/ui/searchable-select.tsx that accepts options: { value, label }[], value, onValueChange, and placeholder props. Internally it uses Popover + Command (with CommandInput, CommandList, CommandEmpty, CommandItem) to render a filterable list. It should match the visual style of the existing Select trigger.
+
+Replace product Select with SearchableSelect — In quotation-form.tsx, swap the product Select/SelectContent/SelectItem block (around lines 453–465) for SearchableSelect, passing products as options and keeping the same updateItem callback.
+
+Replace cost Select with SearchableSelect — In the same file, swap the cost Select block (around lines 573–585) for SearchableSelect, passing costs as options and keeping the same updateCost callback.
+
+Relevant files
+client/src/components/quotation-form.tsx:440-470,560-590
+client/src/components/ui/select.tsx
+Dependencies
+
+Editar proposta existente (separar botões Editar e Duplicar)

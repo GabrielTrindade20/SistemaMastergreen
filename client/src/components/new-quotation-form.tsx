@@ -13,6 +13,7 @@ import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2, Clock,
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import type { Customer, Product, Cost, SystemSetting } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
@@ -885,21 +886,13 @@ export function NewQuotationForm({
                 <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
                   <div>
                     <label className="text-sm font-medium">Produto</label>
-                    <Select 
-                      value={item.productId} 
+                    <SearchableSelect
+                      options={products.map(p => ({ value: p.id, label: p.name }))}
+                      value={item.productId}
                       onValueChange={(value) => updateItem(index, 'productId', value)}
-                    >
-                      <SelectTrigger data-testid={`select-product-${index}`}>
-                        <SelectValue placeholder="Selecionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Selecionar produto"
+                      data-testid={`select-product-${index}`}
+                    />
                   </div>
                   
                   <div>
@@ -1020,22 +1013,16 @@ export function NewQuotationForm({
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
                     <div>
                       <label className="text-sm font-medium">Custo</label>
-                      <Select 
-                        value={cost.costId} 
+                      <SearchableSelect
+                        options={[
+                          ...availableCosts.map(c => ({ value: c.id, label: c.name })),
+                          { value: "manual", label: "Custo Manual" },
+                        ]}
+                        value={cost.costId}
                         onValueChange={(value) => updateCost(index, 'costId', value)}
-                      >
-                        <SelectTrigger data-testid={`select-cost-${index}`}>
-                          <SelectValue placeholder="Selecionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableCosts.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="manual">Custo Manual</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Selecionar custo"
+                        data-testid={`select-cost-${index}`}
+                      />
                     </div>
 
                     {/* Seleção de Produto - Apenas quando há múltiplos produtos */}
