@@ -591,7 +591,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateQuotation(id: string, quotationData: any): Promise<QuotationWithDetails> {
-    console.log('Storage - updateQuotation called with:', { id, quotationData });
     
     try {
       // Atualizar dados principais da proposta
@@ -628,8 +627,6 @@ export class DatabaseStorage implements IStorage {
           delete (quotationUpdateData as any)[key];
         }
       });
-
-      console.log('Storage - updating quotation with data:', quotationUpdateData);
 
       const [updatedQuotation] = await db
         .update(quotations)
@@ -685,7 +682,6 @@ export class DatabaseStorage implements IStorage {
         throw new Error('Proposta não encontrada após atualização');
       }
       
-      console.log('Storage - quotation updated successfully');
       return result;
     } catch (error) {
       console.error('Storage - error updating quotation:', error);
@@ -848,7 +844,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getQuotationsInDateRange(startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
-    console.log(`Storage - getQuotationsInDateRange: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
     const result = await db
       .select({
@@ -867,7 +862,6 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(quotations.createdAt));
       
-    console.log(`Storage - Found ${result.length} quotations in database`);
 
     // Group by quotation and fetch related data
     const quotationsMap = new Map<string, QuotationWithDetails>();
@@ -913,7 +907,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
-    console.log(`Storage - getQuotationsByUserInDateRange for user ${userId}: ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
     const result = await db
       .select({
@@ -933,7 +926,6 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(quotations.createdAt));
       
-    console.log(`Storage - Found ${result.length} quotations for user`);
 
     // Group by quotation and fetch related data
     const quotationsMap = new Map<string, QuotationWithDetails>();

@@ -32,8 +32,6 @@ export default function Admin() {
   const { data: settings = [], isLoading: settingsLoading } = useQuery<SystemSetting[]>({
     queryKey: ["/api/settings"],
     enabled: !!currentUser && currentUser.type === "admin",
-    staleTime: 0,
-    refetchOnMount: "always",
   });
 
   const invoicePercentSetting = settings.find(s => s.key === "invoice_percent");

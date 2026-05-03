@@ -346,8 +346,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      console.log("Getting quotations for user:", user);
-      
       let quotations;
       if (user.type === "admin") {
         // Admin vê apenas suas próprias propostas
@@ -387,8 +385,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      console.log("Received quotation data:", JSON.stringify(req.body, null, 2));
-      
       const { customerId, validUntil, notes, items, costs, calculations } = req.body;
       
       // Criar dados do orçamento com nova estrutura
@@ -438,10 +434,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: cost.description || null,
       })) : [];
       
-      console.log("Processed quotation:", quotationData);
-      console.log("Processed items:", itemsData);
-      console.log("Processed costs:", costsData);
-      
       const newQuotation = await storage.createQuotation(quotationData, itemsData, costsData);
       res.status(201).json(newQuotation);
     } catch (error) {
@@ -474,11 +466,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const user = req.session.user!;
-      console.log('=== UPDATE QUOTATION START ===');
-      console.log('Quotation ID:', id);
-      console.log('User:', user.name, 'Type:', user.type);
-      console.log('Is Admin Calculated:', req.body.adminCalculated);
-      
       // Verificar se a proposta existe
       const existingQuotation = await storage.getQuotation(id);
       if (!existingQuotation) {
@@ -503,7 +490,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const existingCalculated = await storage.getCalculatedQuotationByOriginal(id);
         
         if (existingCalculated) {
-          console.log('Updating existing calculated quotation:', existingCalculated.id);
           // Atualizar a versão calculada existente
           const updatedCalculated = await storage.updateQuotation(existingCalculated.id, {
             ...req.body,
@@ -515,7 +501,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           return res.json(updatedCalculated);
         } else {
-          console.log('Creating new calculated quotation for original:', id);
           // Criar nova proposta calculada
           const { customerId, validUntil, notes, items, costs, calculations } = req.body;
           
@@ -567,11 +552,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })) : [];
           
           const newCalculatedQuotation = await storage.createQuotation(quotationData, itemsData, costsData);
-          console.log('Created calculated quotation:', newCalculatedQuotation.id);
           return res.json(newCalculatedQuotation);
         }
       } else {
-        console.log('NORMAL UPDATE - User editing own quotation');
         // Edição normal (vendedor ou admin editando própria proposta)
         const { customerId, validUntil, notes, items, costs, calculations } = req.body;
         
@@ -621,7 +604,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         const updatedQuotation = await storage.updateQuotation(id, quotationUpdateData);
-        console.log('=== UPDATE QUOTATION END ===');
         res.json(updatedQuotation);
       }
     } catch (error) {
@@ -728,12 +710,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
       
-      console.log(`Dashboard - Date: ${selectedDate}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
-
       if (user.type === "admin") {
         // Admin dashboard - comprehensive system view
         const allQuotationsRaw = await storage.getQuotationsInDateRange(startDate, endDate);
-        console.log(`Admin Dashboard - Found ${allQuotationsRaw.length} total quotations in date range`);
         
         // NOVA LÓGICA: Deduplicar propostas - mostrar apenas versão final de cada proposta
         // Prioridade: versão calculada > versão original
@@ -756,7 +735,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         const allQuotations = Array.from(quotationsMap.values());
-        console.log(`Admin Dashboard - After deduplication: ${allQuotations.length} unique quotations`);
         
         const allCustomers = await storage.getCustomers();
         const allUsers = await storage.getUsers();
@@ -775,7 +753,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         approvedQuotations.forEach(q => {
           const revenue = parseFloat(q.total || '0');
           totalRevenue += revenue;
-          console.log(`Dashboard - Adding revenue from quotation ${q.quotationNumber}: ${revenue} (${q.adminCalculated ? 'calculated' : 'original'})`);
         });
         
         // Separar propostas com custos calculados pelo admin
@@ -785,7 +762,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         adminCalculatedQuotations.forEach(q => {
           const costs = parseFloat(q.totalCosts || '0');
           totalCosts += costs;
-          console.log(`Dashboard - Admin processed quotation ${q.quotationNumber}: costs=${costs}`);
         });
         
         // REGRA: Lucro Líquido = de TODAS as propostas aprovadas (admin + vendedores)
@@ -794,7 +770,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (q.netProfit && parseFloat(q.netProfit) > 0) {
             const netProfit = parseFloat(q.netProfit);
             totalNetProfit += netProfit;
-            console.log(`Dashboard - Using calculated netProfit from ${q.quotationNumber}: ${netProfit}`);
           } else {
             // Se não tem netProfit, calcular lucro básico (valor total menos comissão)
             const revenue = parseFloat(q.total || '0');
@@ -802,7 +777,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const commission = revenue * commissionPercent / 100;
             const basicProfit = revenue - commission;
             totalNetProfit += basicProfit;
-            console.log(`Dashboard - Basic profit from ${q.quotationNumber}: ${basicProfit} (revenue: ${revenue}, commission: ${commission})`);
           }
         });
         const conversionRate = allQuotations.length > 0 
@@ -900,8 +874,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
-        
-        console.log(`Dashboard Summary - Total Revenue: ${totalRevenue}, Total Costs: ${totalCosts}, Net Profit: ${totalNetProfit}, Commissions: ${totalCommissionsPaid}`);
 
         res.json({
           type: "admin",
@@ -927,7 +899,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Employee dashboard - personal view
         const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
-        console.log(`Vendedor Dashboard - Found ${userQuotations.length} quotations for user ${user.name}`);
         const userCustomers = await storage.getCustomersByUser(user.id);
 
         // NOVA REGRA: Apenas propostas APROVADAS contam para comissão e vendas
@@ -937,7 +908,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // REGRA VENDEDOR: Comissão baseada APENAS nas propostas APROVADAS originais
         const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === 0);
-        console.log(`Vendedor Dashboard - Total quotations: ${userQuotations.length}, Approved: ${approvedQuotations.length}, Original approved: ${vendedorOriginalApproved.length}`);
 
         // REGRA: Taxa de conversão baseada apenas nas propostas originais do vendedor
         const originalQuotations = userQuotations.filter(q => q.adminCalculated === 0);
@@ -960,8 +930,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           commissionAmount: parseFloat(q.total) * commissionPercent / 100,
           approvedDate: q.createdAt
         }));
-
-        console.log(`Vendedor Dashboard - Original approved: ${vendedorOriginalApproved.length}, Total sales: ${totalSales}, Commission: ${totalCommission}`);
 
         res.json({
           type: "employee",
@@ -1015,12 +983,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         quotations = Array.from(quotationsMap.values());
-        console.log(`Recent Activities - Admin: found ${quotationsRaw.length} total, showing ${quotations.length} deduplicated`);
       } else {
         // REGRA: Vendedor vê apenas suas propostas ORIGINAIS (não as calculadas pelo admin)
         const allUserQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
         quotations = allUserQuotations.filter(q => q.adminCalculated === 0);
-        console.log(`Recent Activities - User ${user.name}: found ${allUserQuotations.length} total, showing ${quotations.length} originals`);
       }
 
       const activities = quotations
