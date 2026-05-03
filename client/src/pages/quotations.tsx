@@ -52,6 +52,8 @@ export default function Quotations() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [monthFilter, setMonthFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
+  const [salespersonFilter, setSalespersonFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
 
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
     queryKey: ["/api/quotations"],
@@ -318,6 +320,14 @@ export default function Quotations() {
     return Array.from(months).sort((a, b) => a - b);
   }, [quotations, yearFilter]);
 
+  const availableBranches = useMemo(() => {
+    const branches = new Set<string>();
+    quotations.forEach((q) => {
+      if (q.branch) branches.add(q.branch);
+    });
+    return Array.from(branches).sort();
+  }, [quotations]);
+
   const filteredQuotations = useMemo(() => {
     return quotations.filter((q) => {
       const search = searchText.toLowerCase();
@@ -332,17 +342,25 @@ export default function Quotations() {
         if (yearFilter !== "all" && d.getFullYear() !== parseInt(yearFilter)) return false;
         if (monthFilter !== "all" && d.getMonth() + 1 !== parseInt(monthFilter)) return false;
       }
+      if (salespersonFilter !== "all") {
+        const matchesSalesperson =
+          q.responsibleId === salespersonFilter || q.userId === salespersonFilter;
+        if (!matchesSalesperson) return false;
+      }
+      if (branchFilter !== "all" && q.branch !== branchFilter) return false;
       return true;
     });
-  }, [quotations, searchText, statusFilter, monthFilter, yearFilter]);
+  }, [quotations, searchText, statusFilter, monthFilter, yearFilter, salespersonFilter, branchFilter]);
 
-  const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== "all" || yearFilter !== "all";
+  const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== "all" || yearFilter !== "all" || salespersonFilter !== "all" || branchFilter !== "all";
 
   const handleClearFilters = () => {
     setSearchText("");
     setStatusFilter("all");
     setMonthFilter("all");
     setYearFilter("all");
+    setSalespersonFilter("all");
+    setBranchFilter("all");
   };
 
   const monthNames = [
@@ -840,6 +858,30 @@ export default function Quotations() {
                   <SelectItem value="all">Todos os meses</SelectItem>
                   {availableMonths.map((m) => (
                     <SelectItem key={m} value={String(m)}>{monthNames[m - 1]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={salespersonFilter} onValueChange={setSalespersonFilter}>
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue placeholder="Responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Filial" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as filiais</SelectItem>
+                  {availableBranches.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
