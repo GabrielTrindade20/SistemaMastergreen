@@ -354,6 +354,14 @@ export default function Quotations() {
 
   const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== "all" || yearFilter !== "all" || salespersonFilter !== "all" || branchFilter !== "all";
 
+  const filteredSummary = useMemo(() => {
+    const total = filteredQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+    const pending = filteredQuotations.filter((q) => q.status === "pending").length;
+    const approved = filteredQuotations.filter((q) => q.status === "approved").length;
+    const rejected = filteredQuotations.filter((q) => q.status === "rejected").length;
+    return { total, pending, approved, rejected };
+  }, [filteredQuotations]);
+
   const handleClearFilters = () => {
     setSearchText("");
     setStatusFilter("all");
@@ -894,6 +902,28 @@ export default function Quotations() {
               )}
             </div>
           </div>
+
+          {filteredQuotations.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-500">Total:</span>
+                <span className="font-semibold text-gray-800">{filteredQuotations.length} proposta(s)</span>
+              </div>
+              <div className="border-l border-gray-300 pl-3 flex items-center gap-1.5">
+                <span className="text-gray-500">Valor total:</span>
+                <span className="font-semibold text-master-green">{formatCurrency(filteredSummary.total)}</span>
+              </div>
+              <div className="border-l border-gray-300 pl-3 flex items-center gap-1.5">
+                <span className="text-yellow-600 font-medium">Pendente: {filteredSummary.pending}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-green-600 font-medium">Aprovado: {filteredSummary.approved}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-red-600 font-medium">Rejeitado: {filteredSummary.rejected}</span>
+              </div>
+            </div>
+          )}
 
           {quotationsLoading ? (
             <div className="flex items-center justify-center py-8">
