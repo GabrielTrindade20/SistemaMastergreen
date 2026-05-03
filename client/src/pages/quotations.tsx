@@ -977,10 +977,12 @@ export default function Quotations() {
                             <Share2 className="mr-2 h-4 w-4" />
                             Compartilhar
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditQuotation(quotation)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
+                          {quotation.status === "pending" && (
+                            <DropdownMenuItem onClick={() => handleEditQuotation(quotation)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => handleDuplicateQuotation(quotation)}>
                             <Copy className="mr-2 h-4 w-4" />
                             Duplicar
@@ -1064,12 +1066,14 @@ export default function Quotations() {
                             <Share2 className="mr-2 h-4 w-4" />
                             Compartilhar
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleEditQuotation(quotation)}
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
+                          {quotation.status === "pending" && (
+                            <DropdownMenuItem
+                              onClick={() => handleEditQuotation(quotation)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => handleDuplicateQuotation(quotation)}
                           >

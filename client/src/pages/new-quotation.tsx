@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import NewQuotationForm from "@/components/new-quotation-form";
-import type { Customer, Product } from "@shared/schema";
+import type { Customer, Product, QuotationWithDetails } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -36,7 +36,7 @@ export default function NewQuotation() {
   });
 
   // Fetch quotation data if editing
-  const { data: editingQuotation } = useQuery({
+  const { data: editingQuotation } = useQuery<QuotationWithDetails | null>({
     queryKey: ["/api/quotations", editingQuotationId],
     queryFn: async () => {
       if (!editingQuotationId) return null;
@@ -83,6 +83,21 @@ export default function NewQuotation() {
       });
     },
   });
+
+  // Redirect away if the quotation being edited is already approved or rejected
+  useEffect(() => {
+    if (editingQuotation) {
+      const status = editingQuotation.status;
+      if (status === 'approved' || status === 'rejected') {
+        toast({
+          title: "Edição não permitida",
+          description: "Não é possível editar uma proposta que já foi aprovada ou rejeitada.",
+          variant: "destructive",
+        });
+        setLocation("/orcamentos");
+      }
+    }
+  }, [editingQuotation]);
 
   const handleSubmit = (data: any) => {
     console.log('NEW-QUOTATION PAGE: Received data to submit:', data);

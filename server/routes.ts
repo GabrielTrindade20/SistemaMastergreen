@@ -489,6 +489,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.type !== 'admin' && existingQuotation.userId !== user.id) {
         return res.status(403).json({ message: "Access denied: you can only edit your own quotations" });
       }
+
+      // Prevent editing proposals that are already approved or rejected
+      if (existingQuotation.status === 'approved' || existingQuotation.status === 'rejected') {
+        return res.status(403).json({ message: "Cannot edit a proposal that has already been approved or rejected" });
+      }
       
       // LÓGICA CRÍTICA: Se admin está editando proposta de vendedor, criar nova proposta calculada
       if (user.type === 'admin' && req.body.adminCalculated && existingQuotation.userId !== user.id) {
