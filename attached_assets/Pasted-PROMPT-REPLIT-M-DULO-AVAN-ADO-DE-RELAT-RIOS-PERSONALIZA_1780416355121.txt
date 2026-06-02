@@ -1,0 +1,235 @@
+PROMPT REPLIT – MÓDULO AVANÇADO DE RELATÓRIOS PERSONALIZADOS
+
+Aprimore completamente a área de Relatórios do sistema MasterGreen.
+
+Atualmente o sistema gera apenas relatórios simples de receitas e despesas. O novo módulo deve se tornar um centro completo de análise comercial, financeira e operacional.
+
+Objetivo
+
+Criar um sistema de geração de relatórios dinâmicos onde o usuário possa escolher quais informações deseja visualizar e exportar.
+
+O relatório não deve ser fixo.
+
+O usuário deve poder selecionar campos, filtros, período e formato de exportação.
+
+Nova Tela: Relatórios Avançados
+
+Criar uma página chamada:
+
+Relatórios Inteligentes
+
+Dividir a tela em:
+
+1. Filtros
+
+Período:
+
+Hoje
+Últimos 7 dias
+Últimos 30 dias
+Este mês
+Mês anterior
+Personalizado
+
+Filtros adicionais:
+
+Cidade
+Estado
+Status do cliente
+Responsável pela venda
+Tipo de serviço
+Origem do lead
+Cliente específico
+2. Seleção de Informações
+
+Criar um sistema de checkbox permitindo escolher quais colunas aparecerão no relatório.
+
+Dados do Cliente
+Nome do cliente
+CPF/CNPJ
+Cidade
+Estado
+Bairro
+Endereço
+Telefone
+Celular
+E-mail
+Dados Comerciais
+Data do cadastro
+Data do orçamento
+Valor do orçamento
+Valor fechado
+Serviço contratado
+Responsável pela venda
+Origem do lead
+Status Comercial
+Cliente Fechado
+Cliente Não Fechado
+Cliente Pendente
+Cliente Em Negociação
+Cliente Cancelado
+Cliente Sem Retorno
+Dados Financeiros
+Valor total vendido
+Valor recebido
+Valor pendente
+Valor em aberto
+Data do pagamento
+Forma de pagamento
+Dados Operacionais
+Data do serviço
+Status da execução
+Equipe responsável
+Observações
+3. Indicadores Automáticos
+
+Antes de gerar o relatório mostrar cards com indicadores:
+
+Clientes
+Total de clientes cadastrados
+Clientes fechados
+Clientes pendentes
+Clientes perdidos
+Clientes em negociação
+Conversão
+Taxa de conversão
+Total de orçamentos enviados
+Total de contratos fechados
+
+Fórmula:
+
+Taxa Conversão =
+Clientes Fechados ÷ Orçamentos Enviados
+
+Financeiro
+Receita total
+Receita recebida
+Receita pendente
+Ticket médio
+
+Fórmula:
+
+Ticket Médio =
+Receita Total ÷ Clientes Fechados
+
+4. Gráficos
+
+Adicionar gráficos dinâmicos:
+
+Funil Comercial
+
+Mostrar:
+
+Leads
+↓
+Orçamentos
+↓
+Negociações
+↓
+Fechamentos
+
+Vendas por Cidade
+
+Gráfico de barras mostrando:
+
+Cidade
+Quantidade de clientes
+Valor vendido
+
+Vendas por Mês
+
+Gráfico de linha mostrando evolução mensal.
+
+Status dos Clientes
+
+Gráfico de pizza:
+
+Fechados
+Pendentes
+Em negociação
+Perdidos
+5. Exportação
+
+Permitir exportar:
+
+PDF
+Excel (.xlsx)
+CSV
+
+Ao exportar, utilizar apenas os campos selecionados pelo usuário.
+
+6. Relatórios Salvos
+
+Permitir salvar modelos.
+
+Exemplos:
+
+"Relatório Comercial"
+
+"Relatório Financeiro"
+
+"Relatório Clientes Pendentes"
+
+"Relatório de Conversão"
+
+O usuário poderá reutilizar esses modelos futuramente.
+
+7. Relatórios Prontos
+
+Adicionar atalhos rápidos:
+
+Clientes Fechados
+
+Mostrar:
+
+Nome
+Cidade
+Telefone
+Serviço
+Valor vendido
+Data fechamento
+Clientes Pendentes
+
+Mostrar:
+
+Nome
+Cidade
+Telefone
+Último contato
+Valor orçamento
+Clientes Perdidos
+
+Mostrar:
+
+Nome
+Cidade
+Motivo da perda
+Data da perda
+Clientes por Cidade
+
+Agrupar automaticamente:
+
+Cidade
+Quantidade de clientes
+Valor total vendido
+
+8. Dashboard Executivo
+
+Criar uma aba chamada:
+
+"Visão Executiva"
+
+Exibir:
+
+Receita total
+Lucro estimado
+Clientes ativos
+Taxa de conversão
+Cidade com maior faturamento
+Serviço mais vendido
+Melhor vendedor
+Receita mensal
+Comparativo com mês anterior
+Objetivo Final
+
+Transformar o módulo atual de relatórios em uma ferramenta completa de gestão, permitindo análises comerciais, financeiras e operacionais, com filtros avançados, indicadores, gráficos e exportação personalizada de dados. Utilize uma interface moderna, intuitiva e responsiva, mantendo o padrão visual já existente no sistema MasterGreen.
