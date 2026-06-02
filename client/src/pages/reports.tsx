@@ -445,6 +445,64 @@ function KpiCards({ data }: { data: ReportRow[] }) {
   );
 }
 
+// ─── PDF Preview (mirrors the summary block at the top of the exported PDF) ─────
+function PdfPreview({ data }: { data: ReportRow[] }) {
+  const summary = computeSummary(data);
+
+  const cards = [
+    { label: "Receita (Aprovados)", value: formatCurrency(summary.totalRevenue) },
+    { label: "Lucro Líquido", value: formatCurrency(summary.netProfit) },
+    { label: "Clientes", value: String(summary.totalCustomers) },
+    { label: "Taxa de Conversão", value: `${summary.conversionRate.toFixed(1)}%` },
+    { label: "Ticket Médio", value: formatCurrency(summary.avgTicket) },
+  ];
+
+  const funnel = [
+    { label: "Total", value: summary.totalProposals, color: "bg-blue-600" },
+    { label: "Aprovadas", value: summary.approved, color: "bg-green-600" },
+    { label: "Pendentes", value: summary.pending, color: "bg-amber-600" },
+    { label: "Recusadas", value: summary.rejected, color: "bg-red-600" },
+  ];
+  const maxVal = Math.max(1, ...funnel.map(f => f.value));
+
+  return (
+    <Card className="mb-4 border-l-4 border-l-[#002b17]">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <FileText className="w-4 h-4 text-[#002b17]" />
+          Prévia do relatório (PDF)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+          {cards.map(card => (
+            <div key={card.label} className="rounded-lg border border-gray-200 bg-gray-50 border-l-4 border-l-[#002b17] p-3">
+              <p className="text-xs text-gray-500 mb-1">{card.label}</p>
+              <p className="text-base font-bold text-gray-900">{card.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs font-semibold text-[#002b17] mb-2">Funil de Propostas</p>
+        <div className="space-y-2">
+          {funnel.map(f => (
+            <div key={f.label} className="flex items-center gap-3">
+              <span className="text-xs text-gray-600 w-20 shrink-0">{f.label}</span>
+              <div className="flex-1 bg-gray-200 rounded-full h-3">
+                <div
+                  className={`${f.color} h-3 rounded-full`}
+                  style={{ width: `${(f.value / maxVal) * 100}%` }}
+                />
+              </div>
+              <span className="text-xs font-bold text-gray-900 w-8 text-right">{f.value}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Charts ───────────────────────────────────────────────────────────────────
 function Charts({ data }: { data: ReportRow[] }) {
   const funnelData = useMemo(() => {
@@ -1110,6 +1168,9 @@ export default function Reports() {
               </CardContent>
             )}
           </Card>
+
+          {/* PDF Preview */}
+          {!isLoading && reportData.length > 0 && <PdfPreview data={reportData} />}
 
           {/* KPI Cards */}
           {!isLoading && <KpiCards data={reportData} />}
