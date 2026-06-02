@@ -1154,6 +1154,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer status update
+  app.patch("/api/customers/:id/status", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user!;
+      const { status } = req.body;
+      const validStatuses = ['fechado', 'pendente', 'em_negociacao', 'cancelado', 'sem_retorno', 'perdido'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid customer status" });
+      }
+
+      // Ownership check: sellers can only update their own customers
+      if (sessionUser.type !== 'admin') {
+        const existing = await storage.getCustomer(req.params.id);
+        if (!existing) return res.status(404).json({ message: "Customer not found" });
+        if (existing.createdById !== sessionUser.id) {
+          return res.status(403).json({ message: "Access denied: you can only update your own customers" });
+        }
+      }
+
+      const customer = await storage.updateCustomerStatus(req.params.id, status);
+      res.json(customer);
+    } catch (error) {
+      console.error("Error updating customer status:", error);
+      res.status(500).json({ message: "Failed to update customer status" });
+    }
+  });
+
+  // Advanced reports endpoint
+  app.get("/api/reports/advanced", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const { dateFrom, dateTo, city, state, responsibleId, customerStatus, customerId } = req.query;
+
+      const filters: any = {
+        isAdmin: user.type === 'admin',
+        userId: user.id,
+      };
+
+      if (dateFrom) filters.dateFrom = new Date(dateFrom as string);
+      if (dateTo) {
+        const d = new Date(dateTo as string);
+        d.setHours(23, 59, 59, 999);
+        filters.dateTo = d;
+      }
+      if (city) filters.city = city as string;
+      if (state) filters.state = state as string;
+      if (responsibleId) filters.responsibleId = responsibleId as string;
+      if (customerStatus) filters.customerStatus = customerStatus as string;
+      if (customerId) filters.customerId = customerId as string;
+
+      const data = await storage.getAdvancedReportData(filters);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching advanced report data:", error);
+      res.status(500).json({ message: "Failed to fetch report data" });
+    }
+  });
+
+  // Executive report endpoint
+  app.get("/api/reports/executive", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+
+      // Get last 6 months of data
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+      const filters: any = {
+        isAdmin: user.type === 'admin',
+        userId: user.id,
+        dateFrom: sixMonthsAgo,
+      };
+
+      const data = await storage.getAdvancedReportData(filters);
+
+      // Compute executive metrics
+      const total = data.reduce((s, r) => s + r.quotationTotal, 0);
+      const closed = data.filter(r => r.quotationStatus === 'approved');
+      const pending = data.filter(r => r.quotationStatus === 'pending');
+      const rejected = data.filter(r => r.quotationStatus === 'rejected');
+      const closedRevenue = closed.reduce((s, r) => s + r.quotationTotal, 0);
+      const estimatedProfit = closed.reduce((s, r) => s + r.quotationNetProfit, 0);
+      const conversionRate = data.length > 0 ? (closed.length / data.length) * 100 : 0;
+      const avgTicket = closed.length > 0 ? closedRevenue / closed.length : 0;
+
+      // City with most revenue
+      const cityMap: Record<string, number> = {};
+      closed.forEach((r: any) => {
+        if (r.customerCity) {
+          cityMap[r.customerCity] = (cityMap[r.customerCity] || 0) + r.quotationTotal;
+        }
+      });
+      const topCity = Object.entries(cityMap).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+
+      // Best seller
+      const sellerMap: Record<string, number> = {};
+      closed.forEach((r: any) => {
+        if (r.responsibleName) {
+          sellerMap[r.responsibleName] = (sellerMap[r.responsibleName] || 0) + r.quotationTotal;
+        }
+      });
+      const bestSeller = Object.entries(sellerMap).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+
+      // Monthly revenue for chart (last 6 months)
+      const monthlyMap: Record<string, number> = {};
+      closed.forEach((r: any) => {
+        if (r.quotationCreatedAt) {
+          const d = new Date(r.quotationCreatedAt);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          monthlyMap[key] = (monthlyMap[key] || 0) + r.quotationTotal;
+        }
+      });
+      const monthlyRevenue = Object.entries(monthlyMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, revenue]) => ({ month, revenue }));
+
+      // Prior month comparison
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthKey = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
+      const currentRevenue = monthlyMap[currentMonthKey] || 0;
+      const prevRevenue = monthlyMap[prevMonthKey] || 0;
+      const momChange = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+
+      // Active customers (unique)
+      const activeCustomers = new Set(data.map((r: any) => r.customerId)).size;
+
+      res.json({
+        totalRevenue: closedRevenue,
+        estimatedProfit,
+        activeCustomers,
+        conversionRate,
+        topCity,
+        bestSeller,
+        avgTicket,
+        monthlyRevenue,
+        currentRevenue,
+        prevRevenue,
+        momChange,
+        totalQuotations: data.length,
+        closedCount: closed.length,
+        pendingCount: pending.length,
+        rejectedCount: rejected.length,
+      });
+    } catch (error) {
+      console.error("Error fetching executive report:", error);
+      res.status(500).json({ message: "Failed to fetch executive report" });
+    }
+  });
+
+  // Report templates
+  app.get("/api/report-templates", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const templates = await storage.getReportTemplates(user.id);
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  app.post("/api/report-templates", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const { name, filtersJson, columnsJson } = req.body;
+      if (!name) return res.status(400).json({ message: "Name is required" });
+      const template = await storage.createReportTemplate({
+        userId: user.id,
+        name,
+        filtersJson: JSON.stringify(filtersJson || {}),
+        columnsJson: JSON.stringify(columnsJson || []),
+      });
+      res.status(201).json(template);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create template" });
+    }
+  });
+
+  app.delete("/api/report-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      await storage.deleteReportTemplate(req.params.id, user.id);
+      res.json({ message: "Template deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete template" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

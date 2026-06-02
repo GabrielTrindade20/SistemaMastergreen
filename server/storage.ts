@@ -7,6 +7,7 @@ import {
   quotationCosts,
   users,
   systemSettings,
+  savedReportTemplates,
   type Customer, 
   type InsertCustomer,
   type Product,
@@ -23,10 +24,12 @@ import {
   type User,
   type InsertUser,
   type LoginUser,
-  type SystemSetting
+  type SystemSetting,
+  type SavedReportTemplate,
+  type InsertSavedReportTemplate,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, lte, isNotNull, notInArray } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, isNotNull, notInArray, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
@@ -82,6 +85,27 @@ export interface IStorage {
   getSetting(key: string): Promise<SystemSetting | undefined>;
   updateSetting(key: string, value: string): Promise<SystemSetting>;
   initializeDefaultSettings(): Promise<void>;
+
+  // Report Templates
+  getReportTemplates(userId: string): Promise<SavedReportTemplate[]>;
+  createReportTemplate(template: InsertSavedReportTemplate): Promise<SavedReportTemplate>;
+  deleteReportTemplate(id: string, userId: string): Promise<void>;
+
+  // Advanced Reports
+  getAdvancedReportData(filters: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    city?: string;
+    state?: string;
+    responsibleId?: string;
+    customerStatus?: string;
+    customerId?: string;
+    userId?: string;
+    isAdmin?: boolean;
+  }): Promise<any[]>;
+
+  // Customer status update
+  updateCustomerStatus(id: string, status: string): Promise<Customer>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1091,6 +1115,124 @@ export class DatabaseStorage implements IStorage {
         await db.insert(systemSettings).values(setting);
       }
     }
+  }
+
+  async updateCustomerStatus(id: string, status: string): Promise<Customer> {
+    const [updated] = await db
+      .update(customers)
+      .set({ customerStatus: status })
+      .where(eq(customers.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getReportTemplates(userId: string): Promise<SavedReportTemplate[]> {
+    return await db
+      .select()
+      .from(savedReportTemplates)
+      .where(eq(savedReportTemplates.userId, userId))
+      .orderBy(desc(savedReportTemplates.createdAt));
+  }
+
+  async createReportTemplate(template: InsertSavedReportTemplate): Promise<SavedReportTemplate> {
+    const [created] = await db
+      .insert(savedReportTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+
+  async deleteReportTemplate(id: string, userId: string): Promise<void> {
+    await db
+      .delete(savedReportTemplates)
+      .where(and(eq(savedReportTemplates.id, id), eq(savedReportTemplates.userId, userId)));
+  }
+
+  async getAdvancedReportData(filters: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    city?: string;
+    state?: string;
+    responsibleId?: string;
+    customerStatus?: string;
+    customerId?: string;
+    userId?: string;
+    isAdmin?: boolean;
+  }): Promise<any[]> {
+    const conditions: any[] = [];
+
+    if (filters.dateFrom) {
+      conditions.push(gte(quotations.createdAt, filters.dateFrom));
+    }
+    if (filters.dateTo) {
+      conditions.push(lte(quotations.createdAt, filters.dateTo));
+    }
+    if (filters.city) {
+      conditions.push(ilike(customers.city, `%${filters.city}%`));
+    }
+    if (filters.state) {
+      conditions.push(ilike(customers.state, `%${filters.state}%`));
+    }
+    if (filters.responsibleId) {
+      conditions.push(eq(quotations.responsibleId, filters.responsibleId));
+    }
+    if (filters.customerStatus) {
+      conditions.push(eq(customers.customerStatus, filters.customerStatus));
+    }
+    if (filters.customerId) {
+      conditions.push(eq(customers.id, filters.customerId));
+    }
+    if (!filters.isAdmin && filters.userId) {
+      conditions.push(eq(quotations.userId, filters.userId));
+    }
+
+    // Only non-admin-calculated quotations in the base result
+    conditions.push(eq(quotations.adminCalculated, 0));
+
+    const result = await db
+      .select({
+        quotation: quotations,
+        customer: customers,
+        // Join on responsibleId to get the actual responsible seller's data
+        // Fall back to userId if responsibleId is null (same person)
+      })
+      .from(quotations)
+      .leftJoin(customers, eq(quotations.customerId, customers.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(quotations.createdAt));
+
+    // For each quotation fetch the responsible user (preferring responsibleId, falling back to userId)
+    const rowsWithUsers = await Promise.all(result.map(async (row) => {
+      const lookupId = row.quotation.responsibleId || row.quotation.userId;
+      const [responsibleUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, lookupId))
+        .limit(1);
+      return { quotation: row.quotation, customer: row.customer, responsibleUser };
+    }));
+
+    return rowsWithUsers.map(({ quotation, customer, responsibleUser }) => ({
+      quotationId: quotation.id,
+      quotationNumber: quotation.quotationNumber,
+      quotationStatus: quotation.status,
+      quotationTotal: parseFloat(quotation.total || '0'),
+      quotationNetProfit: parseFloat(quotation.netProfit || '0'),
+      quotationCreatedAt: quotation.createdAt,
+      quotationBranch: quotation.branch,
+      customerId: customer?.id,
+      customerName: customer?.name,
+      customerEmail: customer?.email,
+      customerPhone: customer?.phone,
+      customerCity: customer?.city,
+      customerState: customer?.state,
+      customerStatus: customer?.customerStatus,
+      customerLeadOrigin: customer?.leadOrigin,
+      customerCreatedAt: customer?.createdAt,
+      responsibleId: responsibleUser?.id,
+      responsibleName: responsibleUser?.name,
+      responsibleBranch: responsibleUser?.branch,
+    }));
   }
 }
 

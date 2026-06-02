@@ -5,12 +5,56 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Eye, Edit, User } from "lucide-react";
-import { formatPhone, formatDocument, formatCEP } from "@/lib/calculations";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Search, Edit } from "lucide-react";
+import { formatPhone, formatDocument } from "@/lib/calculations";
 import { useToast } from "@/hooks/use-toast";
 import CustomerForm from "@/components/customer-form";
 import type { Customer } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+
+const CUSTOMER_STATUS_OPTIONS = [
+  { value: "pendente", label: "Pendente", color: "bg-yellow-100 text-yellow-800" },
+  { value: "fechado", label: "Fechado", color: "bg-green-100 text-green-800" },
+  { value: "em_negociacao", label: "Em Negociação", color: "bg-blue-100 text-blue-800" },
+  { value: "cancelado", label: "Cancelado", color: "bg-gray-100 text-gray-700" },
+  { value: "sem_retorno", label: "Sem Retorno", color: "bg-purple-100 text-purple-800" },
+  { value: "perdido", label: "Perdido", color: "bg-red-100 text-red-800" },
+];
+
+function StatusBadge({ status }: { status: string | null | undefined }) {
+  const opt = CUSTOMER_STATUS_OPTIONS.find(o => o.value === status) || CUSTOMER_STATUS_OPTIONS[0];
+  return <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${opt.color}`}>{opt.label}</span>;
+}
+
+function InlineStatusSelect({ customerId, currentStatus }: { customerId: string; currentStatus: string | null | undefined }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (status: string) =>
+      apiRequest(`/api/customers/${customerId}/status`, { method: "PATCH", data: { status } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+    },
+    onError: () => toast({ title: "Erro ao atualizar status", variant: "destructive" }),
+  });
+
+  return (
+    <Select value={currentStatus || "pendente"} onValueChange={v => mutation.mutate(v)}>
+      <SelectTrigger className="h-7 text-xs border-0 p-0 w-auto focus:ring-0 shadow-none">
+        <StatusBadge status={currentStatus} />
+      </SelectTrigger>
+      <SelectContent>
+        {CUSTOMER_STATUS_OPTIONS.map(opt => (
+          <SelectItem key={opt.value} value={opt.value}>
+            <StatusBadge status={opt.value} />
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 export default function Customers() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -199,11 +243,8 @@ export default function Customers() {
                         </div>
                       </div>
                       <div className="mt-4 pt-3 border-t border-gray-200 flex items-center justify-between">
-                        <Badge variant="secondary" className="text-xs">
-                          Cliente ativo
-                        </Badge>
+                        <InlineStatusSelect customerId={customer.id} currentStatus={customer.customerStatus} />
                         <div className="flex items-center space-x-2">
-                          
                           <Button 
                             variant="ghost" 
                             size="sm"
