@@ -55,6 +55,7 @@ interface Filters {
   state: string;
   responsibleId: string;
   customerStatus: string;
+  quotationStatus: string;
   customerId: string;
 }
 
@@ -88,7 +89,7 @@ const PIE_COLORS = ["#16a34a", "#d97706", "#2563eb", "#dc2626", "#9333ea", "#6b7
 const ALL_COLUMNS = [
   { group: "Dados do Cliente", key: "customerName", label: "Nome do Cliente" },
   { group: "Dados do Cliente", key: "customerEmail", label: "Email" },
-  { group: "Dados do Cliente", key: "customerPhone", label: "Telefone" },
+  { group: "Dados do Cliente", key: "customerPhone", label: "Celular / Telefone" },
   { group: "Dados do Cliente", key: "customerCity", label: "Cidade" },
   { group: "Dados do Cliente", key: "customerState", label: "Estado" },
   { group: "Dados do Cliente", key: "customerLeadOrigin", label: "Origem do Lead" },
@@ -108,14 +109,24 @@ const DEFAULT_COLUMNS = ["customerName", "customerCity", "quotationNumber", "quo
 
 const QUICK_REPORTS: { label: string; columns: string[]; filters: Partial<Filters> }[] = [
   {
+    label: "Aprovaram a proposta",
+    columns: ["customerName", "customerCity", "customerPhone", "quotationNumber", "quotationCreatedAt", "responsibleName", "quotationTotal"],
+    filters: { quotationStatus: "approved" },
+  },
+  {
+    label: "Pendentes",
+    columns: ["customerName", "customerCity", "customerPhone", "quotationNumber", "quotationCreatedAt", "responsibleName", "quotationStatus"],
+    filters: { quotationStatus: "pending" },
+  },
+  {
+    label: "Não recusaram",
+    columns: ["customerName", "customerCity", "customerPhone", "quotationStatus", "customerStatus", "quotationCreatedAt", "responsibleName", "quotationTotal"],
+    filters: { quotationStatus: "not_rejected" },
+  },
+  {
     label: "Clientes Fechados",
     columns: ["customerName", "customerCity", "quotationNumber", "quotationCreatedAt", "responsibleName", "quotationTotal"],
     filters: { customerStatus: "fechado" },
-  },
-  {
-    label: "Clientes Pendentes",
-    columns: ["customerName", "customerCity", "customerPhone", "quotationNumber", "quotationCreatedAt", "responsibleName"],
-    filters: { customerStatus: "pendente" },
   },
   {
     label: "Clientes Perdidos",
@@ -124,10 +135,42 @@ const QUICK_REPORTS: { label: string; columns: string[]; filters: Partial<Filter
   },
   {
     label: "Clientes por Cidade",
-    columns: ["customerName", "customerCity", "customerState", "quotationStatus", "quotationTotal", "responsibleName"],
+    columns: ["customerName", "customerCity", "customerState", "customerPhone", "quotationStatus", "quotationTotal", "responsibleName"],
     filters: {},
   },
 ];
+
+// Compute summary metrics from current (already filtered) report data
+function computeSummary(data: ReportRow[]) {
+  const totalCustomers = new Set(data.map(r => r.customerId)).size;
+  const approved = data.filter(r => r.quotationStatus === "approved");
+  const pending = data.filter(r => r.quotationStatus === "pending");
+  const rejected = data.filter(r => r.quotationStatus === "rejected");
+  const totalRevenue = approved.reduce((s, r) => s + r.quotationTotal, 0);
+  const netProfit = approved.reduce((s, r) => s + r.quotationNetProfit, 0);
+  const conversionRate = data.length > 0 ? (approved.length / data.length) * 100 : 0;
+  const avgTicket = approved.length > 0 ? totalRevenue / approved.length : 0;
+  return {
+    totalCustomers,
+    totalProposals: data.length,
+    approved: approved.length,
+    pending: pending.length,
+    rejected: rejected.length,
+    totalRevenue,
+    netProfit,
+    conversionRate,
+    avgTicket,
+  };
+}
+
+// Client-side filter for proposal status (not supported by the backend filter)
+function applyClientFilter(data: ReportRow[], filters: Filters): ReportRow[] {
+  if (!filters.quotationStatus) return data;
+  if (filters.quotationStatus === "not_rejected") {
+    return data.filter(r => r.quotationStatus !== "rejected" && r.customerStatus !== "perdido");
+  }
+  return data.filter(r => r.quotationStatus === filters.quotationStatus);
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatCurrency(v: number) {
@@ -188,21 +231,54 @@ function ColumnSelector({ selected, onChange }: { selected: Set<string>; onChang
     onChange(next);
   };
 
+  const groupKeys = (group: string) => ALL_COLUMNS.filter(c => c.group === group).map(c => c.key);
+
+  const selectAll = () => onChange(new Set(ALL_COLUMNS.map(c => c.key)));
+  const clearAll = () => onChange(new Set());
+
+  const selectGroup = (group: string) => {
+    const next = new Set(selected);
+    groupKeys(group).forEach(k => next.add(k));
+    onChange(next);
+  };
+  const clearGroup = (group: string) => {
+    const next = new Set(selected);
+    groupKeys(group).forEach(k => next.delete(k));
+    onChange(next);
+  };
+
   return (
-    <div className="space-y-3">
-      {COLUMN_GROUPS.map(group => (
-        <div key={group}>
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">{group}</p>
-          <div className="grid grid-cols-2 gap-1">
-            {ALL_COLUMNS.filter(c => c.group === group).map(col => (
-              <label key={col.key} className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox checked={selected.has(col.key)} onCheckedChange={() => toggle(col.key)} />
-                {col.label}
-              </label>
-            ))}
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={selectAll}>Selecionar todos</Button>
+        <Button type="button" size="sm" variant="outline" onClick={clearAll}>Limpar tudo</Button>
+      </div>
+      {COLUMN_GROUPS.map(group => {
+        const gk = groupKeys(group);
+        const allSelected = gk.every(k => selected.has(k));
+        return (
+          <div key={group} className="border border-gray-200 rounded-md p-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-600 uppercase">{group}</p>
+              <button
+                type="button"
+                className="text-xs text-green-700 hover:underline"
+                onClick={() => (allSelected ? clearGroup(group) : selectGroup(group))}
+              >
+                {allSelected ? "Limpar" : "Selecionar todos"}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {ALL_COLUMNS.filter(c => c.group === group).map(col => (
+                <label key={col.key} className="flex items-center gap-2 cursor-pointer text-sm">
+                  <Checkbox checked={selected.has(col.key)} onCheckedChange={() => toggle(col.key)} />
+                  {col.label}
+                </label>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -277,6 +353,21 @@ function FiltersPanel({
             {Object.entries(CUSTOMER_STATUS_LABELS).map(([k, v]) => (
               <SelectItem key={k} value={k}>{v}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label className="text-xs">Status da Proposta</Label>
+        <Select value={filters.quotationStatus || "all"} onValueChange={v => set("quotationStatus", v === "all" ? "" : v)}>
+          <SelectTrigger className="mt-1">
+            <SelectValue placeholder="Todas" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="approved">Aprovada</SelectItem>
+            <SelectItem value="pending">Pendente</SelectItem>
+            <SelectItem value="rejected">Rejeitada</SelectItem>
+            <SelectItem value="not_rejected">Não recusaram</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -623,6 +714,7 @@ export default function Reports() {
     state: "",
     responsibleId: "",
     customerStatus: "",
+    quotationStatus: "",
     customerId: "",
   });
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(new Set(DEFAULT_COLUMNS));
@@ -649,7 +741,7 @@ export default function Reports() {
     return p.toString();
   }, [filters]);
 
-  const { data: reportData = [], isLoading } = useQuery<ReportRow[]>({
+  const { data: rawReportData = [], isLoading } = useQuery<ReportRow[]>({
     queryKey: ["/api/reports/advanced", queryParams],
     queryFn: async () => {
       const res = await fetch(`/api/reports/advanced?${queryParams}`, { credentials: "include" });
@@ -657,6 +749,8 @@ export default function Reports() {
       return res.json();
     },
   });
+
+  const reportData = useMemo(() => applyClientFilter(rawReportData, filters), [rawReportData, filters]);
 
   const saveTemplateMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -701,7 +795,7 @@ export default function Reports() {
 
   const applyQuickReport = (qr: typeof QUICK_REPORTS[0]) => {
     setSelectedColumns(new Set(qr.columns));
-    setFilters(prev => ({ ...prev, ...qr.filters }));
+    setFilters(prev => ({ ...prev, customerStatus: "", quotationStatus: "", ...qr.filters }));
   };
 
   // Export functions
@@ -734,35 +828,163 @@ export default function Reports() {
     XLSX.writeFile(wb, "relatorio.xlsx");
   };
 
+  const buildFilterSummary = () => {
+    const parts: string[] = [];
+    parts.push(filters.dateFrom ? `Período: ${formatDate(filters.dateFrom)} a ${formatDate(filters.dateTo)}` : "Período: todo o período");
+    if (filters.city) parts.push(`Cidade: ${filters.city}`);
+    if (filters.state) parts.push(`Estado: ${filters.state}`);
+    if (filters.customerStatus) parts.push(`Status do cliente: ${CUSTOMER_STATUS_LABELS[filters.customerStatus] || filters.customerStatus}`);
+    if (filters.quotationStatus) {
+      const qsLabel = filters.quotationStatus === "not_rejected"
+        ? "Não recusaram"
+        : QUOTATION_STATUS_LABELS[filters.quotationStatus] || filters.quotationStatus;
+      parts.push(`Status da proposta: ${qsLabel}`);
+    }
+    if (isAdmin && filters.responsibleId) {
+      const u = (users as User[]).find(u => u.id === filters.responsibleId);
+      if (u) parts.push(`Responsável: ${u.name}`);
+    }
+    return parts.join("  •  ");
+  };
+
   const exportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
     const cols = ALL_COLUMNS.filter(c => selectedColumns.has(c.key));
-    doc.setFontSize(14);
-    doc.text("Relatório Inteligente - MasterGreen", 14, 16);
+    const summary = computeSummary(reportData);
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const availW = pageW - margin * 2;
+    const GREEN: [number, number, number] = [0, 43, 23];
+
+    // ── Header ──
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(...GREEN);
+    doc.text("Relatório Inteligente - MasterGreen", margin, 16);
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}  •  Total: ${reportData.length} registros`, 14, 22);
+    doc.setTextColor(90, 90, 90);
+    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}  •  Total: ${reportData.length} registros`, margin, 22);
+    const filterLines = doc.splitTextToSize(buildFilterSummary(), availW);
+    doc.text(filterLines, margin, 27);
 
-    const colW = Math.min(40, (280 - 14) / cols.length);
-    let y = 30;
-    doc.setFillColor(0, 43, 23);
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.rect(14, y - 5, colW * cols.length, 7, "F");
-    cols.forEach((c, i) => doc.text(c.label.slice(0, 14), 15 + i * colW, y));
+    let y = 27 + filterLines.length * 4 + 3;
 
-    doc.setTextColor(0, 0, 0);
+    // ── Summary cards (Visão Executiva style) ──
+    const cards = [
+      { label: "Receita (Aprovados)", value: formatCurrency(summary.totalRevenue) },
+      { label: "Lucro Líquido", value: formatCurrency(summary.netProfit) },
+      { label: "Clientes", value: String(summary.totalCustomers) },
+      { label: "Taxa de Conversão", value: `${summary.conversionRate.toFixed(1)}%` },
+      { label: "Ticket Médio", value: formatCurrency(summary.avgTicket) },
+    ];
+    const gap = 4;
+    const cardW = (availW - gap * (cards.length - 1)) / cards.length;
+    const cardH = 18;
+    cards.forEach((card, i) => {
+      const x = margin + i * (cardW + gap);
+      doc.setFillColor(244, 247, 245);
+      doc.setDrawColor(220, 226, 222);
+      doc.roundedRect(x, y, cardW, cardH, 2, 2, "FD");
+      doc.setFillColor(...GREEN);
+      doc.rect(x, y, 2, cardH, "F");
+      doc.setFontSize(7);
+      doc.setTextColor(110, 110, 110);
+      doc.text(doc.splitTextToSize(card.label, cardW - 8), x + 5, y + 6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(20, 20, 20);
+      doc.text(doc.splitTextToSize(card.value, cardW - 8), x + 5, y + 14);
+      doc.setFont("helvetica", "normal");
+    });
+    y += cardH + 6;
+
+    // ── Funnel ──
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...GREEN);
+    doc.text("Funil de Propostas", margin, y);
+    doc.setFont("helvetica", "normal");
     y += 5;
-    reportData.slice(0, 200).forEach((row, ri) => {
-      if (y > 185) { doc.addPage(); y = 20; }
-      if (ri % 2 === 0) {
-        doc.setFillColor(245, 245, 245);
-        doc.rect(14, y - 4, colW * cols.length, 7, "F");
-      }
-      cols.forEach((c, i) => {
-        const v = String(renderCellValue(c.key, row)).slice(0, 16);
-        doc.text(v, 15 + i * colW, y);
-      });
+
+    const funnel: { label: string; value: number; color: [number, number, number] }[] = [
+      { label: "Total", value: summary.totalProposals, color: [37, 99, 235] },
+      { label: "Aprovadas", value: summary.approved, color: [22, 163, 74] },
+      { label: "Pendentes", value: summary.pending, color: [217, 119, 6] },
+      { label: "Recusadas", value: summary.rejected, color: [220, 38, 38] },
+    ];
+    const maxVal = Math.max(1, ...funnel.map(f => f.value));
+    const barMaxW = availW - 60;
+    funnel.forEach(f => {
+      doc.setFontSize(8);
+      doc.setTextColor(80, 80, 80);
+      doc.text(f.label, margin, y + 3.2);
+      doc.setFillColor(235, 235, 235);
+      doc.roundedRect(margin + 28, y, barMaxW, 4.5, 1, 1, "F");
+      const w = Math.max(1, (f.value / maxVal) * barMaxW);
+      doc.setFillColor(...f.color);
+      doc.roundedRect(margin + 28, y, w, 4.5, 1, 1, "F");
+      doc.setTextColor(40, 40, 40);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(f.value), margin + 28 + barMaxW + 4, y + 3.5);
+      doc.setFont("helvetica", "normal");
       y += 7;
+    });
+    y += 3;
+
+    // ── Table ──
+    if (cols.length === 0) {
+      doc.setFontSize(9);
+      doc.setTextColor(120, 120, 120);
+      doc.text("Nenhuma coluna selecionada para a tabela.", margin, y + 4);
+      doc.save("relatorio-mastergreen.pdf");
+      return;
+    }
+
+    const colW = availW / cols.length;
+    const padX = 2;
+    const lineH = 4;
+
+    const drawTableHeader = () => {
+      doc.setFillColor(...GREEN);
+      doc.rect(margin, y, availW, 8, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      cols.forEach((c, i) => {
+        const lines = doc.splitTextToSize(c.label, colW - padX * 2);
+        doc.text(lines, margin + i * colW + padX, y + 5);
+      });
+      y += 8;
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(40, 40, 40);
+    };
+
+    drawTableHeader();
+    doc.setFontSize(8);
+
+    reportData.forEach((row, ri) => {
+      const cellLines = cols.map(c => doc.splitTextToSize(String(renderCellValue(c.key, row)), colW - padX * 2));
+      const maxLines = Math.max(1, ...cellLines.map(l => l.length));
+      const rowH = maxLines * lineH + 2;
+
+      if (y + rowH > pageH - margin) {
+        doc.addPage();
+        y = margin;
+        drawTableHeader();
+        doc.setFontSize(8);
+      }
+
+      if (ri % 2 === 0) {
+        doc.setFillColor(245, 247, 245);
+        doc.rect(margin, y, availW, rowH, "F");
+      }
+      doc.setTextColor(40, 40, 40);
+      cols.forEach((c, i) => {
+        doc.text(cellLines[i], margin + i * colW + padX, y + 4);
+      });
+      y += rowH;
     });
 
     doc.save("relatorio-mastergreen.pdf");
@@ -859,7 +1081,7 @@ export default function Reports() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setFilters({ period: "this_month", ...getDateRange("this_month"), city: "", state: "", responsibleId: "", customerStatus: "", customerId: "" })}
+                    onClick={() => setFilters({ period: "this_month", ...getDateRange("this_month"), city: "", state: "", responsibleId: "", customerStatus: "", quotationStatus: "", customerId: "" })}
                   >
                     Limpar filtros
                   </Button>
