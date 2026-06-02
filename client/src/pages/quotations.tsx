@@ -58,7 +58,20 @@ export default function Quotations() {
   const [branchFilter, setBranchFilter] = useState("all");
 
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
-    queryKey: ["/api/quotations"],
+    queryKey: ["/api/quotations", monthFilter, yearFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (yearFilter !== "all") {
+        params.set("year", yearFilter);
+        if (monthFilter !== "all") params.set("month", monthFilter);
+      }
+      const qs = params.toString();
+      const res = await fetch(`/api/quotations${qs ? `?${qs}` : ""}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      return res.json();
+    },
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({

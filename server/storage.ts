@@ -29,7 +29,7 @@ import {
   type InsertSavedReportTemplate,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and, gte, lte, isNotNull, notInArray, or, ilike } from "drizzle-orm";
+import { eq, desc, sql, and, gte, lte, isNotNull, notInArray, inArray, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
   // Customers
@@ -56,7 +56,7 @@ export interface IStorage {
 
   // Quotations
   getQuotations(branch?: string): Promise<QuotationWithDetails[]>;
-  getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]>;
+  getQuotationsByUser(userId: string, startDate?: Date, endDate?: Date): Promise<QuotationWithDetails[]>;
   getQuotation(id: string): Promise<QuotationWithDetails | undefined>;
   getQuotationsInDateRange(startDate: Date, endDate: Date): Promise<QuotationWithDetails[]>;
   getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]>;
@@ -264,6 +264,55 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quotations
+  // Helper compartilhado: carrega itens e custos de várias propostas em duas
+  // consultas (uma para itens, outra para custos) usando inArray e agrupa em
+  // memória por quotationId, evitando o padrão N+1.
+  private async loadItemsAndCostsByQuotationIds(quotationIds: string[]): Promise<{
+    itemsMap: Map<string, (QuotationItem & { product: Product })[]>;
+    costsMap: Map<string, (QuotationCost & { cost?: Cost })[]>;
+  }> {
+    const itemsMap = new Map<string, (QuotationItem & { product: Product })[]>();
+    const costsMap = new Map<string, (QuotationCost & { cost?: Cost })[]>();
+
+    if (quotationIds.length === 0) {
+      return { itemsMap, costsMap };
+    }
+
+    const itemsRows = await db
+      .select()
+      .from(quotationItems)
+      .leftJoin(products, eq(quotationItems.productId, products.id))
+      .where(inArray(quotationItems.quotationId, quotationIds));
+
+    for (const row of itemsRows) {
+      if (!row.quotation_items) continue;
+      const qId = row.quotation_items.quotationId;
+      if (!itemsMap.has(qId)) itemsMap.set(qId, []);
+      itemsMap.get(qId)!.push({
+        ...row.quotation_items,
+        product: row.products!,
+      });
+    }
+
+    const costsRows = await db
+      .select()
+      .from(quotationCosts)
+      .leftJoin(costs, eq(quotationCosts.costId, costs.id))
+      .where(inArray(quotationCosts.quotationId, quotationIds));
+
+    for (const row of costsRows) {
+      if (!row.quotation_costs) continue;
+      const qId = row.quotation_costs.quotationId;
+      if (!costsMap.has(qId)) costsMap.set(qId, []);
+      costsMap.get(qId)!.push({
+        ...row.quotation_costs,
+        cost: row.costs || undefined,
+      });
+    }
+
+    return { itemsMap, costsMap };
+  }
+
   async getQuotations(): Promise<QuotationWithDetails[]> {
     const result = await db
       .select()
@@ -272,40 +321,18 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(users, eq(quotations.userId, users.id))
       .orderBy(quotations.createdAt);
 
-    const quotationsWithDetails: QuotationWithDetails[] = [];
+    const baseRows = result.filter(row => row.quotations && row.customers && row.users);
+    const { itemsMap, costsMap } = await this.loadItemsAndCostsByQuotationIds(
+      baseRows.map(row => row.quotations!.id)
+    );
 
-    for (const row of result) {
-      if (row.quotations && row.customers && row.users) {
-        const items = await db
-          .select()
-          .from(quotationItems)
-          .leftJoin(products, eq(quotationItems.productId, products.id))
-          .where(eq(quotationItems.quotationId, row.quotations.id));
-
-        // Get costs for this quotation
-        const quotationCostsData = await db
-          .select()
-          .from(quotationCosts)
-          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
-          .where(eq(quotationCosts.quotationId, row.quotations.id));
-
-        quotationsWithDetails.push({
-          ...row.quotations,
-          customer: row.customers,
-          user: row.users,
-          items: items.map(item => ({
-            ...item.quotation_items!,
-            product: item.products!
-          })),
-          costs: quotationCostsData.map(costData => ({
-            ...costData.quotation_costs!,
-            cost: costData.costs || undefined
-          }))
-        });
-      }
-    }
-
-    return quotationsWithDetails;
+    return baseRows.map(row => ({
+      ...row.quotations!,
+      customer: row.customers!,
+      user: row.users!,
+      items: itemsMap.get(row.quotations!.id) ?? [],
+      costs: costsMap.get(row.quotations!.id) ?? [],
+    }));
   }
 
   // Admin vê apenas propostas originais (não calculadas por admin) criadas por ele mesmo
@@ -318,40 +345,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(quotations.adminCalculated, 0)) // Apenas propostas originais - removido temporariamente
       .orderBy(quotations.createdAt);
 
-    const quotationsWithDetails: QuotationWithDetails[] = [];
+    const baseRows = result.filter(row => row.quotations && row.customers && row.users);
+    const { itemsMap, costsMap } = await this.loadItemsAndCostsByQuotationIds(
+      baseRows.map(row => row.quotations!.id)
+    );
 
-    for (const row of result) {
-      if (row.quotations && row.customers && row.users) {
-        const items = await db
-          .select()
-          .from(quotationItems)
-          .leftJoin(products, eq(quotationItems.productId, products.id))
-          .where(eq(quotationItems.quotationId, row.quotations.id));
-
-        // Get costs for this quotation
-        const quotationCostsData = await db
-          .select()
-          .from(quotationCosts)
-          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
-          .where(eq(quotationCosts.quotationId, row.quotations.id));
-
-        quotationsWithDetails.push({
-          ...row.quotations,
-          customer: row.customers,
-          user: row.users,
-          items: items.map(item => ({
-            ...item.quotation_items!,
-            product: item.products!
-          })),
-          costs: quotationCostsData.map(costData => ({
-            ...costData.quotation_costs!,
-            cost: costData.costs || undefined
-          }))
-        });
-      }
-    }
-
-    return quotationsWithDetails;
+    return baseRows.map(row => ({
+      ...row.quotations!,
+      customer: row.customers!,
+      user: row.users!,
+      items: itemsMap.get(row.quotations!.id) ?? [],
+      costs: costsMap.get(row.quotations!.id) ?? [],
+    }));
   }
 
 
@@ -490,49 +495,31 @@ export class DatabaseStorage implements IStorage {
   }
 
 
-  async getQuotationsByUser(userId: string): Promise<QuotationWithDetails[]> {
+  async getQuotationsByUser(userId: string, startDate?: Date, endDate?: Date): Promise<QuotationWithDetails[]> {
+    const conditions = [eq(quotations.userId, userId), eq(quotations.adminCalculated, 0)]; // Only original quotations by user
+    if (startDate) conditions.push(gte(quotations.createdAt, startDate));
+    if (endDate) conditions.push(lte(quotations.createdAt, endDate));
+
     const result = await db
       .select()
       .from(quotations)
       .leftJoin(customers, eq(quotations.customerId, customers.id))
       .leftJoin(users, eq(quotations.userId, users.id))
-      .where(and(eq(quotations.userId, userId), eq(quotations.adminCalculated, 0))) // Only original quotations by user
+      .where(and(...conditions))
       .orderBy(quotations.createdAt);
 
-    const quotationsWithDetails: QuotationWithDetails[] = [];
+    const baseRows = result.filter(row => row.quotations && row.customers && row.users);
+    const { itemsMap, costsMap } = await this.loadItemsAndCostsByQuotationIds(
+      baseRows.map(row => row.quotations!.id)
+    );
 
-    for (const row of result) {
-      if (row.quotations && row.customers && row.users) {
-        const items = await db
-          .select()
-          .from(quotationItems)
-          .leftJoin(products, eq(quotationItems.productId, products.id))
-          .where(eq(quotationItems.quotationId, row.quotations.id));
-
-        // Get costs for this quotation
-        const quotationCostsData = await db
-          .select()
-          .from(quotationCosts)
-          .leftJoin(costs, eq(quotationCosts.costId, costs.id))
-          .where(eq(quotationCosts.quotationId, row.quotations.id));
-
-        quotationsWithDetails.push({
-          ...row.quotations,
-          customer: row.customers,
-          user: row.users,
-          items: items.map(item => ({
-            ...item.quotation_items!,
-            product: item.products!
-          })),
-          costs: quotationCostsData.map(costData => ({
-            ...costData.quotation_costs!,
-            cost: costData.costs || undefined
-          }))
-        });
-      }
-    }
-
-    return quotationsWithDetails;
+    return baseRows.map(row => ({
+      ...row.quotations!,
+      customer: row.customers!,
+      user: row.users!,
+      items: itemsMap.get(row.quotations!.id) ?? [],
+      costs: costsMap.get(row.quotations!.id) ?? [],
+    }));
   }
 
 
@@ -885,49 +872,19 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(quotations.createdAt));
-      
 
-    // Group by quotation and fetch related data
-    const quotationsMap = new Map<string, QuotationWithDetails>();
+    const baseRows = result.filter(row => row.quotation);
+    const { itemsMap, costsMap } = await this.loadItemsAndCostsByQuotationIds(
+      baseRows.map(row => row.quotation.id)
+    );
 
-    for (const row of result) {
-      if (!quotationsMap.has(row.quotation.id)) {
-        quotationsMap.set(row.quotation.id, {
-          ...row.quotation,
-          customer: row.customer!,
-          user: row.user!,
-          items: [],
-          costs: []
-        });
-      }
-    }
-
-    // Fetch items and costs for each quotation
-    const quotationsList = Array.from(quotationsMap.values());
-    for (const quotation of quotationsList) {
-      const items = await db
-        .select({
-          quotationItem: quotationItems,
-          product: products,
-        })
-        .from(quotationItems)
-        .leftJoin(products, eq(quotationItems.productId, products.id))
-        .where(eq(quotationItems.quotationId, quotation.id));
-
-      quotation.items = items.map(item => ({
-        ...item.quotationItem,
-        product: item.product!
-      }));
-
-      const costs = await db
-        .select()
-        .from(quotationCosts)
-        .where(eq(quotationCosts.quotationId, quotation.id));
-
-      quotation.costs = costs;
-    }
-
-    return quotationsList;
+    return baseRows.map(row => ({
+      ...row.quotation,
+      customer: row.customer!,
+      user: row.user!,
+      items: itemsMap.get(row.quotation.id) ?? [],
+      costs: costsMap.get(row.quotation.id) ?? [],
+    }));
   }
 
   async getQuotationsByUserInDateRange(userId: string, startDate: Date, endDate: Date): Promise<QuotationWithDetails[]> {
@@ -949,49 +906,19 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(quotations.createdAt));
-      
 
-    // Group by quotation and fetch related data
-    const quotationsMap = new Map<string, QuotationWithDetails>();
+    const baseRows = result.filter(row => row.quotation);
+    const { itemsMap, costsMap } = await this.loadItemsAndCostsByQuotationIds(
+      baseRows.map(row => row.quotation.id)
+    );
 
-    for (const row of result) {
-      if (!quotationsMap.has(row.quotation.id)) {
-        quotationsMap.set(row.quotation.id, {
-          ...row.quotation,
-          customer: row.customer!,
-          user: row.user!,
-          items: [],
-          costs: []
-        });
-      }
-    }
-
-    // Fetch items and costs for each quotation
-    const quotationsList2 = Array.from(quotationsMap.values());
-    for (const quotation of quotationsList2) {
-      const items = await db
-        .select({
-          quotationItem: quotationItems,
-          product: products,
-        })
-        .from(quotationItems)
-        .leftJoin(products, eq(quotationItems.productId, products.id))
-        .where(eq(quotationItems.quotationId, quotation.id));
-
-      quotation.items = items.map(item => ({
-        ...item.quotationItem,
-        product: item.product!
-      }));
-
-      const costs = await db
-        .select()
-        .from(quotationCosts)
-        .where(eq(quotationCosts.quotationId, quotation.id));
-
-      quotation.costs = costs;
-    }
-
-    return quotationsList2;
+    return baseRows.map(row => ({
+      ...row.quotation,
+      customer: row.customer!,
+      user: row.user!,
+      items: itemsMap.get(row.quotation.id) ?? [],
+      costs: costsMap.get(row.quotation.id) ?? [],
+    }));
   }
 
   async getCustomersByUser(userId: string): Promise<Customer[]> {

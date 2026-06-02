@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, integer, timestamp, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, integer, timestamp, uuid, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -63,7 +63,10 @@ export const quotations = pgTable("quotations", {
   originalQuotationId: text("original_quotation_id"),
   branch: text("branch").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: index("quotations_user_id_idx").on(table.userId),
+  createdAtIdx: index("quotations_created_at_idx").on(table.createdAt),
+}));
 
 export const quotationItems = pgTable("quotation_items", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -74,7 +77,9 @@ export const quotationItems = pgTable("quotation_items", {
   unitCost: decimal("unit_cost", { precision: 10, scale: 2 }).notNull(),
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   totalCost: decimal("total_cost", { precision: 10, scale: 2 }).notNull(),
-});
+}, (table) => ({
+  quotationIdIdx: index("quotation_items_quotation_id_idx").on(table.quotationId),
+}));
 
 export const costs = pgTable("costs", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -95,7 +100,9 @@ export const quotationCosts = pgTable("quotation_costs", {
   totalValue: decimal("total_value", { precision: 10, scale: 2 }).notNull(),
   supplier: text("supplier"),
   description: text("description"),
-});
+}, (table) => ({
+  quotationIdIdx: index("quotation_costs_quotation_id_idx").on(table.quotationId),
+}));
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -346,15 +346,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      let quotations;
-      if (user.type === "admin") {
-        // Admin vê apenas suas próprias propostas
-        quotations = await storage.getQuotationsByUser(user.id);
-      } else {
-        // Funcionários veem suas próprias propostas
-        quotations = await storage.getQuotationsByUser(user.id);
+
+      // Filtro opcional por período (mês/ano) feito no servidor para reduzir
+      // o volume de dados retornado. Sem parâmetros, mantém o comportamento atual.
+      const monthParam = parseInt(req.query.month as string);
+      const yearParam = parseInt(req.query.year as string);
+      let startDate: Date | undefined;
+      let endDate: Date | undefined;
+      if (!isNaN(yearParam)) {
+        if (!isNaN(monthParam)) {
+          startDate = new Date(yearParam, monthParam - 1, 1);
+          endDate = new Date(yearParam, monthParam, 0, 23, 59, 59, 999);
+        } else {
+          startDate = new Date(yearParam, 0, 1);
+          endDate = new Date(yearParam, 11, 31, 23, 59, 59, 999);
+        }
       }
-      
+
+      // Admin e funcionários veem apenas suas próprias propostas
+      const quotations = await storage.getQuotationsByUser(user.id, startDate, endDate);
+
       res.json(quotations);
     } catch (error) {
       console.error("Error fetching quotations:", error);
