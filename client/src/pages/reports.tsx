@@ -779,6 +779,14 @@ export default function Reports() {
   const [showFilters, setShowFilters] = useState(false);
   const [showColumns, setShowColumns] = useState(false);
   const [showCharts, setShowCharts] = useState(true);
+  const [includePdfSummary, setIncludePdfSummary] = useState<boolean>(() => {
+    const saved = localStorage.getItem("mastergreen_pdf_include_summary");
+    return saved === null ? true : saved === "true";
+  });
+  const togglePdfSummary = (value: boolean) => {
+    setIncludePdfSummary(value);
+    localStorage.setItem("mastergreen_pdf_include_summary", String(value));
+  };
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
 
@@ -929,6 +937,7 @@ export default function Reports() {
 
     let y = 27 + filterLines.length * 4 + 3;
 
+    if (includePdfSummary) {
     // ── Summary cards (Visão Executiva style) ──
     const cards = [
       { label: "Receita (Aprovados)", value: formatCurrency(summary.totalRevenue) },
@@ -990,6 +999,7 @@ export default function Reports() {
       y += 7;
     });
     y += 3;
+    }
 
     // ── Table ──
     if (cols.length === 0) {
@@ -1169,8 +1179,28 @@ export default function Reports() {
             )}
           </Card>
 
+          {/* PDF summary toggle */}
+          <Card className="mb-4">
+            <CardContent className="py-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="include-pdf-summary"
+                  checked={includePdfSummary}
+                  onCheckedChange={(checked) => togglePdfSummary(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="include-pdf-summary" className="cursor-pointer">
+                  <span className="text-sm font-medium text-gray-900">Incluir resumo financeiro no PDF</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    Desligue para gerar um PDF sem os dados sensíveis (receita, lucro, ticket médio e funil) ao enviar o relatório para terceiros.
+                  </span>
+                </Label>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* PDF Preview */}
-          {!isLoading && reportData.length > 0 && <PdfPreview data={reportData} />}
+          {!isLoading && reportData.length > 0 && includePdfSummary && <PdfPreview data={reportData} />}
 
           {/* KPI Cards */}
           {!isLoading && <KpiCards data={reportData} />}
