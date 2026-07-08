@@ -1,5 +1,6 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import { registerRoutes } from '../server/routes.js';
+import { setupVite, serveStatic, log } from './vite.js';
 
 const app = express();
 app.use(express.json());
@@ -57,9 +58,7 @@ app.use((req, res, next) => {
   }
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Default to 5000 if not specified.
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen({
     port,

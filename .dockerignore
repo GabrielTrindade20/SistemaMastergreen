@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+*.tar.gz
+npm-debug.log
+.DS_Store
+attached_assets
+cookies.txt
+DEPLOY_VERCEL.md
+vercel.json
+api
+.replit
+replit.md
