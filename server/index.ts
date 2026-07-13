@@ -1,3 +1,9 @@
+// Fixa o fuso horário do processo para bater com o fuso usado nas queries de
+// data do Postgres (ver server/db.ts). Sem isso, "new Date(ano, mes-1, 1)" usa
+// o fuso do container (normalmente UTC) e propostas criadas à noite (horário
+// de Brasília) caem no mês errado nos relatórios/dashboard.
+process.env.TZ = 'America/Sao_Paulo';
+
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { registerRoutes } from '../server/routes.js';
 import { setupVite, serveStatic, log } from './vite.js';

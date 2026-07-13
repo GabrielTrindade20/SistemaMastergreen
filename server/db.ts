@@ -22,6 +22,11 @@ const wantsSSL =
 export const pool = new Pool({
   connectionString,
   ssl: wantsSSL ? { rejectUnauthorized: false } : undefined,
+  // Fixa o fuso da sessao para bater com process.env.TZ (server/index.ts).
+  // As colunas created_at sao "timestamp" sem fuso; sem isso, o now() do
+  // Postgres e as comparacoes de intervalo de data usam fusos diferentes
+  // (container vs sessao do banco), deslocando propostas para o mes errado.
+  options: '-c timezone=America/Sao_Paulo',
 });
 
 export const db = drizzle(pool, { schema });
