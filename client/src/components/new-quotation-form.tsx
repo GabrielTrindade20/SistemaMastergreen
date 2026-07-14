@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,15 +9,41 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2 } from "lucide-react";
+import { Plus, Trash2, Calculator, Search, Check, ChevronsUpDown, Share2, Clock, RotateCcw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import type { Customer, Product, Cost } from "@shared/schema";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { QuickCreateProductDialog } from "@/components/quick-create-product-dialog";
+import { QuickCreateCostDialog } from "@/components/quick-create-cost-dialog";
+import type { Customer, Product, Cost, SystemSetting } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+
+const DRAFT_KEY = "mastergreen_quotation_draft";
+
+const loadDraft = () => {
+  try {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveDraftToStorage = (data: object) => {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, savedAt: new Date().toISOString() }));
+  } catch {}
+};
+
+const clearDraftFromStorage = () => {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {}
+};
 
 const quotationSchema = z.object({
   customerId: z.string().min(1, "Selecione um cliente"),
@@ -51,6 +77,7 @@ interface QuotationCost {
   description?: string;
   calculationType: 'fixed' | 'percentage'; // R$ ou %
   percentageValue?: number; // Valor da porcentagem quando calculationType é 'percentage'
+  productId?: string; // Produto associado ao custo (para múltiplos produtos)
 }
 
 interface QuotationCalculations {
@@ -76,6 +103,7 @@ interface NewQuotationFormProps {
   onCancel: () => void;
   isLoading: boolean;
   initialData?: any;
+  isEditMode?: boolean;
 }
 
 export function NewQuotationForm({ 
@@ -84,7 +112,8 @@ export function NewQuotationForm({
   onSubmit, 
   onCancel, 
   isLoading,
-  initialData 
+  initialData,
+  isEditMode = false,
 }: NewQuotationFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -101,6 +130,13 @@ export function NewQuotationForm({
   const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [customerSearchValue, setCustomerSearchValue] = useState("");
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [hasDraft, setHasDraft] = useState(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftLoadedRef = useRef(false);
+  const [quickProductDialogOpen, setQuickProductDialogOpen] = useState(false);
+  const [quickProductTargetIndex, setQuickProductTargetIndex] = useState<number | null>(null);
+  const [quickCostDialogOpen, setQuickCostDialogOpen] = useState(false);
+  const [quickCostTargetIndex, setQuickCostTargetIndex] = useState<number | null>(null);
   
   const [calculations, setCalculations] = useState<QuotationCalculations>({
     subtotal: 0,
@@ -123,6 +159,15 @@ export function NewQuotationForm({
     queryKey: ["/api/costs"],
   });
 
+  // Fetch system settings for calculation percentages
+  const { data: settings = [] } = useQuery<SystemSetting[]>({
+    queryKey: ["/api/settings"],
+  });
+  const rawInvoice = parseFloat(settings.find(s => s.key === "invoice_percent")?.value ?? "5");
+  const rawTithe = parseFloat(settings.find(s => s.key === "tithe_percent")?.value ?? "10");
+  const invoicePercentSetting = isNaN(rawInvoice) ? 5 : rawInvoice;
+  const tithePercentSetting = isNaN(rawTithe) ? 10 : rawTithe;
+
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
     defaultValues: {
@@ -144,6 +189,72 @@ export function NewQuotationForm({
       form.setValue('responsibleName', user.name);
     }
   }, [user, form, initialData]);
+
+  // Carregar rascunho salvo ao montar (apenas para novas propostas)
+  useEffect(() => {
+    if (isEditMode || initialData || draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    const draft = loadDraft();
+    if (!draft) return;
+    setHasDraft(true);
+    const fv = draft.formValues || {};
+    if (fv.customerId) form.setValue('customerId', fv.customerId);
+    if (fv.validUntil) form.setValue('validUntil', fv.validUntil);
+    if (fv.notes !== undefined) form.setValue('notes', fv.notes);
+    if (fv.shippingIncluded !== undefined) form.setValue('shippingIncluded', fv.shippingIncluded);
+    if (fv.warrantyText) form.setValue('warrantyText', fv.warrantyText);
+    if (fv.pdfTitle !== undefined) form.setValue('pdfTitle', fv.pdfTitle);
+    if (fv.discountPercent !== undefined) form.setValue('discountPercent', fv.discountPercent);
+    if (draft.items && draft.items.length > 0) setItems(draft.items);
+    if (draft.costs && draft.costs.length > 0) setCosts(draft.costs);
+    if (draft.customerSearchValue) setCustomerSearchValue(draft.customerSearchValue);
+  }, []); // only on mount
+
+  // Auto-salvar rascunho quando form muda (apenas novas propostas)
+  useEffect(() => {
+    if (isEditMode) return;
+    const { unsubscribe } = form.watch((values) => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+      draftTimerRef.current = setTimeout(() => {
+        saveDraftToStorage({ formValues: values, items, costs, customerSearchValue });
+      }, 800);
+    });
+    return () => {
+      unsubscribe();
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [form, isEditMode]);
+
+  // Auto-salvar rascunho quando items/costs/customerSearchValue mudam
+  useEffect(() => {
+    if (isEditMode) return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = setTimeout(() => {
+      saveDraftToStorage({ formValues: form.getValues(), items, costs, customerSearchValue });
+    }, 800);
+    return () => {
+      if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+    };
+  }, [items, costs, customerSearchValue, isEditMode]);
+
+  const discardDraft = () => {
+    clearDraftFromStorage();
+    setHasDraft(false);
+    form.reset({
+      customerId: "",
+      validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      notes: "",
+      shippingIncluded: true,
+      warrantyText: "1 ano de garantia de fábrica",
+      pdfTitle: "",
+      responsibleName: user?.name || "",
+      responsiblePosition: "Administrador",
+      discountPercent: "",
+    });
+    setItems([{ productId: '', quantity: 0, unitPrice: 0, salePrice: 0, originalUnitPrice: 0 }]);
+    setCosts([]);
+    setCustomerSearchValue("");
+  };
 
   // Inicializar lista de clientes filtrados
   useEffect(() => {
@@ -222,10 +333,10 @@ export function NewQuotationForm({
     }
   }, [initialData, form, customers, user]);
 
-  // Recalcular automaticamente quando items, costs ou desconto mudarem
+  // Recalcular automaticamente quando items, costs, desconto ou configurações mudarem
   useEffect(() => {
     calculateTotals();
-  }, [items, costs, form.watch('discountPercent')]);
+  }, [items, costs, form.watch('discountPercent'), invoicePercentSetting, tithePercentSetting]);
 
   const calculateTotals = () => {
     // 1. Valor Total da Venda (bruto): quantidade * valor por metro escolhido pelo cliente
@@ -252,9 +363,9 @@ export function NewQuotationForm({
       return sum + cost.totalValue;
     }, 0);
 
-    // 5. Valor da Nota Fiscal (5%): 5% do valor COM DESCONTO
-    const invoicePercent = 5.00;
-    const valorNotaFiscal = valorComDesconto * 0.05;
+    // 5. Valor da Nota Fiscal: invoicePercentSetting% do valor COM DESCONTO
+    const invoicePercent = invoicePercentSetting;
+    const valorNotaFiscal = valorComDesconto * (invoicePercent / 100);
 
     // 6. Total com Nota Fiscal: Total de Custos + Valor da Nota Fiscal
     const totalComNotaFiscal = totalCosts + valorNotaFiscal;
@@ -265,26 +376,26 @@ export function NewQuotationForm({
     // 8. Porcentagem de Lucro: (lucro * 100) / Valor COM DESCONTO
     const profitPercent = valorComDesconto > 0 ? (lucroEmpresa * 100) / valorComDesconto : 0;
 
-    // 9. Dízimo (10%): 10% do Lucro da Empresa
-    const dizimo = lucroEmpresa * 0.10;
+    // 9. Dízimo: tithePercentSetting% do Lucro da Empresa
+    const dizimo = lucroEmpresa * (tithePercentSetting / 100);
 
     // 10. Lucro Líquido: Lucro da Empresa - Dízimo
     const lucroLiquido = lucroEmpresa - dizimo;
 
     setCalculations({
-      subtotal: valorTotalVenda, // Valor bruto (antes do desconto)
-      totalCosts, // Total de Custos (produtos + outros custos)
-      totalWithoutInvoice: totalCosts, // Total sem nota fiscal
+      subtotal: valorTotalVenda,
+      totalCosts,
+      totalWithoutInvoice: totalCosts,
       invoicePercent,
-      invoiceAmount: valorNotaFiscal, // Valor da Nota Fiscal (5% do valor com desconto)
-      totalWithInvoice: totalComNotaFiscal, // Total com Nota Fiscal
-      companyProfit: lucroEmpresa, // Lucro da Empresa (baseado no valor com desconto)
-      profitPercent, // Porcentagem de Lucro
-      tithe: dizimo, // Dízimo (10%)
-      netProfit: lucroLiquido, // Lucro Líquido
-      total: valorComDesconto, // Total Final ao Cliente (com desconto)
-      discount, // Valor do desconto
-      finalTotal: valorComDesconto, // Total final com desconto
+      invoiceAmount: valorNotaFiscal,
+      totalWithInvoice: totalComNotaFiscal,
+      companyProfit: lucroEmpresa,
+      profitPercent,
+      tithe: dizimo,
+      netProfit: lucroLiquido,
+      total: valorComDesconto,
+      discount,
+      finalTotal: valorComDesconto,
     });
   };
 
@@ -343,6 +454,7 @@ export function NewQuotationForm({
       description: firstCost.description || '',
       calculationType: 'fixed',
       percentageValue: 0,
+      productId: items.length === 1 ? items[0].productId : undefined, // Apenas associar se há um produto único
     };
     
     setCosts([...costs, newCost]);
@@ -456,7 +568,7 @@ export function NewQuotationForm({
         costId: cost.costId === 'manual' ? null : cost.costId,
         name: cost.name,
         unitValue: cost.unitValue,
-        quantity: cost.quantity,
+        quantity: cost.calculationType === 'percentage' ? cost.percentageValue || 0 : cost.quantity,
         totalValue: cost.totalValue,
         supplier: cost.supplier,
         description: cost.description,
@@ -468,6 +580,8 @@ export function NewQuotationForm({
     console.log('About to call onSubmit function...');
     
     try {
+      clearDraftFromStorage();
+      setHasDraft(false);
       onSubmit(quotationData);
       console.log('onSubmit called successfully');
     } catch (error) {
@@ -655,6 +769,28 @@ export function NewQuotationForm({
           console.log('Form validation errors:', errors);
         })(e);
       }} className="space-y-6">
+
+        {/* Banner de rascunho restaurado */}
+        {hasDraft && !isEditMode && (
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-amber-800">
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-medium">Rascunho restaurado automaticamente</span>
+              <span className="text-xs text-amber-600 hidden sm:inline">— seus dados preenchidos anteriormente foram recuperados</span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={discardDraft}
+              className="text-amber-700 hover:text-amber-900 hover:bg-amber-100 shrink-0 ml-2"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Descartar
+            </Button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Cliente com Pesquisa Melhorada */}
           <FormField
@@ -756,21 +892,18 @@ export function NewQuotationForm({
                 <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
                   <div>
                     <label className="text-sm font-medium">Produto</label>
-                    <Select 
-                      value={item.productId} 
+                    <SearchableSelect
+                      options={products.map(p => ({ value: p.id, label: p.name }))}
+                      value={item.productId}
                       onValueChange={(value) => updateItem(index, 'productId', value)}
-                    >
-                      <SelectTrigger data-testid={`select-product-${index}`}>
-                        <SelectValue placeholder="Selecionar" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Selecionar produto"
+                      data-testid={`select-product-${index}`}
+                      onCreateNew={() => {
+                        setQuickProductTargetIndex(index);
+                        setQuickProductDialogOpen(true);
+                      }}
+                      createNewLabel="+ Criar novo produto"
+                    />
                   </div>
                   
                   <div>
@@ -888,26 +1021,51 @@ export function NewQuotationForm({
                 {costs.map((cost, index) => (
                   <Card key={index} className="border-l-4 border-l-red-500">
                     <CardContent className="pt-6">
-                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 items-end">
                     <div>
                       <label className="text-sm font-medium">Custo</label>
-                      <Select 
-                        value={cost.costId} 
+                      <SearchableSelect
+                        options={[
+                          ...availableCosts.map(c => ({ value: c.id, label: c.name })),
+                          { value: "manual", label: "Custo Manual" },
+                        ]}
+                        value={cost.costId}
                         onValueChange={(value) => updateCost(index, 'costId', value)}
-                      >
-                        <SelectTrigger data-testid={`select-cost-${index}`}>
-                          <SelectValue placeholder="Selecionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableCosts.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="manual">Custo Manual</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        placeholder="Selecionar custo"
+                        data-testid={`select-cost-${index}`}
+                        onCreateNew={() => {
+                          setQuickCostTargetIndex(index);
+                          setQuickCostDialogOpen(true);
+                        }}
+                        createNewLabel="+ Criar novo custo"
+                      />
                     </div>
+
+                    {/* Seleção de Produto - Apenas quando há múltiplos produtos */}
+                    {items.length > 1 && (
+                      <div>
+                        <label className="text-sm font-medium">Produto</label>
+                        <Select 
+                          value={cost.productId || 'none'} 
+                          onValueChange={(value) => updateCost(index, 'productId', value === 'none' ? undefined : value)}
+                        >
+                          <SelectTrigger data-testid={`select-product-${index}`}>
+                            <SelectValue placeholder="Selecionar produto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Custo geral (não específico)</SelectItem>
+                            {items.map((item, itemIndex) => {
+                              const product = products.find(p => p.id === item.productId);
+                              return (
+                                <SelectItem key={`product-${itemIndex}-${item.productId}`} value={item.productId || `item-${itemIndex}`}>
+                                  {product?.name || `Produto ${itemIndex + 1}`}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                     
                     <div>
                       <label className="text-sm font-medium">Tipo de Cálculo</label>
@@ -1074,7 +1232,7 @@ export function NewQuotationForm({
                     </div>
                     
                     <div className="flex justify-between">
-                      <span>Valor da Nota Fiscal (5% do valor {calculations.discount > 0 ? 'com desconto' : 'total'}):</span>
+                      <span>Valor da Nota Fiscal ({calculations.invoicePercent}% do valor {calculations.discount > 0 ? 'com desconto' : 'total'}):</span>
                       <span>{formatCurrency(calculations.invoiceAmount)}</span>
                     </div>
                     
@@ -1094,7 +1252,7 @@ export function NewQuotationForm({
                     </div>
                     
                     <div className="flex justify-between">
-                      <span>Dízimo (10%):</span>
+                      <span>Dízimo ({tithePercentSetting}%):</span>
                       <span>{formatCurrency(calculations.tithe)}</span>
                     </div>
                     
@@ -1142,12 +1300,12 @@ export function NewQuotationForm({
             />
 
             {/* Frete e Garantia */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="shippingIncluded"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2 sm:p-3 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel>Frete Incluso</FormLabel>
                       <FormDescription>
@@ -1301,11 +1459,34 @@ export function NewQuotationForm({
                 console.log('Form dirty:', form.formState.isDirty);
               }}
             >
-              {isLoading ? "Salvando..." : "Salvar Orçamento"}
+              {isLoading ? "Salvando..." : isEditMode ? "Salvar Alterações" : "Salvar Orçamento"}
             </Button>
           </div>
         </div>
       </form>
+
+      {/* Quick-create dialogs */}
+      <QuickCreateProductDialog
+        open={quickProductDialogOpen}
+        onOpenChange={setQuickProductDialogOpen}
+        onCreated={(productId) => {
+          if (quickProductTargetIndex !== null) {
+            updateItem(quickProductTargetIndex, 'productId', productId);
+          }
+          setQuickProductTargetIndex(null);
+        }}
+      />
+
+      <QuickCreateCostDialog
+        open={quickCostDialogOpen}
+        onOpenChange={setQuickCostDialogOpen}
+        onCreated={(costId) => {
+          if (quickCostTargetIndex !== null) {
+            updateCost(quickCostTargetIndex, 'costId', costId);
+          }
+          setQuickCostTargetIndex(null);
+        }}
+      />
     </Form>
   );
 }

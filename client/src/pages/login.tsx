@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import logoMasterGreen from "@assets/mastergreen-logo.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Lock, User, Eye, EyeOff } from "lucide-react";
-import logoMastergreen from "@/imagem/logoSemFundo.png";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -25,7 +25,7 @@ export default function Login() {
         <CardHeader className="text-center">
           <div className="w-32 h-16 bg-[#ffffff] rounded-full flex items-center justify-center mx-auto mb-4">
             <img
-              src={logoMastergreen}
+              src={logoMasterGreen}
               alt="Logo MasterGreen"
               className="w-32 h-32 object-contain"
             />

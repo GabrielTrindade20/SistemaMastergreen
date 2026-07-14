@@ -10,7 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Plus, Trash2, FileText } from "lucide-react";
-import type { Customer, Product, Cost } from "@shared/schema";
+import type { Customer, Product, Cost, SystemSetting } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { calculateQuotationTotals, calculateQuotationTotalsWithCosts } from "@/lib/calculations";
 import { generateQuotationPDF } from "@/lib/pdf-generator";
@@ -76,6 +76,15 @@ export default function QuotationForm({
   const { data: costs = [] } = useQuery<Cost[]>({
     queryKey: ["/api/costs"],
   });
+
+  // Fetch system settings for calculation percentages
+  const { data: settings = [] } = useQuery<SystemSetting[]>({
+    queryKey: ["/api/settings"],
+  });
+  const rawInvoice = parseFloat(settings.find(s => s.key === "invoice_percent")?.value ?? "5");
+  const rawTithe = parseFloat(settings.find(s => s.key === "tithe_percent")?.value ?? "10");
+  const invoicePercentSetting = isNaN(rawInvoice) ? 5 : rawInvoice;
+  const tithePercentSetting = isNaN(rawTithe) ? 10 : rawTithe;
 
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
@@ -197,7 +206,9 @@ export default function QuotationForm({
     products, 
     quotationCosts, 
     discountPercent,
-    sellerCommissionPercent
+    sellerCommissionPercent,
+    invoicePercentSetting,
+    tithePercentSetting
   );
   
   const getCostTotal = (cost: typeof quotationCosts[0]) => {

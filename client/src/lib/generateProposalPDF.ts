@@ -1,6 +1,7 @@
 import type { QuotationWithDetails } from "@shared/schema";
 import jsPDF from "jspdf";
 import { CompanyInfo, getImageAsBase64 } from "./pdf-generator";
+import logoMasterGreen from "@assets/mastergreen-logo.png";
 
 
 export async function generateProposalPDF(quotation: QuotationWithDetails, fileName?: string): Promise<void> {
@@ -28,7 +29,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
 
         // Try to load logo, if fails continue without it
         try {
-            const logoBase64 = await getImageAsBase64('/src/imagem/logoSemFundo.png');
+            const logoBase64 = await getImageAsBase64(logoMasterGreen);
             if (logoBase64) {
                 const logoWidth = 60;
                 const logoHeight = 60;
@@ -105,7 +106,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
 
         const tableHeaders = ["ITEM", "QTD.\n(m²)", "DESCRIÇÃO DO PRODUTO", "VALOR\nUNIT.", "VALOR\nTOTAL"];
         const columnWidths = [20, 25, 80, 25, 25];
-        let xPosition = leftMargin;
+        xPosition = leftMargin;
 
         // Draw table header with centered text
         tableHeaders.forEach((header, index) => {

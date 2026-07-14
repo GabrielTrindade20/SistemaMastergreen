@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -9,6 +10,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -23,7 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy } from "lucide-react";
+import { Plus, MoreHorizontal, FileText, Check, X, Eye, Trash2, Share2, Copy, Search, FilterX, Pencil } from "lucide-react";
 import type { QuotationWithDetails, Customer, Product, User } from "@shared/schema";
 import NewQuotationForm from "@/components/new-quotation-form";
 import { generateProposalPDF } from "@/lib/pdf-generator";
@@ -39,9 +48,30 @@ export default function Quotations() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
+
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
+  const [salespersonFilter, setSalespersonFilter] = useState("all");
+  const [branchFilter, setBranchFilter] = useState("all");
 
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
-    queryKey: ["/api/quotations"],
+    queryKey: ["/api/quotations", monthFilter, yearFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (yearFilter !== "all") {
+        params.set("year", yearFilter);
+        if (monthFilter !== "all") params.set("month", monthFilter);
+      }
+      const qs = params.toString();
+      const res = await fetch(`/api/quotations${qs ? `?${qs}` : ""}`, {
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
+      return res.json();
+    },
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -166,6 +196,10 @@ export default function Quotations() {
     }
   };
 
+  const handleEditQuotation = (quotation: QuotationWithDetails) => {
+    setLocation(`/orcamentos/novo?edit=${quotation.id}`);
+  };
+
   const handleDuplicateQuotation = async (quotation: QuotationWithDetails) => {
     try {
       // Buscar detalhes completos da proposta
@@ -283,6 +317,83 @@ export default function Quotations() {
       });
     }
   };
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    quotations.forEach((q) => {
+      if (q.createdAt) years.add(new Date(q.createdAt).getFullYear());
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [quotations]);
+
+  const availableMonths = useMemo(() => {
+    const months = new Set<number>();
+    quotations.forEach((q) => {
+      if (q.createdAt) {
+        const d = new Date(q.createdAt);
+        if (yearFilter === "all" || d.getFullYear() === parseInt(yearFilter)) {
+          months.add(d.getMonth() + 1);
+        }
+      }
+    });
+    return Array.from(months).sort((a, b) => a - b);
+  }, [quotations, yearFilter]);
+
+  const availableBranches = useMemo(() => {
+    const branches = new Set<string>();
+    quotations.forEach((q) => {
+      if (q.branch) branches.add(q.branch);
+    });
+    return Array.from(branches).sort();
+  }, [quotations]);
+
+  const filteredQuotations = useMemo(() => {
+    return quotations.filter((q) => {
+      const search = searchText.toLowerCase();
+      if (search) {
+        const matchesName = q.customer.name.toLowerCase().includes(search);
+        const matchesNumber = q.quotationNumber.toLowerCase().includes(search);
+        if (!matchesName && !matchesNumber) return false;
+      }
+      if (statusFilter !== "all" && q.status !== statusFilter) return false;
+      if (q.createdAt) {
+        const d = new Date(q.createdAt);
+        if (yearFilter !== "all" && d.getFullYear() !== parseInt(yearFilter)) return false;
+        if (monthFilter !== "all" && d.getMonth() + 1 !== parseInt(monthFilter)) return false;
+      }
+      if (salespersonFilter !== "all") {
+        const matchesSalesperson =
+          q.responsibleId === salespersonFilter || q.userId === salespersonFilter;
+        if (!matchesSalesperson) return false;
+      }
+      if (branchFilter !== "all" && q.branch !== branchFilter) return false;
+      return true;
+    });
+  }, [quotations, searchText, statusFilter, monthFilter, yearFilter, salespersonFilter, branchFilter]);
+
+  const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== "all" || yearFilter !== "all" || salespersonFilter !== "all" || branchFilter !== "all";
+
+  const filteredSummary = useMemo(() => {
+    const total = filteredQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+    const pending = filteredQuotations.filter((q) => q.status === "pending").length;
+    const approved = filteredQuotations.filter((q) => q.status === "approved").length;
+    const rejected = filteredQuotations.filter((q) => q.status === "rejected").length;
+    return { total, pending, approved, rejected };
+  }, [filteredQuotations]);
+
+  const handleClearFilters = () => {
+    setSearchText("");
+    setStatusFilter("all");
+    setMonthFilter("all");
+    setYearFilter("all");
+    setSalespersonFilter("all");
+    setBranchFilter("all");
+  };
+
+  const monthNames = [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  ];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -484,8 +595,9 @@ export default function Quotations() {
           </CardContent>
         </Card>
 
-        {/* Seção de Custos */}
-        {selectedQuotation.costs && selectedQuotation.costs.length > 0 && (
+        {/* Seção de Custos - Visível para todos os status */}
+        {selectedQuotation.costs && selectedQuotation.costs.length > 0 && 
+         ['pending', 'approved', 'rejected'].includes(selectedQuotation.status) && (
           <Card className="mt-4 md:mt-6">
             <CardHeader>
               <CardTitle className="text-lg">Custos da Proposta</CardTitle>
@@ -493,33 +605,53 @@ export default function Quotations() {
             <CardContent className="p-0">
               <div className="overflow-x-auto p-4">
                 <Table className="min-w-full">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Fornecedor</TableHead>
-                    <TableHead>Qtd</TableHead>
-                    <TableHead>Valor Unit.</TableHead>
-                    <TableHead>Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedQuotation.costs.map((cost: any, index: number) => (
-                    <TableRow key={index}>
-                      <TableCell>{cost.name}</TableCell>
-                      <TableCell>{cost.supplier || '-'}</TableCell>
-                      <TableCell>{parseFloat(cost.quantity || 0).toFixed(2)}</TableCell>
-                      <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
-                      <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Fornecedor</TableHead>
+                      <TableHead>Qtd</TableHead>
+                      <TableHead>Valor Unit.</TableHead>
+                      <TableHead>Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedQuotation.costs.map((cost: any, index: number) => (
+                      <TableRow key={index}>
+                        <TableCell>{cost.name}</TableCell>
+                        <TableCell>{cost.supplier || '-'}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            const quantity = parseFloat(cost.quantity || 0);
+                            const unitValue = parseFloat(cost.unitValue || 0);
+                            const totalValue = parseFloat(cost.totalValue || 0);
+                            
+                            if (unitValue > 0 && totalValue > 0 && quantity > 0) {
+                              const expectedTotalFromPercentage = unitValue * (quantity / 100);
+                              const expectedTotalFromQuantity = unitValue * quantity;
+                              
+                              const diffPercentage = Math.abs(totalValue - expectedTotalFromPercentage);
+                              const diffQuantity = Math.abs(totalValue - expectedTotalFromQuantity);
+                              
+                              if (diffPercentage <= 0.01 || diffPercentage < diffQuantity) {
+                                return `${quantity.toFixed(2)}%`;
+                              }
+                            }
+                            
+                            return quantity.toFixed(2);
+                          })()}
+                        </TableCell>
+                        <TableCell>{formatCurrency(parseFloat(cost.unitValue))}</TableCell>
+                        <TableCell>{formatCurrency(parseFloat(cost.totalValue))}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               
               <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between items-center text-lg font-semibold">
                   <span>Total dos Custos:</span>
                   <span className="text-red-600">
-                    {formatCurrency(selectedQuotation.costs.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0))}
+                    {formatCurrency(parseFloat(selectedQuotation.totalCosts || "0"))}
                   </span>
                 </div>
               </div>
@@ -565,13 +697,13 @@ export default function Quotations() {
                   <div className="flex justify-between">
                     <span>Total dos Custos:</span>
                     <span className="font-semibold text-red-600">
-                      {formatCurrency(selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0)}
+                      {formatCurrency(parseFloat(selectedQuotation.totalCosts || "0"))}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>NF (5% do valor {parseFloat((selectedQuotation as any).discountPercent || "0") > 0 ? 'com desconto' : 'total'}):</span>
+                    <span>NF ({parseFloat(selectedQuotation.invoicePercent || "5").toFixed(2).replace(/\.?0+$/, "")}% do valor {parseFloat((selectedQuotation as any).discountPercent || "0") > 0 ? 'com desconto' : 'total'}):</span>
                     <span className="font-semibold text-red-600">
-                      {formatCurrency(parseFloat(selectedQuotation.total) * 0.05)}
+                      {formatCurrency(parseFloat(selectedQuotation.invoiceAmount || "0"))}
                     </span>
                   </div>
                 </div>
@@ -581,89 +713,71 @@ export default function Quotations() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <h4 className="font-semibold text-gray-700">Lucro da Empresa</h4>
-                    {(() => {
-                      // Calculate values considering discount
-                      const finalTotal = parseFloat(selectedQuotation.total); // This is the final value after discount
-                      const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                      const invoiceAmount = finalTotal * 0.05;
-                      const totalWithInvoice = totalCosts + invoiceAmount;
-                      const companyProfit = finalTotal - totalWithInvoice;
-                      const profitPercent = finalTotal > 0 ? (companyProfit / finalTotal) * 100 : 0;
-                      const tithe = companyProfit * 0.10;
-                      const netProfit = companyProfit - tithe;
-                      
-                      return (
-                        <>
-                          <div className="flex justify-between">
-                            <span>Total de Custos:</span>
-                            <span className="font-semibold text-red-600">
-                              {formatCurrency(totalCosts)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Valor da Nota Fiscal (5%):</span>
-                            <span className="font-semibold text-red-600">
-                              {formatCurrency(invoiceAmount)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Total com Nota Fiscal:</span>
-                            <span className="font-semibold text-red-600">
-                              {formatCurrency(totalWithInvoice)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Lucro da Empresa:</span>
-                            <span className="font-semibold text-blue-600">
-                              {formatCurrency(companyProfit)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Porcentagem de Lucro:</span>
-                            <span className="font-semibold">
-                              {profitPercent.toFixed(2)}%
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Dízimo (10%):</span>
-                            <span className="font-semibold text-red-600">
-                              {formatCurrency(tithe)}
-                            </span>
-                          </div>
-                        </>
-                      );
-                    })()}
+                      <>
+                        <div className="flex justify-between">
+                          <span>Total de Custos:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatCurrency(parseFloat(selectedQuotation.totalCosts || "0"))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Valor da Nota Fiscal ({parseFloat(selectedQuotation.invoicePercent || "5").toFixed(2).replace(/\.?0+$/, "")}%):</span>
+                          <span className="font-semibold text-red-600">
+                            {formatCurrency(parseFloat(selectedQuotation.invoiceAmount || "0"))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total com Nota Fiscal:</span>
+                          <span className="font-semibold text-red-600">
+                            {formatCurrency(parseFloat(selectedQuotation.totalWithInvoice || "0"))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Lucro da Empresa:</span>
+                          <span className="font-semibold text-blue-600">
+                            {formatCurrency(parseFloat(selectedQuotation.companyProfit || "0"))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Porcentagem de Lucro:</span>
+                          <span className="font-semibold">
+                            {parseFloat(selectedQuotation.profitPercent || "0").toFixed(2)}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Dízimo ({(() => {
+                            const tithe = parseFloat(selectedQuotation.tithe || "0");
+                            const profit = parseFloat(selectedQuotation.companyProfit || "0");
+                            const pct = profit !== 0 ? (tithe / profit) * 100 : 0;
+                            return pct.toFixed(2).replace(/\.?0+$/, "");
+                          })()}%):</span>
+                          <span className="font-semibold text-red-600">
+                            {formatCurrency(parseFloat(selectedQuotation.tithe || "0"))}
+                          </span>
+                        </div>
+                      </>
                   </div>
                   
                   <div className="space-y-3">
                     <h4 className="font-semibold text-gray-700">Resultado Final</h4>
-                    {(() => {
-                      // Calculate final results considering discount
-                      const finalTotal = parseFloat(selectedQuotation.total);
-                      const totalCosts = selectedQuotation.costs?.reduce((sum: number, cost: any) => sum + parseFloat(cost.totalValue), 0) || 0;
-                      const invoiceAmount = finalTotal * 0.05;
-                      const totalWithInvoice = totalCosts + invoiceAmount;
-                      const companyProfit = finalTotal - totalWithInvoice;
-                      const tithe = companyProfit * 0.10;
-                      const netProfit = companyProfit - tithe;
-                      
-                      return (
-                        <>
-                          <div className="flex justify-between text-lg">
-                            <span>Lucro Líquido:</span>
-                            <span className="font-bold text-green-600">
-                              {formatCurrency(netProfit)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Margem Líquida:</span>
-                            <span className="font-semibold">
-                              {finalTotal > 0 ? ((netProfit / finalTotal) * 100).toFixed(2) : "0.00"}%
-                            </span>
-                          </div>
-                        </>
-                      );
-                    })()}
+                      <>
+                        <div className="flex justify-between text-lg">
+                          <span>Lucro Líquido:</span>
+                          <span className="font-bold text-green-600">
+                            {formatCurrency(parseFloat(selectedQuotation.netProfit || "0"))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Margem Líquida:</span>
+                          <span className="font-semibold">
+                            {(() => {
+                              const finalTotal = parseFloat(selectedQuotation.total);
+                              const netProfit = parseFloat(selectedQuotation.netProfit || "0");
+                              return finalTotal > 0 ? ((netProfit / finalTotal) * 100).toFixed(2) : "0.00";
+                            })()}%
+                          </span>
+                        </div>
+                      </>
                   </div>
                 </div>
               </div>
@@ -728,19 +842,122 @@ export default function Quotations() {
         <CardHeader>
           <CardTitle>Lista de Propostas</CardTitle>
           <CardDescription>
-            {quotations.length} proposta(s) cadastrada(s)
+            {`Mostrando ${filteredQuotations.length} de ${quotations.length} proposta(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Search and filters */}
+          <div className="mb-4 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por cliente ou número da proposta..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="pending">Pendente</SelectItem>
+                  <SelectItem value="approved">Aprovado</SelectItem>
+                  <SelectItem value="rejected">Rejeitado</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setMonthFilter("all"); }}>
+                <SelectTrigger className="w-full sm:w-36">
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os anos</SelectItem>
+                  {availableYears.map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={monthFilter} onValueChange={setMonthFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os meses</SelectItem>
+                  {availableMonths.map((m) => (
+                    <SelectItem key={m} value={String(m)}>{monthNames[m - 1]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={salespersonFilter} onValueChange={setSalespersonFilter}>
+                <SelectTrigger className="w-full sm:w-44">
+                  <SelectValue placeholder="Responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os responsáveis</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={branchFilter} onValueChange={setBranchFilter}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Filial" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as filiais</SelectItem>
+                  {availableBranches.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button variant="outline" onClick={handleClearFilters} className="flex items-center gap-2">
+                  <FilterX className="h-4 w-4" />
+                  Limpar filtros
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {filteredQuotations.length > 0 && (
+            <div className="mb-4 flex flex-wrap gap-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-500">Total:</span>
+                <span className="font-semibold text-gray-800">{filteredQuotations.length} proposta(s)</span>
+              </div>
+              <div className="border-l border-gray-300 pl-3 flex items-center gap-1.5">
+                <span className="text-gray-500">Valor total:</span>
+                <span className="font-semibold text-master-green">{formatCurrency(filteredSummary.total)}</span>
+              </div>
+              <div className="border-l border-gray-300 pl-3 flex items-center gap-1.5">
+                <span className="text-yellow-600 font-medium">Pendente: {filteredSummary.pending}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-green-600 font-medium">Aprovado: {filteredSummary.approved}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-red-600 font-medium">Rejeitado: {filteredSummary.rejected}</span>
+              </div>
+            </div>
+          )}
+
           {quotationsLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-master-green"></div>
             </div>
-          ) : quotations.length > 0 ? (
+          ) : filteredQuotations.length > 0 ? (
             <>
               {/* Mobile view */}
               <div className="block md:hidden space-y-4">
-                {quotations.map((quotation) => (
+                {filteredQuotations.map((quotation) => (
                   <Card key={quotation.id} className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -773,9 +990,15 @@ export default function Quotations() {
                             <Share2 className="mr-2 h-4 w-4" />
                             Compartilhar
                           </DropdownMenuItem>
+                          {quotation.status === "pending" && (
+                            <DropdownMenuItem onClick={() => handleEditQuotation(quotation)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => handleDuplicateQuotation(quotation)}>
                             <Copy className="mr-2 h-4 w-4" />
-                            Duplicar e Editar
+                            Duplicar
                           </DropdownMenuItem>
                           {quotation.status === "pending" && (
                             <>
@@ -819,7 +1042,7 @@ export default function Quotations() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {quotations.map((quotation) => (
+                  {filteredQuotations.map((quotation) => (
                     <TableRow key={quotation.id}>
                     <TableCell className="font-medium">
                       {quotation.quotationNumber}
@@ -856,11 +1079,19 @@ export default function Quotations() {
                             <Share2 className="mr-2 h-4 w-4" />
                             Compartilhar
                           </DropdownMenuItem>
+                          {quotation.status === "pending" && (
+                            <DropdownMenuItem
+                              onClick={() => handleEditQuotation(quotation)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
                             onClick={() => handleDuplicateQuotation(quotation)}
                           >
                             <Copy className="mr-2 h-4 w-4" />
-                            Duplicar e Editar
+                            Duplicar
                           </DropdownMenuItem>
                           {/* Aprovar/Rejeitar - Funcionários não podem alterar após aprovar/rejeitar */}
                           {quotation.status === "pending" && (
@@ -898,6 +1129,14 @@ export default function Quotations() {
                 </Table>
               </div>
             </>
+          ) : hasActiveFilters ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Nenhuma proposta encontrada com os filtros aplicados.</p>
+              <Button variant="outline" onClick={handleClearFilters} className="mt-4 flex items-center gap-2 mx-auto">
+                <FilterX className="h-4 w-4" />
+                Limpar filtros
+              </Button>
+            </div>
           ) : (
             <div className="text-center py-8">
               <p className="text-gray-500">Nenhum orçamento encontrado.</p>

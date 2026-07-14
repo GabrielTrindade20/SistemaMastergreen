@@ -1,0 +1,30 @@
+Criar produto/custo inline na proposta
+What & Why
+When filling out a proposal, users sometimes need to create a new product or cost that doesn't exist yet. Instead of navigating away, abandoning their work, and coming back, they should be able to create the item directly from within the proposal form via a quick-create dialog.
+
+Done looks like
+In the product selection dropdown within the proposal form, there is a visible option like "+ Criar novo produto" at the bottom (or top) of the list.
+Clicking it opens a compact modal/dialog with the minimum fields to create a product: Name, Category, Price per M² (pricePerM2), and Cost per M² (costPerM2, optional).
+After saving, the new product is automatically selected in the field that triggered the dialog, and the full product list is refreshed.
+The same experience exists for the cost selection dropdown: a "+ Criar novo custo" option opens a quick dialog with Name, Value, and Supplier fields.
+After saving a new cost inline, it is automatically selected in the field that triggered it, and the cost list is refreshed.
+Both quick-create dialogs reuse the same API endpoints already used by the Products and Costs admin pages (POST /api/products and POST /api/costs).
+Validation errors are shown inside the dialog (not as page-level errors).
+Out of scope
+Editing or deleting existing products/costs from within the proposal form.
+Creating customers inline.
+Changing the Products or Costs admin pages.
+Steps
+Quick-create product dialog — Build a self-contained QuickCreateProductDialog component with a compact form (name, category, pricePerM2, costPerM2). On submit, call POST /api/products, invalidate the products cache, and return the new product's id to the caller.
+
+Quick-create cost dialog — Build a self-contained QuickCreateCostDialog component with a compact form (name, value, supplier). On submit, call POST /api/costs, invalidate the costs cache, and return the new cost's id to the caller.
+
+Wire into product selector in quotation form — In QuotationForm, add a "+ Criar novo produto" trigger at the bottom of each product dropdown list. When clicked, open QuickCreateProductDialog. On success, set the new product id as the selected value in that field.
+
+Wire into cost selector in quotation form — In QuotationForm, add a "+ Criar novo custo" trigger at the bottom of each cost dropdown list. When clicked, open QuickCreateCostDialog. On success, set the new cost id as the selected value in that field.
+
+Relevant files
+client/src/components/quotation-form.tsx
+client/src/pages/products.tsx
+client/src/pages/costs.tsx
+shared/schema.ts
