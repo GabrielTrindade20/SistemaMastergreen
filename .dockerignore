@@ -8,7 +8,8 @@ dist
 *.tar.gz
 npm-debug.log
 .DS_Store
-attached_assets
+attached_assets/*
+!attached_assets/mastergreen-logo.png
 cookies.txt
 DEPLOY_VERCEL.md
 vercel.json

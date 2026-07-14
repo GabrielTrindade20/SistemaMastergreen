@@ -60,6 +60,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize default data
   await storage.initializeDefaultProducts();
   await storage.initializeDefaultUsers();
+  await storage.initializeDefaultSettings();
 
   // Auth routes
   app.post("/api/login", async (req, res) => {
@@ -345,17 +346,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotations", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      console.log("Getting quotations for user:", user);
-      
-      let quotations;
-      if (user.type === "admin") {
-        // Admin vê apenas suas próprias propostas
-        quotations = await storage.getQuotationsByUser(user.id);
-      } else {
-        // Funcionários veem suas próprias propostas
-        quotations = await storage.getQuotationsByUser(user.id);
+
+      // Filtro opcional por período (mês/ano) feito no servidor para reduzir
+      // o volume de dados retornado. Sem parâmetros, mantém o comportamento atual.
+      const monthParam = parseInt(req.query.month as string);
+      const yearParam = parseInt(req.query.year as string);
+      let startDate: Date | undefined;
+      let endDate: Date | undefined;
+      if (!isNaN(yearParam)) {
+        if (!isNaN(monthParam)) {
+          startDate = new Date(yearParam, monthParam - 1, 1);
+          endDate = new Date(yearParam, monthParam, 0, 23, 59, 59, 999);
+        } else {
+          startDate = new Date(yearParam, 0, 1);
+          endDate = new Date(yearParam, 11, 31, 23, 59, 59, 999);
+        }
       }
-      
+
+      // Admin e funcionários veem apenas suas próprias propostas
+      const quotations = await storage.getQuotationsByUser(user.id, startDate, endDate);
+
       res.json(quotations);
     } catch (error) {
       console.error("Error fetching quotations:", error);
@@ -386,8 +396,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotations", requireAuth, async (req, res) => {
     try {
       const user = req.session.user!;
-      console.log("Received quotation data:", JSON.stringify(req.body, null, 2));
-      
       const { customerId, validUntil, notes, items, costs, calculations } = req.body;
       
       // Criar dados do orçamento com nova estrutura
@@ -437,10 +445,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: cost.description || null,
       })) : [];
       
-      console.log("Processed quotation:", quotationData);
-      console.log("Processed items:", itemsData);
-      console.log("Processed costs:", costsData);
-      
       const newQuotation = await storage.createQuotation(quotationData, itemsData, costsData);
       res.status(201).json(newQuotation);
     } catch (error) {
@@ -473,15 +477,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const user = req.session.user!;
-      console.log('=== UPDATE QUOTATION START ===');
-      console.log('Quotation ID:', id);
-      console.log('User:', user.name, 'Type:', user.type);
-      console.log('Is Admin Calculated:', req.body.adminCalculated);
-      
       // Verificar se a proposta existe
       const existingQuotation = await storage.getQuotation(id);
       if (!existingQuotation) {
         return res.status(404).json({ message: "Quotation not found" });
+      }
+      
+      // Authorization check: non-admin users can only edit their own quotations
+      if (user.type !== 'admin' && existingQuotation.userId !== user.id) {
+        return res.status(403).json({ message: "Access denied: you can only edit your own quotations" });
+      }
+
+      // Prevent editing proposals that are already approved or rejected
+      if (existingQuotation.status === 'approved' || existingQuotation.status === 'rejected') {
+        return res.status(403).json({ message: "Cannot edit a proposal that has already been approved or rejected" });
       }
       
       // LÓGICA CRÍTICA: Se admin está editando proposta de vendedor, criar nova proposta calculada
@@ -492,19 +501,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const existingCalculated = await storage.getCalculatedQuotationByOriginal(id);
         
         if (existingCalculated) {
-          console.log('Updating existing calculated quotation:', existingCalculated.id);
           // Atualizar a versão calculada existente
           const updatedCalculated = await storage.updateQuotation(existingCalculated.id, {
             ...req.body,
             userId: existingQuotation.userId, // Manter vendedor original
             status: existingQuotation.status, // INHERIT STATUS FROM ORIGINAL QUOTATION
             responsibleId: existingQuotation.userId, // Referência ao vendedor
-            adminCalculated: true,
+            adminCalculated: 1,
             originalQuotationId: id,
           });
           return res.json(updatedCalculated);
         } else {
-          console.log('Creating new calculated quotation for original:', id);
           // Criar nova proposta calculada
           const { customerId, validUntil, notes, items, costs, calculations } = req.body;
           
@@ -532,7 +539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             responsibleName: req.body.responsibleName || existingQuotation.responsibleName,
             responsiblePosition: req.body.responsiblePosition || "Administrador",
             responsibleId: existingQuotation.userId, // Referência ao vendedor
-            adminCalculated: true,
+            adminCalculated: 1,
             originalQuotationId: id,
           };
           
@@ -556,21 +563,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })) : [];
           
           const newCalculatedQuotation = await storage.createQuotation(quotationData, itemsData, costsData);
-          console.log('Created calculated quotation:', newCalculatedQuotation.id);
           return res.json(newCalculatedQuotation);
         }
       } else {
-        console.log('NORMAL UPDATE - Vendor editing own quotation');
-        // Edição normal (vendedor editando própria proposta)
-        const mergedData = {
-          ...req.body,
+        // Edição normal (vendedor ou admin editando própria proposta)
+        const { customerId, validUntil, notes, items, costs, calculations } = req.body;
+        
+        const quotationUpdateData = {
+          customerId,
           userId: existingQuotation.userId,
-          createdAt: existingQuotation.createdAt,
           quotationNumber: existingQuotation.quotationNumber,
+          branch: existingQuotation.branch,
+          validUntil: validUntil ? new Date(validUntil) : existingQuotation.validUntil,
+          notes: notes || null,
+          subtotal: calculations?.subtotal?.toString() ?? existingQuotation.subtotal,
+          totalCosts: calculations?.totalCosts?.toString() ?? existingQuotation.totalCosts,
+          totalWithoutInvoice: calculations?.totalWithoutInvoice?.toString() ?? existingQuotation.totalWithoutInvoice,
+          invoicePercent: calculations?.invoicePercent?.toString() ?? existingQuotation.invoicePercent,
+          invoiceAmount: calculations?.invoiceAmount?.toString() ?? existingQuotation.invoiceAmount,
+          totalWithInvoice: calculations?.totalWithInvoice?.toString() ?? existingQuotation.totalWithInvoice,
+          companyProfit: calculations?.companyProfit?.toString() ?? existingQuotation.companyProfit,
+          profitPercent: calculations?.profitPercent?.toString() ?? existingQuotation.profitPercent,
+          tithe: calculations?.tithe?.toString() ?? existingQuotation.tithe,
+          netProfit: calculations?.netProfit?.toString() ?? existingQuotation.netProfit,
+          total: calculations?.total?.toString() ?? existingQuotation.total,
+          shippingIncluded: req.body.shippingIncluded ? 1 : 0,
+          warrantyText: req.body.warrantyText || existingQuotation.warrantyText,
+          pdfTitle: req.body.pdfTitle ?? existingQuotation.pdfTitle,
+          responsibleName: req.body.responsibleName || existingQuotation.responsibleName,
+          responsiblePosition: req.body.responsiblePosition || existingQuotation.responsiblePosition,
+          responsibleId: existingQuotation.responsibleId,
+          adminCalculated: existingQuotation.adminCalculated, // Preserve original value
+          status: existingQuotation.status, // Preserve existing status
+          items: items ? items.map((item: any) => ({
+            productId: item.productId,
+            quantity: item.quantity.toString(),
+            unitPrice: item.unitPrice.toString(),
+            unitCost: "0.00",
+            subtotal: (item.quantity * item.unitPrice).toString(),
+            totalCost: "0.00",
+          })) : undefined,
+          costs: costs ? costs.map((cost: any) => ({
+            costId: cost.costId === 'manual' ? null : cost.costId,
+            name: cost.name,
+            unitValue: cost.unitValue.toString(),
+            quantity: cost.quantity.toString(),
+            totalValue: cost.totalValue.toString(),
+            supplier: cost.supplier || null,
+            description: cost.description || null,
+          })) : undefined,
         };
         
-        const updatedQuotation = await storage.updateQuotation(id, mergedData);
-        console.log('=== UPDATE QUOTATION END ===');
+        const updatedQuotation = await storage.updateQuotation(id, quotationUpdateData);
         res.json(updatedQuotation);
       }
     } catch (error) {
@@ -677,12 +721,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
       
-      console.log(`Dashboard - Date: ${selectedDate}, Start: ${startDate.toISOString()}, End: ${endDate.toISOString()}`);
-
       if (user.type === "admin") {
         // Admin dashboard - comprehensive system view
         const allQuotationsRaw = await storage.getQuotationsInDateRange(startDate, endDate);
-        console.log(`Admin Dashboard - Found ${allQuotationsRaw.length} total quotations in date range`);
         
         // NOVA LÓGICA: Deduplicar propostas - mostrar apenas versão final de cada proposta
         // Prioridade: versão calculada > versão original
@@ -705,7 +746,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         const allQuotations = Array.from(quotationsMap.values());
-        console.log(`Admin Dashboard - After deduplication: ${allQuotations.length} unique quotations`);
         
         const allCustomers = await storage.getCustomers();
         const allUsers = await storage.getUsers();
@@ -717,28 +757,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calculate admin dashboard metrics according to new business rules
         let totalRevenue = 0; // Valor bruto total (nunca muda)
         let totalCosts = 0; // Custos adicionados pelo admin
-        let totalNetProfit = 0; // Lucro líquido calculado pelo admin
+        let totalNetProfit = 0; // Lucro líquido de TODAS as propostas aprovadas
         
         // REGRA: Receita Total = soma do valor bruto das propostas aprovadas (SEM DUPLICAÇÃO)
         // Agora usando apenas a versão final de cada proposta
         approvedQuotations.forEach(q => {
           const revenue = parseFloat(q.total || '0');
           totalRevenue += revenue;
-          console.log(`Dashboard - Adding revenue from quotation ${q.quotationNumber}: ${revenue} (${q.adminCalculated ? 'calculated' : 'original'})`);
         });
         
         // Separar propostas com custos calculados pelo admin
         const adminCalculatedQuotations = approvedQuotations.filter(q => q.adminCalculated === true);
         
-        // REGRA: Custos e Lucro Líquido = apenas das propostas que o admin já processou
+        // REGRA: Custos = apenas das propostas que o admin já processou
         adminCalculatedQuotations.forEach(q => {
           const costs = parseFloat(q.totalCosts || '0');
-          const netProfit = parseFloat(q.netProfit || '0');
-          
           totalCosts += costs;
-          totalNetProfit += netProfit;
-          
-          console.log(`Dashboard - Admin processed quotation ${q.quotationNumber}: costs=${costs}, netProfit=${netProfit}`);
+        });
+        
+        // REGRA: Lucro Líquido = de TODAS as propostas aprovadas (admin + vendedores)
+        approvedQuotations.forEach(q => {
+          // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
+          if (q.netProfit && parseFloat(q.netProfit) > 0) {
+            const netProfit = parseFloat(q.netProfit);
+            totalNetProfit += netProfit;
+          } else {
+            // Se não tem netProfit, calcular lucro básico (valor total menos comissão)
+            const revenue = parseFloat(q.total || '0');
+            const commissionPercent = parseFloat(q.user?.commissionPercent || '0');
+            const commission = revenue * commissionPercent / 100;
+            const basicProfit = revenue - commission;
+            totalNetProfit += basicProfit;
+          }
         });
         const conversionRate = allQuotations.length > 0 
           ? (approvedQuotations.length / allQuotations.length) * 100 
@@ -770,12 +820,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         });
 
-        // NOVA FUNCIONALIDADE: Performance do próprio Admin
+        // Performance do próprio Admin (vendas pessoais)
         const adminApproved = approvedQuotations.filter(q => q.userId === user.id);
         const adminQuotations = allQuotations.filter(q => q.userId === user.id);
-        const adminCommissionPercent = parseFloat(user.commissionPercent || '0');
         const adminTotalSales = adminApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
-        const adminTotalCommission = adminTotalSales * adminCommissionPercent / 100;
+        
+        // Calcular lucro das vendas pessoais do admin
+        let adminTotalProfit = 0;
+        adminApproved.forEach(q => {
+          // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
+          if (q.netProfit && parseFloat(q.netProfit) > 0) {
+            adminTotalProfit += parseFloat(q.netProfit);
+          } else {
+            // Se não tem netProfit, usar valor total (admin não paga comissão para si mesmo)
+            adminTotalProfit += parseFloat(q.total || '0');
+          }
+        });
+        
         const adminConversionRate = adminQuotations.length > 0 
           ? (adminApproved.length / adminQuotations.length) * 100 
           : 0;
@@ -784,17 +845,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
           employeeId: user.id,
           employeeName: user.name,
           employeeBranch: user.branch,
-          commissionPercent: adminCommissionPercent,
           totalSales: adminTotalSales,
-          totalCommission: adminTotalCommission,
+          totalProfit: adminTotalProfit, // Novo campo: lucro das vendas pessoais
           quotationsCount: adminApproved.length,
           allQuotationsCount: adminQuotations.length,
           conversionRate: adminConversionRate
         };
+        
+        // Performance de outros admins
+        const otherAdmins = allUsers.filter(u => u.type === "admin" && u.id !== user.id);
+        const otherAdminsPerformance = otherAdmins.map(admin => {
+          const adminApprovedQuotations = approvedQuotations.filter(q => q.userId === admin.id);
+          const adminAllQuotations = allQuotations.filter(q => q.userId === admin.id);
+          const adminSales = adminApprovedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+          
+          let adminProfit = 0;
+          adminApprovedQuotations.forEach(q => {
+            // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
+            if (q.netProfit && parseFloat(q.netProfit) > 0) {
+              adminProfit += parseFloat(q.netProfit);
+            } else {
+              // Se não tem netProfit, usar valor total (admin não paga comissão para si mesmo)
+              adminProfit += parseFloat(q.total || '0');
+            }
+          });
+          
+          return {
+            adminId: admin.id,
+            adminName: admin.name,
+            adminBranch: admin.branch,
+            totalSales: adminSales,
+            totalProfit: adminProfit,
+            quotationsCount: adminApprovedQuotations.length,
+            allQuotationsCount: adminAllQuotations.length,
+            conversionRate: adminAllQuotations.length > 0 
+              ? (adminApprovedQuotations.length / adminAllQuotations.length) * 100 
+              : 0
+          };
+        });
 
         const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
-        
-        console.log(`Dashboard Summary - Total Revenue: ${totalRevenue}, Total Costs: ${totalCosts}, Net Profit: ${totalNetProfit}, Commissions: ${totalCommissionsPaid}`);
 
         res.json({
           type: "admin",
@@ -812,26 +902,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Dados adicionais para o dashboard do admin
           processedQuotations: adminCalculatedQuotations.length, // Quantas propostas já foram processadas
           pendingProcessing: approvedQuotations.length - adminCalculatedQuotations.length, // Quantas ainda precisam ser processadas
-          // NOVA FUNCIONALIDADE: Performance do próprio Admin
-          adminPerformance
+          // Performance do próprio Admin
+          adminPerformance,
+          // Performance de outros admins
+          otherAdminsPerformance
         });
       } else {
         // Employee dashboard - personal view
         const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
-        console.log(`Vendedor Dashboard - Found ${userQuotations.length} quotations for user ${user.name}`);
         const userCustomers = await storage.getCustomersByUser(user.id);
 
         // NOVA REGRA: Apenas propostas APROVADAS contam para comissão e vendas
         const approvedQuotations = userQuotations.filter(q => q.status === 'approved');
         // REGRA: Vendedor vê apenas propostas pendentes ORIGINAIS (que ele criou, não as do admin)
-        const pendingQuotations = userQuotations.filter(q => q.status === 'pending' && q.adminCalculated === false);
+        const pendingQuotations = userQuotations.filter(q => q.status === 'pending' && q.adminCalculated === 0);
         
         // REGRA VENDEDOR: Comissão baseada APENAS nas propostas APROVADAS originais
-        const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === false);
-        console.log(`Vendedor Dashboard - Total quotations: ${userQuotations.length}, Approved: ${approvedQuotations.length}, Original approved: ${vendedorOriginalApproved.length}`);
+        const vendedorOriginalApproved = approvedQuotations.filter(q => q.adminCalculated === 0);
 
         // REGRA: Taxa de conversão baseada apenas nas propostas originais do vendedor
-        const originalQuotations = userQuotations.filter(q => q.adminCalculated === false);
+        const originalQuotations = userQuotations.filter(q => q.adminCalculated === 0);
         const conversionRate = originalQuotations.length > 0 
           ? (vendedorOriginalApproved.length / originalQuotations.length) * 100 
           : 0;
@@ -849,10 +939,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quotationTotal: parseFloat(q.total),
           commissionPercent,
           commissionAmount: parseFloat(q.total) * commissionPercent / 100,
-          approvedDate: q.updatedAt || q.createdAt
+          approvedDate: q.createdAt
         }));
-
-        console.log(`Vendedor Dashboard - Original approved: ${vendedorOriginalApproved.length}, Total sales: ${totalSales}, Commission: ${totalCommission}`);
 
         res.json({
           type: "employee",
@@ -906,12 +994,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         quotations = Array.from(quotationsMap.values());
-        console.log(`Recent Activities - Admin: found ${quotationsRaw.length} total, showing ${quotations.length} deduplicated`);
       } else {
         // REGRA: Vendedor vê apenas suas propostas ORIGINAIS (não as calculadas pelo admin)
         const allUserQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
-        quotations = allUserQuotations.filter(q => q.adminCalculated === false);
-        console.log(`Recent Activities - User ${user.name}: found ${allUserQuotations.length} total, showing ${quotations.length} originals`);
+        quotations = allUserQuotations.filter(q => q.adminCalculated === 0);
       }
 
       const activities = quotations
@@ -1015,7 +1101,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             customerName: q.customer.name,
             quotationTotal: parseFloat(q.total),
             commissionAmount: parseFloat(q.total) * commissionPercent / 100,
-            approvedDate: new Date(q.updatedAt || q.createdAt).toLocaleDateString('pt-BR')
+            approvedDate: new Date(q.createdAt || Date.now()).toLocaleDateString('pt-BR')
           }));
 
           const totalCommission = commissionBreakdown.reduce((sum, item) => sum + item.commissionAmount, 0);
@@ -1038,6 +1124,242 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating extract:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // System Settings routes
+  app.get("/api/settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.put("/api/settings/:key", requireAdmin, async (req, res) => {
+    try {
+      const { key } = req.params;
+      const { value } = req.body;
+
+      const allowedKeys = ["invoice_percent", "tithe_percent"];
+      if (!allowedKeys.includes(key)) {
+        return res.status(400).json({ message: "Invalid setting key" });
+      }
+
+      if (value === undefined || value === null) {
+        return res.status(400).json({ message: "Value is required" });
+      }
+
+      const numValue = parseFloat(String(value));
+      if (isNaN(numValue) || numValue < 0 || numValue > 100) {
+        return res.status(400).json({ message: "Value must be a number between 0 and 100" });
+      }
+
+      const setting = await storage.updateSetting(key, String(numValue));
+      res.json(setting);
+    } catch (error) {
+      console.error("Error updating setting:", error);
+      res.status(500).json({ message: "Failed to update setting" });
+    }
+  });
+
+  // Customer status update
+  app.patch("/api/customers/:id/status", requireAuth, async (req, res) => {
+    try {
+      const sessionUser = req.session.user!;
+      const { status } = req.body;
+      const validStatuses = ['fechado', 'pendente', 'em_negociacao', 'cancelado', 'sem_retorno', 'perdido'];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ message: "Invalid customer status" });
+      }
+
+      // Ownership check: sellers can only update their own customers
+      if (sessionUser.type !== 'admin') {
+        const existing = await storage.getCustomer(req.params.id);
+        if (!existing) return res.status(404).json({ message: "Customer not found" });
+        if (existing.createdById !== sessionUser.id) {
+          return res.status(403).json({ message: "Access denied: you can only update your own customers" });
+        }
+      }
+
+      const customer = await storage.updateCustomerStatus(req.params.id, status);
+      res.json(customer);
+    } catch (error) {
+      console.error("Error updating customer status:", error);
+      res.status(500).json({ message: "Failed to update customer status" });
+    }
+  });
+
+  // Advanced reports endpoint
+  app.get("/api/reports/advanced", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const { dateFrom, dateTo, city, state, responsibleId, customerStatus, customerId } = req.query;
+
+      const filters: any = {
+        isAdmin: user.type === 'admin',
+        userId: user.id,
+      };
+
+      // Datas chegam como "YYYY-MM-DD" (input type=date). new Date(string) para
+      // esse formato e sempre interpretado como UTC pelo JS, independente do
+      // fuso do processo, o que desloca o filtro ~3h e deixa dados do dia
+      // anterior (fuso America/Sao_Paulo) vazando para o periodo selecionado.
+      // Por isso montamos a data com y/m/d explicitos (fuso local do processo).
+      const parseLocalDate = (s: string) => {
+        const [y, m, d] = s.split("-").map(Number);
+        return new Date(y, m - 1, d);
+      };
+
+      if (dateFrom) filters.dateFrom = parseLocalDate(dateFrom as string);
+      if (dateTo) {
+        const d = parseLocalDate(dateTo as string);
+        d.setHours(23, 59, 59, 999);
+        filters.dateTo = d;
+      }
+      if (city) filters.city = city as string;
+      if (state) filters.state = state as string;
+      if (responsibleId) filters.responsibleId = responsibleId as string;
+      if (customerStatus) filters.customerStatus = customerStatus as string;
+      if (customerId) filters.customerId = customerId as string;
+
+      const data = await storage.getAdvancedReportData(filters);
+      res.json(data);
+    } catch (error) {
+      console.error("Error fetching advanced report data:", error);
+      res.status(500).json({ message: "Failed to fetch report data" });
+    }
+  });
+
+  // Executive report endpoint
+  app.get("/api/reports/executive", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+
+      // Get last 6 months of data
+      const now = new Date();
+      const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+
+      const filters: any = {
+        isAdmin: user.type === 'admin',
+        userId: user.id,
+        dateFrom: sixMonthsAgo,
+      };
+
+      const data = await storage.getAdvancedReportData(filters);
+
+      // Compute executive metrics
+      const total = data.reduce((s, r) => s + r.quotationTotal, 0);
+      const closed = data.filter(r => r.quotationStatus === 'approved');
+      const pending = data.filter(r => r.quotationStatus === 'pending');
+      const rejected = data.filter(r => r.quotationStatus === 'rejected');
+      const closedRevenue = closed.reduce((s, r) => s + r.quotationTotal, 0);
+      const estimatedProfit = closed.reduce((s, r) => s + r.quotationNetProfit, 0);
+      const conversionRate = data.length > 0 ? (closed.length / data.length) * 100 : 0;
+      const avgTicket = closed.length > 0 ? closedRevenue / closed.length : 0;
+
+      // City with most revenue
+      const cityMap: Record<string, number> = {};
+      closed.forEach((r: any) => {
+        if (r.customerCity) {
+          cityMap[r.customerCity] = (cityMap[r.customerCity] || 0) + r.quotationTotal;
+        }
+      });
+      const topCity = Object.entries(cityMap).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+
+      // Best seller
+      const sellerMap: Record<string, number> = {};
+      closed.forEach((r: any) => {
+        if (r.responsibleName) {
+          sellerMap[r.responsibleName] = (sellerMap[r.responsibleName] || 0) + r.quotationTotal;
+        }
+      });
+      const bestSeller = Object.entries(sellerMap).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
+
+      // Monthly revenue for chart (last 6 months)
+      const monthlyMap: Record<string, number> = {};
+      closed.forEach((r: any) => {
+        if (r.quotationCreatedAt) {
+          const d = new Date(r.quotationCreatedAt);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          monthlyMap[key] = (monthlyMap[key] || 0) + r.quotationTotal;
+        }
+      });
+      const monthlyRevenue = Object.entries(monthlyMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, revenue]) => ({ month, revenue }));
+
+      // Prior month comparison
+      const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthKey = `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
+      const currentRevenue = monthlyMap[currentMonthKey] || 0;
+      const prevRevenue = monthlyMap[prevMonthKey] || 0;
+      const momChange = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0;
+
+      // Active customers (unique)
+      const activeCustomers = new Set(data.map((r: any) => r.customerId)).size;
+
+      res.json({
+        totalRevenue: closedRevenue,
+        estimatedProfit,
+        activeCustomers,
+        conversionRate,
+        topCity,
+        bestSeller,
+        avgTicket,
+        monthlyRevenue,
+        currentRevenue,
+        prevRevenue,
+        momChange,
+        totalQuotations: data.length,
+        closedCount: closed.length,
+        pendingCount: pending.length,
+        rejectedCount: rejected.length,
+      });
+    } catch (error) {
+      console.error("Error fetching executive report:", error);
+      res.status(500).json({ message: "Failed to fetch executive report" });
+    }
+  });
+
+  // Report templates
+  app.get("/api/report-templates", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const templates = await storage.getReportTemplates(user.id);
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch templates" });
+    }
+  });
+
+  app.post("/api/report-templates", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const { name, filtersJson, columnsJson } = req.body;
+      if (!name) return res.status(400).json({ message: "Name is required" });
+      const template = await storage.createReportTemplate({
+        userId: user.id,
+        name,
+        filtersJson: JSON.stringify(filtersJson || {}),
+        columnsJson: JSON.stringify(columnsJson || []),
+      });
+      res.status(201).json(template);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create template" });
+    }
+  });
+
+  app.delete("/api/report-templates/:id", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      await storage.deleteReportTemplate(req.params.id, user.id);
+      res.json({ message: "Template deleted" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete template" });
     }
   });
 

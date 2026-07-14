@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import type { QuotationWithDetails } from '@shared/schema';
 import { formatCurrency, formatPhone, formatDocument, formatCEP } from './calculations';
 import Quotations from '@/pages/quotations';
+import logoMasterGreen from '@assets/mastergreen-logo.png';
 
 export interface CompanyInfo {
   name: string;
@@ -46,15 +47,17 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     };
 
     const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
     const leftMargin = 20;
     const rightMargin = 20;
     const contentWidth = pageWidth - leftMargin - rightMargin;
+    const bottomMargin = 20;
 
     let yPosition = 20;
 
     // Try to load logo, if fails continue without it
     try {
-      const logoBase64 = await getImageAsBase64('/src/imagem/logoSemFundo.png');
+      const logoBase64 = await getImageAsBase64(logoMasterGreen);
       if (logoBase64) {
         const logoWidth = 50;
         const logoHeight = 50;
@@ -153,31 +156,57 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   
+  const drawTableHeader = () => {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    let hx = tableStartX;
+    tableHeaders.forEach((header, index) => {
+      doc.rect(hx, yPosition, columnWidths[index], 12);
+      const textWidth = doc.getTextWidth(header);
+      const centerX = hx + (columnWidths[index] - textWidth) / 2;
+      doc.text(header, centerX, yPosition + 8);
+      hx += columnWidths[index];
+    });
+    yPosition += 12;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+  };
+
   quotation.items.forEach((item, index) => {
     xPosition = tableStartX;
-    const rowHeight = 10; // Reduced row height
+    const productName = item.product.name;
+    const lines = doc.splitTextToSize(productName, columnWidths[2] - 4);
+    const rowHeight = Math.max(10, lines.length * 5 + 4);
+
+    // Check if row fits on the current page; if not, add a new page and repeat header
+    if (yPosition + rowHeight > pageHeight - bottomMargin) {
+      doc.addPage();
+      yPosition = 20;
+      drawTableHeader();
+    }
+
+    xPosition = tableStartX;
 
     // Draw row cells with borders and centered content
     // Item number
     doc.rect(xPosition, yPosition, columnWidths[0], rowHeight);
     const itemNum = (index + 1).toString();
     const itemNumWidth = doc.getTextWidth(itemNum);
-    doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + 8);
+    doc.text(itemNum, xPosition + (columnWidths[0] - itemNumWidth) / 2, yPosition + rowHeight / 2 + 1.5);
     xPosition += columnWidths[0];
 
     // Quantity
     doc.rect(xPosition, yPosition, columnWidths[1], rowHeight);
     const qty = parseFloat(item.quantity).toFixed(0);
     const qtyWidth = doc.getTextWidth(qty);
-    doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + 8);
+    doc.text(qty, xPosition + (columnWidths[1] - qtyWidth) / 2, yPosition + rowHeight / 2 + 1.5);
     xPosition += columnWidths[1];
 
-    // Product description - centered
+    // Product description - left-aligned, wrapped
     doc.rect(xPosition, yPosition, columnWidths[2], rowHeight);
-    const productName = item.product.name;
-    const prodWidth = doc.getTextWidth(productName);
-    const prodCenterX = xPosition + (columnWidths[2] - prodWidth) / 2;
-    doc.text(productName, prodCenterX, yPosition + 8);
+    doc.text(lines, xPosition + 2, yPosition + 6);
     xPosition += columnWidths[2];
 
     // Unit price - centered
@@ -185,7 +214,7 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     const unitPrice = formatCurrency(parseFloat(item.unitPrice));
     const unitPriceWidth = doc.getTextWidth(unitPrice);
     const unitCenterX = xPosition + (columnWidths[3] - unitPriceWidth) / 2;
-    doc.text(unitPrice, unitCenterX, yPosition + 8);
+    doc.text(unitPrice, unitCenterX, yPosition + rowHeight / 2 + 1.5);
     xPosition += columnWidths[3];
 
     // Total price - centered
@@ -193,10 +222,17 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     const totalPrice = formatCurrency(parseFloat(item.subtotal));
     const totalPriceWidth = doc.getTextWidth(totalPrice);
     const totalCenterX = xPosition + (columnWidths[4] - totalPriceWidth) / 2;
-    doc.text(totalPrice, totalCenterX, yPosition + 8);
+    doc.text(totalPrice, totalCenterX, yPosition + rowHeight / 2 + 1.5);
 
     yPosition += rowHeight;
   });
+
+  // Ensure the TOTAL row fits on the current page
+  if (yPosition + 12 > pageHeight - bottomMargin) {
+    doc.addPage();
+    yPosition = 20;
+    drawTableHeader();
+  }
 
   // Total row exactly as in model - green background for both cells
   xPosition = tableStartX + columnWidths[0] + columnWidths[1] + columnWidths[2];
@@ -228,9 +264,18 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setTextColor(0, 0, 0);
   doc.setFillColor(255, 255, 255);
   doc.setDrawColor(0, 0, 0);
-    
+
+  // Helper: ensure at least `needed` mm remain on the page, else start a new page
+  const ensureSpace = (needed: number) => {
+    if (yPosition + needed > pageHeight - bottomMargin) {
+      doc.addPage();
+      yPosition = 20;
+    }
+  };
+
   // Dados da Proposta - exactly as in model
   yPosition += 20; // Reduced spacing
+  ensureSpace(40);
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.text("Dados da Proposta:", leftMargin, yPosition);
@@ -240,16 +285,20 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   doc.setFontSize(10);
 
   // Fixed information exactly as in model
+  ensureSpace(5);
   doc.text(`Prazo de garantia: ${quotation.warrantyText || '1 ano (garantia da fábrica)'}.`, leftMargin, yPosition);
   yPosition += 5;
 
+  ensureSpace(5);
   doc.text("Forma de pagamento: 50% de entrada + 50% na entrega.", leftMargin, yPosition);
   yPosition += 5;
 
+  ensureSpace(5);
   const shippingText = quotation.shippingIncluded ? "Incluso no valor" : "Não incluso";
   doc.text(`Frete: ${shippingText}`, leftMargin, yPosition);
   yPosition += 5;
 
+  ensureSpace(5);
   doc.text("Tributos: Incluso no Preço.", leftMargin, yPosition);
   yPosition += 5;
 
@@ -264,10 +313,12 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
     });
 
     // Usa no PDF
+    ensureSpace(12);
     doc.text(`Validade desta proposta: ${validadeFormatada}`, leftMargin, yPosition);
     yPosition += 12;
 
   // Dados para pagamento - exactly as in model
+  ensureSpace(20);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.text("Dados para pagamento:", leftMargin, yPosition);
@@ -275,12 +326,15 @@ export async function generateProposalPDF(quotation: QuotationWithDetails, fileN
   
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
+  ensureSpace(6);
   doc.text(`PIX: ${company.cnpj} - CNPJ`, leftMargin, yPosition);
   yPosition += 6;
+  ensureSpace(6);
   doc.text("Em nome de: ROCHA COMERCIO E INSTALACAO DE GRAMA SINTETICA LTDA", leftMargin, yPosition);
 
   // Responsible person - centered exactly as in model
   yPosition += 20;
+  ensureSpace(20);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   

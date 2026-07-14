@@ -12,7 +12,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -69,7 +68,9 @@ app.use((req, res, next) => {
   server.listen({
     port,
     host: "0.0.0.0",
-    reusePort: true,
+    // reusePort nao e suportado no Windows (ENOTSUP) e so importa quando ha
+    // multiplos processos dividindo a mesma porta (nao e o caso aqui).
+    ...(process.platform === "linux" ? { reusePort: true } : {}),
   }, () => {
     log(`serving on port ${port}`);
   });

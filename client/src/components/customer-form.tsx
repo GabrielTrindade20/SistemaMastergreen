@@ -5,6 +5,7 @@ import { insertCustomerSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Save } from "lucide-react";
 import type { Customer } from "@shared/schema";
@@ -20,8 +21,11 @@ const formSchema = insertCustomerSchema.extend({
   address: z.string().optional(),
   number: z.string().optional(),
   neighborhood: z.string().optional(),
+  state: z.string().optional(),
   zipCode: z.string().optional(),
   notes: z.string().optional(),
+  customerStatus: z.string().optional(),
+  leadOrigin: z.string().optional(),
 });
 
 type CustomerFormData = z.infer<typeof formSchema>;
@@ -54,8 +58,11 @@ export default function CustomerForm({
       number: initialData?.number || "",
       neighborhood: initialData?.neighborhood || "",
       city: initialData?.city || "",
+      state: initialData?.state || "",
       zipCode: initialData?.zipCode || "",
       notes: initialData?.notes || "",
+      customerStatus: initialData?.customerStatus || "pendente",
+      leadOrigin: initialData?.leadOrigin || "",
     },
   });
 
@@ -198,6 +205,19 @@ export default function CustomerForm({
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="state"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Estado (UF)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="DF" maxLength={2} {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="md:col-span-2">
               <FormField
                 control={form.control}
@@ -234,6 +254,51 @@ export default function CustomerForm({
                   <FormLabel>Bairro</FormLabel>
                   <FormControl>
                     <Input placeholder="Digite o bairro" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Commercial Info */}
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações Comerciais</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="customerStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status do Cliente</FormLabel>
+                  <Select value={field.value || "pendente"} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecionar status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="fechado">Fechado</SelectItem>
+                      <SelectItem value="em_negociacao">Em Negociação</SelectItem>
+                      <SelectItem value="cancelado">Cancelado</SelectItem>
+                      <SelectItem value="sem_retorno">Sem Retorno</SelectItem>
+                      <SelectItem value="perdido">Perdido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="leadOrigin"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Origem do Lead</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: Instagram, Indicação, Google..." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

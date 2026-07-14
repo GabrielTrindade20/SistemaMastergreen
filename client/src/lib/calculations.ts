@@ -73,7 +73,9 @@ export function calculateQuotationTotalsWithCosts(
     quantity: number;
   }> = [],
   discountPercent: number = 0,
-  sellerCommissionPercent: number = 0
+  sellerCommissionPercent: number = 0,
+  invoicePercent: number = 5,
+  tithePercent: number = 10
 ) {
   // 1. Calcular valor bruto dos produtos
   const subtotal = items.reduce((sum, item) => {
@@ -100,12 +102,10 @@ export function calculateQuotationTotalsWithCosts(
   // 4. Calcular custos adicionais
   const additionalCosts = costs.reduce((sum, cost) => {
     if (cost.calculationType === 'percentage') {
-      // Para porcentagem: (valor base * porcentagem) / 100
       const baseValue = cost.unitValue || 0;
       const percentage = cost.quantity || 0;
       return sum + (baseValue * percentage) / 100;
     } else {
-      // Para valor fixo: unitValue * quantity
       return sum + (cost.unitValue || 0) * (cost.quantity || 1);
     }
   }, 0);
@@ -113,8 +113,8 @@ export function calculateQuotationTotalsWithCosts(
   // 5. Total de custos (produtos + custos adicionais)
   const totalCosts = productCosts + additionalCosts;
 
-  // 6. Valor da Nota Fiscal (5% do valor final)
-  const invoiceValue = finalTotal * 0.05;
+  // 6. Valor da Nota Fiscal (invoicePercent% do valor final)
+  const invoiceValue = finalTotal * (invoicePercent / 100);
 
   // 7. Total com Nota Fiscal
   const totalWithInvoice = finalTotal + invoiceValue;
@@ -125,8 +125,8 @@ export function calculateQuotationTotalsWithCosts(
   // 9. Porcentagem de Lucro
   const profitPercent = finalTotal > 0 ? (companyProfit / finalTotal) * 100 : 0;
 
-  // 10. Dízimo (10% do lucro da empresa)
-  const tithe = companyProfit * 0.10;
+  // 10. Dízimo (tithePercent% do lucro da empresa)
+  const tithe = companyProfit * (tithePercent / 100);
 
   // 11. Comissão do Vendedor (baseada no Total Final ao Cliente)
   const sellerCommission = finalTotal * (sellerCommissionPercent / 100);
@@ -135,18 +135,19 @@ export function calculateQuotationTotalsWithCosts(
   const netProfit = companyProfit - tithe - sellerCommission;
 
   return {
-    subtotal, // Valor bruto
+    subtotal,
     discountAmount,
-    finalTotal, // Total Final ao Cliente
-    totalCosts, // Total de Custos
-    invoiceValue, // Valor da Nota Fiscal (5%)
-    totalWithInvoice, // Total com Nota Fiscal
-    companyProfit, // Lucro da Empresa
-    profitPercent, // Porcentagem de Lucro
-    tithe, // Dízimo (10%)
-    sellerCommission, // Comissão do Vendedor
-    netProfit, // Lucro Líquido
-    // Manter compatibilidade com a interface antiga
+    finalTotal,
+    totalCosts,
+    invoiceValue,
+    invoicePercent,
+    totalWithInvoice,
+    companyProfit,
+    profitPercent,
+    tithe,
+    tithePercent,
+    sellerCommission,
+    netProfit,
     tax: invoiceValue,
     total: finalTotal,
     totalCost: totalCosts,

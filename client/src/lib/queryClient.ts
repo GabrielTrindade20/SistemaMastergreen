@@ -12,13 +12,7 @@ export async function apiRequest(
   options: { method?: string; data?: unknown } = {},
 ): Promise<any> {
   const { method = "GET", data } = options;
-  
-  console.log('=== API REQUEST DEBUG ===');
-  console.log('URL:', url);
-  console.log('Method:', method);
-  console.log('Data keys:', data ? Object.keys(data) : 'No data');
-  console.log('Data length:', data ? JSON.stringify(data).length : 0);
-  
+
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -26,18 +20,13 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  console.log('Response status:', res.status);
   await throwIfResNotOk(res);
-  
-  // Return JSON response if available
+
   const contentType = res.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
-    const result = await res.json();
-    console.log('Response received successfully');
-    console.log('=== API REQUEST END ===');
-    return result;
+    return await res.json();
   }
-  
+
   return res;
 }
 

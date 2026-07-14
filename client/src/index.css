@@ -193,9 +193,9 @@
     -webkit-line-clamp: 3;
   }
 
-  /* Touch-friendly buttons on mobile */
+  /* Touch-friendly buttons on mobile — exclude Radix primitives (switch, checkbox, etc.) */
   @media (max-width: 767px) {
-    button, .btn {
+    button:not([role="switch"]):not([role="checkbox"]) {
       min-height: 44px;
       min-width: 44px;
     }
@@ -318,8 +318,8 @@
       gap: 0.75rem !important;
     }
 
-    /* Force column layouts */
-    .flex-row {
+    /* Force column layouts — only for explicit multi-column flex rows, not inline UI components */
+    .flex-row-mobile-col {
       flex-direction: column !important;
     }
 

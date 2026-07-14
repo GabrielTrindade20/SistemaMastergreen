@@ -66,16 +66,16 @@ export default function Dashboard() {
         pdf.text(`Propostas Aprovadas: ${extractData.approvedQuotationsCount}`, 20, yPos);
         yPos += 20;
 
-        // NOVA FUNCIONALIDADE: Incluir performance do admin no PDF
+        // Performance do admin no PDF
         if (extractData.adminPerformance && extractData.adminPerformance.quotationsCount > 0) {
           pdf.setFontSize(14);
-          pdf.text('MINHA PERFORMANCE (ADMIN)', 20, yPos);
+          pdf.text('MINHAS VENDAS PESSOAIS', 20, yPos);
           yPos += 15;
           
           pdf.setFontSize(12);
           pdf.text(`Vendas: R$ ${extractData.adminPerformance.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${extractData.adminPerformance.quotationsCount} propostas)`, 20, yPos);
           yPos += 10;
-          pdf.text(`Comissão: R$ ${extractData.adminPerformance.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${extractData.adminPerformance.commissionPercent}%)`, 20, yPos);
+          pdf.text(`Lucro: R$ ${extractData.adminPerformance.totalProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}`, 20, yPos);
           yPos += 10;
           pdf.text(`Taxa de Conversão: ${extractData.adminPerformance.conversionRate.toFixed(1)}%`, 20, yPos);
           yPos += 20;
@@ -193,18 +193,17 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
       {/* Dashboard Content */}
       <div className="p-4 md:p-6">
         {user?.type === "admin" ? (
           // Admin Dashboard
-          <>
+          (<>
             {/* Admin Performance Card */}
             <Card className="mb-6">
               <CardHeader>
-                <CardTitle>Minha Performance (Admin)</CardTitle>
+                <CardTitle>Performance da Empresa (Mastergreen)</CardTitle>
                 <CardDescription>
-                  Performance geral do sistema administrado por mim
+                  Performance geral da empresa - soma de todos os admins e vendedores
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -223,7 +222,7 @@ export default function Dashboard() {
                       R$ {data.totalNetProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                     </div>
                     <p className="text-sm text-muted-foreground">Lucro Líquido</p>
-                    <p className="text-xs text-muted-foreground">Lucro das propostas processadas</p>
+                    <p className="text-xs text-muted-foreground">Lucro de todas as propostas aprovadas</p>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
@@ -237,7 +236,6 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Employee Performance Summary Card */}
             <Card className="mb-6">
               <CardHeader>
@@ -267,14 +265,13 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-
             {/* Admin Personal Performance (if admin made sales) */}
             {data.adminPerformance && data.adminPerformance.quotationsCount > 0 && (
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Minhas Vendas Pessoais</CardTitle>
+                  <CardTitle>Minha Peformace: {user.name}</CardTitle>
                   <CardDescription>
-                    Propostas que eu criei pessoalmente neste mês
+                    Propostas que eu criei neste mês
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -283,7 +280,13 @@ export default function Dashboard() {
                       <div className="text-2xl font-bold text-green-600">
                         R$ {data.adminPerformance.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </div>
-                      <p className="text-sm text-muted-foreground">Minhas Vendas</p>
+                      <p className="text-sm text-muted-foreground">Receita Total</p>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        R$ {data.adminPerformance.totalProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
+                      </div>
+                      <p className="text-sm text-muted-foreground">Lucro Líquido</p>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold">
@@ -297,17 +300,53 @@ export default function Dashboard() {
                       </div>
                       <p className="text-sm text-muted-foreground">Taxa de Conversão</p>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
-                        R$ {data.adminPerformance.totalCommission.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </div>
-                      <p className="text-sm text-muted-foreground">Minha Comissão ({data.adminPerformance.commissionPercent}%)</p>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
             )}
-
+            {/* Other Admins Performance */}
+            {data.otherAdminsPerformance && data.otherAdminsPerformance.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Performance de Outros Admins</CardTitle>
+                  <CardDescription>
+                    Comparativo de vendas e lucros dos outros administradores
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {data.otherAdminsPerformance.map((admin: any) => (
+                      <div key={admin.adminId} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-semibold">{admin.adminName}</h4>
+                          <span className="text-sm text-muted-foreground">{admin.adminBranch}</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-center">
+                          <div>
+                            <div className="text-lg font-bold text-green-600">
+                              R$ {admin.totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Receita Total</p>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-green-600">
+                              R$ {admin.totalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Lucro Líquido</p>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold">
+                              {admin.quotationsCount}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Propostas Aprovadas</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {/* Employee Performance Table */}
             <Card className="mb-6">
               <CardHeader>
@@ -357,10 +396,10 @@ export default function Dashboard() {
                 </Table>
               </CardContent>
             </Card>
-          </>
+          </>)
         ) : (
           // Employee Dashboard
-          <>
+          (<>
             {/* Employee KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
               <Card>
@@ -419,7 +458,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             </div>
-
             {/* Commission Breakdown Table */}
             <Card className="mb-6">
               <CardHeader>
@@ -465,7 +503,7 @@ export default function Dashboard() {
                 </Table>
               </CardContent>
             </Card>
-          </>
+          </>)
         )}
 
         {/* Recent Activities */}
