@@ -22,11 +22,13 @@ const wantsSSL =
 export const pool = new Pool({
   connectionString,
   ssl: wantsSSL ? { rejectUnauthorized: false } : undefined,
-  // Fixa o fuso da sessao para bater com process.env.TZ (server/index.ts).
-  // As colunas created_at sao "timestamp" sem fuso; sem isso, o now() do
-  // Postgres e as comparacoes de intervalo de data usam fusos diferentes
-  // (container vs sessao do banco), deslocando propostas para o mes errado.
-  options: '-c timezone=America/Sao_Paulo',
+  // NAO fixar aqui o timezone da sessao do Postgres para America/Sao_Paulo.
+  // O Drizzle serializa/le colunas "timestamp" (sem fuso) sempre assumindo
+  // UTC (toISOString() ao gravar, "+0000" ao ler - ver drizzle-orm/pg-core/
+  // columns/timestamp). O now() do Postgres precisa continuar gravando em
+  // UTC (padrao da sessao) para bater com essa suposicao; senao os limites
+  // de data calculados em horario de Brasilia (ver process.env.TZ em
+  // server/index.ts) ficam deslocados ~3h ao comparar com created_at.
 });
 
 export const db = drizzle(pool, { schema });
