@@ -45,10 +45,20 @@ function requireAdmin(req: any, res: any, next: any) {
   next();
 }
 
+function publicUser(user: User) {
+  const { password: _password, ...safe } = user;
+  return safe;
+}
+
+function canAccessCustomer(user: User, customer: { createdById: string | null }) {
+  return user.type === 'admin' || customer.createdById === user.id;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  if (!process.env.SESSION_SECRET) throw new Error('SESSION_SECRET precisa ser configurado.');
   // Configure sessions
   app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-secret-key-here',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
@@ -72,8 +82,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      req.session.user = user;
-      res.json({ user, message: "Login successful" });
+      req.session.regenerate((error) => {
+        if (error) return res.status(500).json({ message: 'Login failed' });
+        req.session.user = user;
+        res.json({ user: publicUser(user), message: "Login successful" });
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid login data", errors: error.errors });
@@ -93,14 +106,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/me", requireAuth, (req, res) => {
-    res.json(req.session.user);
+    res.json(publicUser(req.session.user!));
+  });
+
+  // Primeiro contrato do aplicativo. Sem escrita; mantém o isolamento de clientes por usuário.
+  app.get('/api/mobile/bootstrap', requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const [availableProducts, customers, settings] = await Promise.all([
+        storage.getProducts(), storage.getCustomers(user), storage.getSettings(),
+      ]);
+      const invoicePercent = Number(settings.find((setting) => setting.key === 'invoice_percent')?.value ?? '5');
+      res.json({
+        user: publicUser(user),
+        settings: { invoicePercent: Number.isFinite(invoicePercent) ? invoicePercent : 5 },
+        products: availableProducts.map((product) => ({
+          id: product.id, name: product.name, category: product.category,
+          pricePerM2: product.pricePerM2, description: product.description,
+          ...(user.type === 'admin' ? { costPerM2: product.costPerM2 } : {}),
+        })),
+        customers: customers.map((customer) => ({
+          id: customer.id, name: customer.name, phone: customer.phone,
+          city: customer.city, address: customer.address,
+        })),
+      });
+    } catch (error) {
+      console.error('Error preparing mobile bootstrap:', error);
+      res.status(500).json({ message: 'Failed to prepare mobile data' });
+    }
   });
 
   // User management routes (admin only)
   app.get("/api/users", requireAdmin, async (req, res) => {
     try {
       const users = await storage.getUsers();
-      res.json(users);
+      res.json(users.map(publicUser));
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -111,7 +151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(userData);
-      res.status(201).json(user);
+      res.status(201).json(publicUser(user));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
@@ -125,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userData = insertUserSchema.partial().parse(req.body);
       const user = await storage.updateUser(req.params.id, userData);
-      res.json(user);
+      res.json(publicUser(user));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid user data", errors: error.errors });
@@ -157,10 +197,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/customers/:id", async (req, res) => {
+  app.get("/api/customers/:id", requireAuth, async (req, res) => {
     try {
       const customer = await storage.getCustomer(req.params.id);
-      if (!customer) {
+      if (!customer || !canAccessCustomer(req.session.user!, customer)) {
         return res.status(404).json({ message: "Customer not found" });
       }
       res.json(customer);
@@ -187,9 +227,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/customers/:id", async (req, res) => {
+  app.put("/api/customers/:id", requireAuth, async (req, res) => {
     try {
-      const customerData = insertCustomerSchema.partial().parse(req.body);
+      const existing = await storage.getCustomer(req.params.id);
+      if (!existing || !canAccessCustomer(req.session.user!, existing)) return res.status(404).json({ message: 'Customer not found' });
+      const customerData = insertCustomerSchema.omit({ createdById: true }).partial().parse(req.body);
       const customer = await storage.updateCustomer(req.params.id, customerData);
       res.json(customer);
     } catch (error) {
@@ -201,8 +243,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/customers/:id", async (req, res) => {
+  app.delete("/api/customers/:id", requireAuth, async (req, res) => {
     try {
+      const existing = await storage.getCustomer(req.params.id);
+      if (!existing || !canAccessCustomer(req.session.user!, existing)) return res.status(404).json({ message: 'Customer not found' });
       await storage.deleteCustomer(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -212,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Product routes
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", requireAuth, async (req, res) => {
     try {
       const products = await storage.getProducts();
       res.json(products);
@@ -222,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/products/:id", async (req, res) => {
+  app.get("/api/products/:id", requireAuth, async (req, res) => {
     try {
       const product = await storage.getProduct(req.params.id);
       if (!product) {
@@ -381,9 +425,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const user = req.session.user!;
-      // Vendedores só podem ver orçamentos da própria filial
-      if (user.type === "vendedor" && quotation.branch !== user.branch) {
-        return res.status(403).json({ message: "Access denied" });
+      // A lista normal mostra apenas propostas próprias; o detalhe segue a mesma regra.
+      if (user.type !== 'admin' && quotation.userId !== user.id) {
+        return res.status(404).json({ message: 'Quotation not found' });
       }
       
       res.json(quotation);
@@ -459,6 +503,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/quotations/:id/status", requireAuth, async (req, res) => {
     try {
+      const existing = await storage.getQuotation(req.params.id);
+      if (!existing || (req.session.user!.type !== 'admin' && existing.userId !== req.session.user!.id)) {
+        return res.status(404).json({ message: 'Quotation not found' });
+      }
       const { status } = req.body;
       if (!['pending', 'approved', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status" });

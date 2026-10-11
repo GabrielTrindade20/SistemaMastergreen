@@ -11,6 +11,9 @@ if (!process.env.DATABASE_URL) {
 }
 
 const connectionString = process.env.DATABASE_URL;
+if (process.env.NODE_ENV === 'development' && new URL(connectionString).pathname === '/sistema-mastergren-web') {
+  throw new Error('Desenvolvimento não pode usar o banco oficial. Configure DATABASE_URL para mastergreen_develop.');
+}
 
 // Habilita SSL automaticamente para provedores que exigem (Neon, Supabase, etc.)
 // e para conexoes externas. Desabilita para o Postgres interno do EasyPanel/Docker

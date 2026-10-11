@@ -1,0 +1,93 @@
+openapi: 3.0.3
+info:
+  title: MasterGreen — primeiro contrato mobile
+  version: 0.1.0
+  description: O app usa a sessão do sistema web. Não recebe credenciais do PostgreSQL.
+servers:
+  - url: https://sistemamastergreen.com.br
+paths:
+  /api/login:
+    post:
+      summary: Entrar com a conta MasterGreen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200': { description: Sessão iniciada; resposta contém user sem password }
+        '401': { description: Credenciais inválidas }
+  /api/me:
+    get:
+      summary: Conta autenticada, sem senha
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Usuário autenticado }
+        '401': { description: Sem sessão }
+  /api/mobile/bootstrap:
+    get:
+      summary: Produtos, clientes permitidos e percentual de nota fiscal
+      description: Funcionário recebe apenas seus clientes e não recebe custo por m².
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Dados iniciais do app
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user, settings, products, customers]
+                properties:
+                  user:
+                    type: object
+                    required: [id, name, type, branch]
+                    properties:
+                      id: { type: string, format: uuid }
+                      name: { type: string }
+                      type: { type: string }
+                      branch: { type: string }
+                  settings:
+                    type: object
+                    required: [invoicePercent]
+                    properties:
+                      invoicePercent: { type: number }
+                  products:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, pricePerM2]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        category: { type: string, nullable: true }
+                        pricePerM2: { type: string, description: Decimal em formato PostgreSQL }
+                        costPerM2: { type: string, nullable: true, description: Apenas administrador }
+                  customers:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        phone: { type: string }
+                        city: { type: string }
+                        address: { type: string, nullable: true }
+        '401': { description: Sem sessão }
+  /api/logout:
+    post:
+      summary: Encerrar sessão
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200': { description: Sessão encerrada }
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: connect.sid

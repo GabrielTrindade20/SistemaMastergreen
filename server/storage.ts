@@ -29,6 +29,7 @@ import {
   type InsertSavedReportTemplate,
 } from "@shared/schema";
 import { db } from "./db";
+import { hashPassword, isLegacyPassword, verifyPassword } from "./passwords";
 import { eq, desc, sql, and, gte, lte, isNotNull, notInArray, inArray, or, ilike } from "drizzle-orm";
 
 export interface IStorage {
@@ -945,14 +946,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
-    const [newUser] = await db.insert(users).values(user).returning();
+    const [newUser] = await db.insert(users).values({ ...user, password: await hashPassword(user.password) }).returning();
     return newUser;
   }
 
   async updateUser(id: string, user: Partial<InsertUser>): Promise<User> {
+    const safeUser = user.password === undefined ? user : { ...user, password: await hashPassword(user.password) };
     const [updatedUser] = await db
       .update(users)
-      .set(user)
+      .set(safeUser)
       .where(eq(users.id, id))
       .returning();
     return updatedUser;
@@ -964,43 +966,19 @@ export class DatabaseStorage implements IStorage {
 
   async authenticateUser(email: string, password: string): Promise<User | null> {
     const user = await this.getUserByEmail(email);
-    if (user && user.password === password) {
+    if (user && await verifyPassword(password, user.password)) {
+      if (isLegacyPassword(user.password)) {
+        const hashed = await hashPassword(password);
+        await db.update(users).set({ password: hashed }).where(eq(users.id, user.id));
+        return { ...user, password: hashed };
+      }
       return user;
     }
     return null;
   }
 
   async initializeDefaultUsers(): Promise<void> {
-    const existingUsers = await this.getUsers();
-    if (existingUsers.length === 0) {
-      const defaultUsers = [
-        {
-          name: "Gabriel Trindade",
-          email: "admin@mastergreen.com",
-          password: "admin123",
-          type: "admin",
-          branch: "Matriz"
-        },
-        {
-          name: "João Silva",
-          email: "joao@filial1.com",
-          password: "func123",
-          type: "vendedor",
-          branch: "Filial Norte"
-        },
-        {
-          name: "Ana Lima",
-          email: "ana@filial2.com",
-          password: "func456",
-          type: "vendedor",
-          branch: "Filial Sul"
-        }
-      ];
-
-      for (const user of defaultUsers) {
-        await this.createUser(user);
-      }
-    }
+    // Sem usuários automáticos com credenciais conhecidas. Use o bootstrap explícito no banco de dev.
   }
 
   // System Settings
