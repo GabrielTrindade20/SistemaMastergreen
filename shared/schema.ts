@@ -198,6 +198,7 @@ export const mobileSessions = pgTable('mobile_sessions', {
 
 export const mobileQuickProposals = pgTable('mobile_quick_proposals', {
   id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  quotationNumber: text('quotation_number').notNull(),
   clientId: uuid('client_id').notNull(),
   userId: uuid('user_id').notNull().references(() => users.id),
   customerId: uuid('customer_id').notNull().references(() => customers.id),
@@ -209,9 +210,11 @@ export const mobileQuickProposals = pgTable('mobile_quick_proposals', {
   discountPercent: decimal('discount_percent', { precision: 5, scale: 2 }).notNull(),
   totalCents: integer('total_cents').notNull(),
   payloadHash: text('payload_hash').notNull(),
+  webDetails: jsonb('web_details'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   clientKey: uniqueIndex('mobile_quick_proposals_client_key').on(table.userId, table.clientId),
+  numberKey: uniqueIndex('mobile_quick_proposals_number_key').on(table.quotationNumber),
   customerIdx: index('mobile_quick_proposals_customer_idx').on(table.customerId),
   dateIdx: index('mobile_quick_proposals_date_idx').on(table.proposalDate),
 }));

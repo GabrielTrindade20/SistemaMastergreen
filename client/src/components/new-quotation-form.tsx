@@ -21,6 +21,9 @@ import { useQuery } from "@tanstack/react-query";
 import { formatCurrency } from "@/lib/calculations";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import type { EditableQuickProposal } from '@shared/quick-proposal-edit';
+import { quickProposalEditSchema } from '@shared/quick-proposal-edit';
+import { calculateQuickDetails, quickCostTotal, type QuickProposalDetails } from '@shared/quick-proposal-details';
 
 const DRAFT_KEY = "mastergreen_quotation_draft";
 
@@ -61,6 +64,8 @@ type QuotationFormData = z.infer<typeof quotationSchema>;
 
 interface QuotationItem {
   productId: string;
+  name?: string;
+  unit?: 'm²'|'un'|'m'|'serviço';
   quantity: number | string;
   unitPrice: number | string; // Custo unitário do produto
   salePrice: number | string; // Valor por metro para venda ao cliente
@@ -104,19 +109,33 @@ interface NewQuotationFormProps {
   isLoading: boolean;
   initialData?: any;
   isEditMode?: boolean;
+  quickProposal?: EditableQuickProposal;
 }
 
-export function NewQuotationForm({ 
+export function NewQuotationForm(props: NewQuotationFormProps) {
+  return <DetailedQuotationForm {...props} />;
+}
+
+function DetailedQuotationForm({
   customers, 
   products, 
   onSubmit, 
   onCancel, 
   isLoading,
   initialData,
+  quickProposal,
   isEditMode = false,
 }: NewQuotationFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [quickCustomer,setQuickCustomer] = useState(quickProposal?.customer);
+  const [quickDate,setQuickDate] = useState(quickProposal?.date || '');
+  const [quickPayment,setQuickPayment] = useState(quickProposal?.payment || '');
+  const [quickFreight,setQuickFreight] = useState(quickProposal?.freight || '');
+  const [pricingMode,setPricingMode] = useState<'manual'|'items'>(quickProposal?.webDetails?.pricingMode || 'manual');
+  const [manualTotal,setManualTotal] = useState(((quickProposal?.webDetails?.manualTotalCents || quickProposal?.totalCents || 0)/100).toFixed(2));
+  const [quickError,setQuickError] = useState('');
+  const loadedQuickRef = useRef<string | null>(null);
   
   const [items, setItems] = useState<QuotationItem[]>([{
     productId: '',
@@ -277,6 +296,16 @@ export function NewQuotationForm({
 
   // Carregar dados quando initialData for fornecido (edição)
   useEffect(() => {
+    if (quickProposal) {
+      if (loadedQuickRef.current === quickProposal.id) return;
+      loadedQuickRef.current = quickProposal.id;
+      const details = quickProposal.webDetails;
+      form.reset({customerId:quickProposal.id,validUntil:details?.validUntil || new Date(Date.now()+7*86400000).toISOString().slice(0,10),notes:details?.notes || '',shippingIncluded:details?.shippingIncluded ?? /^inclus/i.test(quickProposal.freight),warrantyText:quickProposal.warranty,pdfTitle:details?.pdfTitle || '',responsibleName:details?.responsibleName || user?.name || '',responsiblePosition:details?.responsiblePosition || 'Administrador',discountPercent:String(quickProposal.discountPercent)});
+      setCustomerSearchValue(quickProposal.customer.name);
+      setItems(details?.items.map(item=>({productId:item.productId||'',name:item.name,unit:item.unit||'m²',quantity:item.quantity,unitPrice:item.unitCost,salePrice:item.unitPrice,originalUnitPrice:item.unitCost})) || []);
+      setCosts(details?.costs.map(cost=>({...cost,costId:cost.costId || 'manual',productId:cost.productId || undefined,totalValue:quickCostTotal(cost)})) || []);
+      return;
+    }
     if (initialData) {
       console.log('Loading initial data:', initialData);
       console.log('Loading items:', initialData.items?.map((i: any) => ({
@@ -331,14 +360,42 @@ export function NewQuotationForm({
         }
       }
     }
-  }, [initialData, form, customers, user]);
+  }, [initialData, form, customers, user, quickProposal]);
 
   // Recalcular automaticamente quando items, costs, desconto ou configurações mudarem
   useEffect(() => {
     calculateTotals();
-  }, [items, costs, form.watch('discountPercent'), invoicePercentSetting, tithePercentSetting]);
+  }, [items, costs, form.watch('discountPercent'), invoicePercentSetting, tithePercentSetting, pricingMode, manualTotal]);
+
+  const buildQuickDetails = (): QuickProposalDetails => ({
+    version:1,pricingMode,manualTotalCents:Math.round(Number(manualTotal.replace(',','.'))*100),
+    validUntil:form.getValues('validUntil'),notes:form.getValues('notes') || '',pdfTitle:form.getValues('pdfTitle') || '',
+    responsibleName:form.getValues('responsibleName') || user?.name || '',responsiblePosition:form.getValues('responsiblePosition') || 'Administrador',
+    shippingIncluded:form.getValues('shippingIncluded'),invoicePercent:invoicePercentSetting,tithePercent:tithePercentSetting,
+    items:items.filter(item=>item.productId || item.name || Number(item.quantity) || Number(item.salePrice) || Number(item.unitPrice)).map(item=>({
+      productId:item.productId||null,name:item.name ?? products.find(p=>p.id===item.productId)?.name ?? '',unit:item.unit||'m²',
+      quantity:Number(item.quantity),unitCost:Number(item.unitPrice),unitPrice:Number(item.salePrice),
+    })),
+    costs:costs.map(cost=>({costId:cost.costId==='manual'?null:cost.costId,name:cost.name,unitValue:Number(cost.unitValue),quantity:Number(cost.quantity),calculationType:cost.calculationType,percentageValue:Number(cost.percentageValue || 0),productId:cost.productId || null,supplier:cost.supplier || '',description:cost.description || ''})),
+  });
+
+  const buildQuickSubmission = () => {
+    const webDetails = buildQuickDetails();
+    const discountPercent = Number(form.getValues('discountPercent') || 0);
+    const parsed = quickProposalEditSchema.safeParse({revision:quickProposal!.revision,customer:quickCustomer,proposalDate:quickDate,payment:quickPayment,freight:quickFreight,warranty:form.getValues('warrantyText'),discountPercent,totalCents:Math.round(calculateQuickDetails(webDetails,discountPercent).total*100),webDetails});
+    if (!parsed.success) {
+      setQuickError('Confira os dados, datas, valores e produtos/custos selecionados. '+parsed.error.issues.map(issue=>issue.path.join('.')+': '+issue.message).join(' · '));
+      return null;
+    }
+    setQuickError('');
+    return parsed.data;
+  };
 
   const calculateTotals = () => {
+    if (quickProposal) {
+      setCalculations(calculateQuickDetails(buildQuickDetails(),Number(form.getValues('discountPercent') || 0)));
+      return;
+    }
     // 1. Valor Total da Venda (bruto): quantidade * valor por metro escolhido pelo cliente
     const valorTotalVenda = items.reduce((sum, item) => {
       const quantity = Number(item.quantity) || 0;
@@ -410,6 +467,7 @@ export function NewQuotationForm({
   };
 
   const removeItem = (index: number) => {
+    if (quickProposal) setCosts(costs.map(cost=>cost.productId===items[index].productId?{...cost,productId:undefined}:cost));
     setItems(items.filter((_, i) => i !== index));
   };
 
@@ -422,9 +480,10 @@ export function NewQuotationForm({
     if (field === 'productId') {
       const product = products.find(p => p.id === value);
       if (product) {
+        if(quickProposal){newItems[index].name=product.name;newItems[index].unit='m²';}
         // Para vendedores, definir unitPrice como 0 já que não veem custos
         // Mas admin precisa ver o custo real
-        if (user?.type === 'vendedor') {
+        if (user?.type === 'vendedor' || quickProposal) {
           newItems[index].unitPrice = 0; // Vendedor não vê custos
           newItems[index].salePrice = parseFloat(product.pricePerM2); // Preço de venda sugerido
         } else {
@@ -441,7 +500,10 @@ export function NewQuotationForm({
   };
 
   const addCost = () => {
-    if (availableCosts.length === 0) return;
+    if (availableCosts.length === 0) {
+      if (quickProposal) setCosts([...costs,{costId:'manual',name:'Custo manual',unitValue:0,quantity:1,totalValue:0,calculationType:'fixed',percentageValue:0}]);
+      return;
+    }
     
     const firstCost = availableCosts[0];
     const newCost: QuotationCost = {
@@ -494,10 +556,19 @@ export function NewQuotationForm({
     }
     
     console.log(`💸 Estado atualizado do custo ${index}:`, newCosts[index]);
+    if (quickProposal) {
+      const cost = newCosts[index];
+      cost.totalValue = quickCostTotal({...cost,costId:cost.costId==='manual'?null:cost.costId,productId:cost.productId || null,percentageValue:cost.percentageValue || 0,supplier:cost.supplier || '',description:cost.description || ''});
+    }
     setCosts(newCosts);
   };
 
   const handleSubmit = (formData: QuotationFormData) => {
+    if (quickProposal) {
+      const data = buildQuickSubmission();
+      if (data) onSubmit(data);
+      return;
+    }
     console.log('=== HANDLESUBMIT CALLED ===');
     console.log('User type:', user?.type);
     console.log('Is admin editing:', user?.type === 'admin');
@@ -592,6 +663,19 @@ export function NewQuotationForm({
   };
 
   const handleShareQuotation = async () => {
+    if (quickProposal) {
+      if (!await form.trigger()) return;
+      const data = buildQuickSubmission();
+      if (!data) return;
+      try {
+        const { generateQuickProposalPDF } = await import('@/lib/pdf-generator');
+        const blob = await generateQuickProposalPDF({...quickProposal,...data,date:data.proposalDate});
+        const file = new File([blob],`proposta-${quickProposal.quotationNumber}.pdf`,{type:'application/pdf'});
+        if (navigator.canShare?.({files:[file]})) await navigator.share({files:[file],title:data.webDetails?.pdfTitle || 'Proposta MasterGreen'});
+        else downloadPDF(blob,`proposta-${quickProposal.quotationNumber}`);
+      } catch (error) { if (!(error instanceof Error && error.name==='AbortError')) setQuickError('Não foi possível gerar o PDF. Confira a conexão e tente novamente.'); }
+      return;
+    }
     console.log('📤 Gerando PDF para compartilhamento...');
     
     // Verificar se há itens
@@ -769,6 +853,11 @@ export function NewQuotationForm({
           console.log('Form validation errors:', errors);
         })(e);
       }} className="space-y-6">
+        {quickProposal && <div className="rounded-lg border bg-green-50 p-4 text-sm space-y-2">
+          <strong>App · {quickProposal.quotationNumber}</strong>
+          <p>Mesmo editor do sistema: acrescente produtos e custos, configure a proposta e salve. Os itens antigos que não foram enviados pelo celular não são preenchidos automaticamente.</p>
+        </div>}
+        {quickError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">{quickError}</p>}
 
         {/* Banner de rascunho restaurado */}
         {hasDraft && !isEditMode && (
@@ -829,6 +918,7 @@ export function NewQuotationForm({
                           onClick={() => {
                             field.onChange(customer.id);
                             setCustomerSearchValue(customer.name);
+                            if (quickProposal) setQuickCustomer({name:customer.name,contact:'',phone:customer.phone || '',document:customer.cpfCnpj || '',address:[customer.address,customer.number,customer.neighborhood,customer.city,customer.state,customer.zipCode].filter(Boolean).join(' · ')});
                             setCustomerSearchOpen(false);
                           }}
                           data-testid={`option-customer-${customer.id}`}
@@ -881,6 +971,14 @@ export function NewQuotationForm({
           />
         </div>
 
+        {quickProposal && quickCustomer && <Card><CardHeader><CardTitle>Dados recebidos do aplicativo</CardTitle></CardHeader><CardContent className="grid sm:grid-cols-2 gap-4">
+          {([['name','Nome do cliente'],['contact','Contato'],['phone','Telefone'],['document','CPF / CNPJ'],['address','Endereço']] as const).map(([key,label])=><div key={key}><label htmlFor={`app-${key}`} className="text-sm font-medium">{label}</label><Input id={`app-${key}`} value={quickCustomer[key]} onChange={event=>{setQuickCustomer({...quickCustomer,[key]:event.target.value});if(key==='name')setCustomerSearchValue(event.target.value);}} /></div>)}
+          <div><label htmlFor="app-date" className="text-sm font-medium">Data da proposta</label><Input id="app-date" type="date" value={quickDate} onChange={e=>setQuickDate(e.target.value)} /></div>
+          <div><label htmlFor="app-payment" className="text-sm font-medium">Condições de pagamento</label><Input id="app-payment" value={quickPayment} onChange={e=>setQuickPayment(e.target.value)} /></div>
+          <div><label htmlFor="app-freight" className="text-sm font-medium">Frete</label><Input id="app-freight" value={quickFreight} onChange={e=>setQuickFreight(e.target.value)} /></div>
+          <p className="sm:col-span-2 text-sm text-muted-foreground">Os dados acima pertencem a esta proposta; não alteram o cadastro geral do cliente.</p>
+        </CardContent></Card>}
+
         {/* Produtos */}
         <Card>
           <CardHeader>
@@ -888,26 +986,41 @@ export function NewQuotationForm({
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {quickProposal&&<p className="text-sm text-muted-foreground">Os itens do app mantêm a descrição e o preço negociados. Custos não informados começam em zero; preencha-os para estimar o lucro.</p>}
               {items.map((item, index) => (
-                <div key={index} className={`grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
-                  <div>
+                <div key={index} data-testid={`proposal-item-${index}`} className={quickProposal
+                  ? 'grid grid-cols-1 gap-4 items-end rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-3 [&>div]:min-w-0'
+                  : `grid grid-cols-1 gap-4 items-end ${user?.type === 'admin' ? 'md:grid-cols-7' : 'md:grid-cols-4'}`}>
+                  <div className={quickProposal?'col-span-full space-y-2':undefined}>
                     <label className="text-sm font-medium">Produto</label>
                     <SearchableSelect
-                      options={products.map(p => ({ value: p.id, label: p.name }))}
+                      options={[...(quickProposal&&item.productId&&!products.some(p=>p.id===item.productId)?[{value:item.productId,label:item.name||'Produto salvo na proposta'}]:[]),...products.map(p => ({ value: p.id, label: p.name }))]}
                       value={item.productId}
                       onValueChange={(value) => updateItem(index, 'productId', value)}
                       placeholder="Selecionar produto"
                       data-testid={`select-product-${index}`}
+                      className={quickProposal?'h-auto min-h-10 whitespace-normal text-left [&>span]:whitespace-normal [&>span]:break-words':undefined}
                       onCreateNew={() => {
                         setQuickProductTargetIndex(index);
                         setQuickProductDialogOpen(true);
                       }}
                       createNewLabel="+ Criar novo produto"
                     />
+                    {quickProposal&&<div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
+                      <div className="min-w-0 space-y-1">
+                        <label htmlFor={`item-description-${index}`} className="text-sm font-medium">Descrição na proposta</label>
+                        <Textarea id={`item-description-${index}`} aria-label={`Descrição do item ${index+1}`} className="min-h-[64px] resize-y" rows={2} placeholder="Descrição / item livre" value={item.name??''} onChange={e=>updateItem(index,'name',e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <label htmlFor={`item-unit-${index}`} className="text-sm font-medium">Unidade</label>
+                        <select id={`item-unit-${index}`} aria-label={`Unidade do item ${index+1}`} className="h-12 w-full rounded-md border bg-background px-3 text-sm md:h-10" value={item.unit||'m²'} onChange={e=>updateItem(index,'unit',e.target.value)}>{['m²','un','m','serviço'].map(unit=><option key={unit}>{unit}</option>)}</select>
+                      </div>
+                      {!item.productId&&<p className="col-span-full text-xs text-muted-foreground">Item livre recebido do app. Você pode vinculá-lo a um produto acima.</p>}
+                    </div>}
                   </div>
                   
                   <div>
-                    <label className="text-sm font-medium">Quantidade (m²)</label>
+                    <label className="text-sm font-medium">Quantidade ({item.unit||'m²'})</label>
                     <Input
                       type="number"
                       step="0.01"
@@ -922,7 +1035,7 @@ export function NewQuotationForm({
                   {user?.type === 'admin' && (
                     <>
                       <div>
-                        <label className="text-sm font-medium">Custo Unitário (R$/m²)</label>
+                        <label className="text-sm font-medium">Custo Unitário (R$/{item.unit||'m²'})</label>
                         <Input
                           type="number"
                           step="0.01"
@@ -936,7 +1049,7 @@ export function NewQuotationForm({
                       </div>
                       
                       <div>
-                        <label className="text-sm font-medium">Valor por Metro (Venda)</label>
+                        <label className="text-sm font-medium">{quickProposal?`Valor por ${item.unit||'m²'} (Venda)`:'Valor por Metro (Venda)'}</label>
                         <Input
                           type="number"
                           step="0.01"
@@ -988,8 +1101,9 @@ export function NewQuotationForm({
                       variant="outline"
                       size="sm"
                       onClick={() => removeItem(index)}
-                      disabled={items.length === 1}
+                      disabled={!quickProposal && items.length === 1}
                       data-testid={`button-remove-item-${index}`}
+                      aria-label={`Remover produto ${index+1}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -1042,7 +1156,7 @@ export function NewQuotationForm({
                     </div>
 
                     {/* Seleção de Produto - Apenas quando há múltiplos produtos */}
-                    {items.length > 1 && (
+                    {(quickProposal || items.length > 1) && (
                       <div>
                         <label className="text-sm font-medium">Produto</label>
                         <Select 
@@ -1054,7 +1168,7 @@ export function NewQuotationForm({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">Custo geral (não específico)</SelectItem>
-                            {items.map((item, itemIndex) => {
+                            {items.filter((item,index,all)=>item.productId&&all.findIndex(other=>other.productId===item.productId)===index).map((item, itemIndex) => {
                               const product = products.find(p => p.id === item.productId);
                               return (
                                 <SelectItem key={`product-${itemIndex}-${item.productId}`} value={item.productId || `item-${itemIndex}`}>
@@ -1090,6 +1204,8 @@ export function NewQuotationForm({
                         </Button>
                       </div>
                     </div>
+
+                    {quickProposal && cost.costId === 'manual' && <div><label htmlFor={`manual-cost-${index}`} className="text-sm font-medium">Nome do custo</label><Input id={`manual-cost-${index}`} value={cost.name} onChange={e=>updateCost(index,'name',e.target.value)} /></div>}
                     
                     <div>
                       <label className="text-sm font-medium">Valor Unitário</label>
@@ -1157,7 +1273,7 @@ export function NewQuotationForm({
                   type="button"
                   variant="outline"
                   onClick={addCost}
-                  disabled={availableCosts.length === 0}
+                  disabled={!quickProposal && availableCosts.length === 0}
                   data-testid="button-add-cost"
                 >
                   <Plus className="h-4 w-4 mr-2" />
@@ -1167,6 +1283,15 @@ export function NewQuotationForm({
             </CardContent>
           </Card>
         )}
+
+        {quickProposal && <Card><CardHeader><CardTitle>Valor da proposta</CardTitle></CardHeader><CardContent className="space-y-3">
+          <label htmlFor="app-pricing" className="text-sm font-medium">Como definir o total</label>
+          <select id="app-pricing" className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={pricingMode} onChange={e=>setPricingMode(e.target.value as 'manual'|'items')}>
+            <option value="manual">Manter valor final informado</option><option value="items">Calcular pelos produtos e desconto</option>
+          </select>
+          {pricingMode==='manual' && <div><label htmlFor="app-total" className="text-sm font-medium">Valor final da proposta (R$)</label><Input id="app-total" inputMode="decimal" value={manualTotal} onChange={e=>setManualTotal(e.target.value)} /><p className="text-sm text-muted-foreground mt-2">Valor já negociado, com desconto aplicado. Adicionar produtos ou mudar o desconto não altera este total enquanto esta opção estiver selecionada.</p></div>}
+          {pricingMode==='items' && <p className="text-sm text-muted-foreground">O total será a soma dos produtos cadastrados abaixo, com o desconto da proposta. Confira se todos os itens foram incluídos.</p>}
+        </CardContent></Card>}
 
         {/* Resumo dos Cálculos */}
         <Card>
@@ -1178,6 +1303,7 @@ export function NewQuotationForm({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {quickProposal && <p className="text-sm text-muted-foreground">Estimativa com os custos preenchidos no web; não significa aprovação nem receita realizada.</p>}
               {/* Valores para todos */}
               {/* <div className="flex justify-between">
                 <span>Valor Total dos Produtos:</span>
@@ -1315,7 +1441,7 @@ export function NewQuotationForm({
                     <FormControl>
                       <Switch
                         checked={field.value}
-                        onCheckedChange={field.onChange}
+                        onCheckedChange={value=>{field.onChange(value);if(quickProposal)setQuickFreight(value?'Incluso':'Não incluso');}}
                         data-testid="switch-shipping-included"
                       />
                     </FormControl>
@@ -1352,14 +1478,15 @@ export function NewQuotationForm({
                     <FormLabel>Nome do Responsável</FormLabel>
                     <FormControl>
                       <Input
-                        value={user?.name || ''}
-                        readOnly
-                        className="bg-gray-100"
+                        value={quickProposal ? field.value : user?.name || ''}
+                        onChange={quickProposal ? field.onChange : undefined}
+                        readOnly={!quickProposal}
+                        className={quickProposal ? '' : 'bg-gray-100'}
                         data-testid="input-responsible-name"
                       />
                     </FormControl>
                     <FormDescription>
-                      Responsável logado no sistema
+                      {quickProposal ? 'Responsável informado nesta proposta' : 'Responsável logado no sistema'}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -1374,9 +1501,10 @@ export function NewQuotationForm({
                     <FormLabel>Cargo do Responsável</FormLabel>
                     <FormControl>
                       <Input
-                        value={user?.type || ''}
-                        readOnly
-                        className="bg-gray-100"
+                        value={quickProposal ? field.value : user?.type || ''}
+                        onChange={quickProposal ? field.onChange : undefined}
+                        readOnly={!quickProposal}
+                        className={quickProposal ? '' : 'bg-gray-100'}
                         data-testid="input-responsible-name"
                       />
                     </FormControl>

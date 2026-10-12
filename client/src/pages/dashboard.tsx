@@ -59,9 +59,13 @@ export default function Dashboard() {
         pdf.setFontSize(12);
         pdf.text(`Receita Total: R$ ${extractData.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
         yPos += 10;
-        pdf.text(`Comissões Pagas: R$ ${extractData.totalCommissionsPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+        pdf.text(`Comissões estimadas: R$ ${extractData.totalCommissionsPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
         yPos += 10;
-        pdf.text(`Lucro Líquido: R$ ${extractData.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+        pdf.text(`Lucro líquido registrado: R$ ${extractData.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 20, yPos);
+        yPos += 10;
+        pdf.setFontSize(10);
+        pdf.text(`Custos informados em ${extractData.financialCoverage.covered} de ${extractData.financialCoverage.total} aprovadas. Comissões não confirmam pagamento.`, 20, yPos);
+        pdf.setFontSize(12);
         yPos += 10;
         pdf.text(`Propostas Aprovadas: ${extractData.approvedQuotationsCount}`, 20, yPos);
         yPos += 20;
@@ -221,8 +225,9 @@ export default function Dashboard() {
                     <div className="text-2xl font-bold text-green-600">
                       R$ {data.totalNetProfit?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                     </div>
-                    <p className="text-sm text-muted-foreground">Lucro Líquido</p>
-                    <p className="text-xs text-muted-foreground">Lucro de todas as propostas aprovadas</p>
+                    <p className="text-sm text-muted-foreground">Lucro líquido registrado</p>
+                    <p className="text-xs text-muted-foreground">{data.financialCoverage?.covered || 0} de {data.approvedQuotations || 0} aprovadas com custos registrados</p>
+                    <p className="text-xs text-muted-foreground">Custos registrados: R$ {data.totalCosts?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}</p>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold">
@@ -259,8 +264,8 @@ export default function Dashboard() {
                     <div className="text-2xl font-bold text-red-600">
                       R$ {data.totalCommissionsPaid?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}
                     </div>
-                    <p className="text-sm text-muted-foreground">Comissões Pagas</p>
-                    <p className="text-xs text-muted-foreground">Total de comissões dos vendedores</p>
+                    <p className="text-sm text-muted-foreground">Comissões estimadas</p>
+                    <p className="text-xs text-muted-foreground">Pela taxa atual, não confirma pagamento</p>
                   </div>
                 </div>
               </CardContent>

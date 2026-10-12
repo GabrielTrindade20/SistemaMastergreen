@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User, LoginUser } from "@shared/schema";
 import { useState, useEffect } from "react";
+import { postLoginPath } from '@/lib/quotation-link';
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -49,7 +50,7 @@ export function useAuth() {
     onSuccess: (data) => {
       console.log("Login successful, reloading to update interface");
       // Usar window.location.href para recarregar completamente
-      window.location.href = "/dashboard";
+      window.location.href = postLoginPath(window.location.pathname, window.location.search);
     },
     onError: (error) => {
       console.log("Login error:", error);

@@ -76,7 +76,7 @@ e casa com a versão da Neon) ou no seu PC (Ubuntu/Debian: `sudo apt install pos
 Exportar da Neon (gera o arquivo `backup_mastergreen.sql`):
 
 ```bash
-pg_dump "postgresql://neondb_owner:npg_co7I6nWEakZd@ep-delicate-glade-afhtezpi.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require" \
+pg_dump "postgresql://neondb_owner:TROCAR_SENHA@ep-delicate-glade-afhtezpi.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require" \
   --no-owner --no-acl \
   -f backup_mastergreen.sql
 ```

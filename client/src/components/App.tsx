@@ -16,6 +16,7 @@ import Employees from "@/pages/employees";
 
 
 import Admin from "@/pages/admin";
+import CompanySettings from '@/pages/company-settings';
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -55,6 +56,7 @@ function Router() {
 
           {user.type === "admin" && <Route path="/funcionarios" component={Employees} />}
           {user.type === "admin" && <Route path="/admin" component={Admin} />}
+          {user.type === "admin" && <Route path="/configuracoes" component={CompanySettings} />}
           <Route component={NotFound} />
         </Switch>
       </div>

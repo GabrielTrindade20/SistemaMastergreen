@@ -5,9 +5,14 @@
   "license": "MIT",
   "scripts": {
     "dev": "cross-env NODE_ENV=development tsx --env-file-if-exists=.env server/index.ts",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --splitting --outdir=dist",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
+    "test": "node --import tsx --test tests/quotation-list.test.ts tests/report-metrics.test.ts tests/dashboard-metrics.test.ts tests/login-limiter.test.ts server/passwords.test.ts",
+    "test:integration": "node --env-file=.env --env-file=.env.local --import tsx --test tests/mobile.test.ts tests/quick-proposal-details.test.ts tests/quick-proposal-edit.test.ts tests/report-integration.test.ts tests/proposal-documents.test.ts tests/session-store.test.ts",
+    "audit:integration": "node --env-file=.env --env-file=.env.local tests/integration-audit.mjs",
+    "audit:security": "node --env-file=.env --env-file=.env.local tests/security-smoke.mjs",
+    "test:runtime": "node --env-file=.env --env-file=.env.local tests/runtime-package-smoke.mjs",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
@@ -47,21 +52,20 @@
     "@uppy/core": "^4.5.2",
     "@uppy/dashboard": "^4.4.3",
     "@uppy/react": "^4.5.2",
-    "@vercel/node": "^5.7.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "date-fns": "^3.6.0",
-    "drizzle-orm": "^0.39.1",
+    "drizzle-orm": "^0.45.4",
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.6.0",
-    "express": "^4.21.2",
+    "express": "^4.22.3",
     "express-session": "^1.18.2",
     "framer-motion": "^11.13.1",
     "input-otp": "^1.4.2",
-    "jspdf": "^3.0.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.453.0",
     "memoizee": "^0.4.17",
     "memorystore": "^1.6.7",
@@ -79,17 +83,18 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.4",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7",
     "tw-animate-css": "^1.2.5",
     "vaul": "^1.1.2",
-    "vercel": "^53.1.0",
     "wouter": "^3.3.5",
     "ws": "^8.18.0",
-    "xlsx": "^0.18.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0"
   },
   "devDependencies": {
+    "tailwindcss-animate": "^1.0.7",
+    "@vercel/node": "^5.7.15",
+    "vercel": "^53.1.0",
     "@replit/vite-plugin-cartographer": "^0.2.8",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
     "@tailwindcss/typography": "^0.5.15",
@@ -117,5 +122,8 @@
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
+  },
+  "overrides": {
+    "@vercel/fun": { "tar": "7.5.22" }
   }
 }

@@ -14,8 +14,16 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
+import connectPgSimple from 'connect-pg-simple';
+import { createLoginLimiter } from './login-limiter';
 import { createMobileRouter, getMobileData } from './mobile';
 import { reportMonthSchema } from '../shared/mobile-contract';
+import { getCompanyProfile, companyProfileSchema, saveDocumentSetting } from './company-profile';
+import { pool } from './db';
+import { quickProposalEditSchema } from '../shared/quick-proposal-edit';
+import { getQuickProposal, editQuickProposal } from './quick-proposal-edit';
+import { adminDashboard } from '../shared/dashboard-metrics';
+import { loadReportRows } from './reporting';
 
 const createQuotationSchema = z.object({
   quotation: insertQuotationSchema.omit({ userId: true, branch: true }).extend({
@@ -58,13 +66,25 @@ function canAccessCustomer(user: User, customer: { createdById: string | null })
 
 export async function registerRoutes(app: Express): Promise<Server> {
   if (!process.env.SESSION_SECRET) throw new Error('SESSION_SECRET precisa ser configurado.');
+  const production=process.env.NODE_ENV==='production';
+  const proxyHops=Number(process.env.TRUST_PROXY_HOPS||'0');
+  if(!Number.isInteger(proxyHops)||proxyHops<0||proxyHops>5)throw new Error('TRUST_PROXY_HOPS inválido.');
+  if(proxyHops)app.set('trust proxy',proxyHops);
+  app.disable('x-powered-by');
+  // Never serialize password hashes nested in joined quotation/user records.
+  app.set('json replacer',(key:string,value:unknown)=>key==='password'||key==='token_hash'?undefined:value);
+  app.use('/api',(_req,res,next)=>{res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');next();});
+  const loginLimiter=createLoginLimiter();
   // Configure sessions
   app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    ...(production?{store:new (connectPgSimple(session))({pool,tableName:'web_sessions',createTableIfMissing:false})}:{}),
     cookie: {
-      secure: false, // Set to true in production with HTTPS
+      secure: production,
+      httpOnly: true,
+      sameSite: 'lax',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     }
   }));
@@ -75,6 +95,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeDefaultSettings();
 
   app.use('/api/mobile', createMobileRouter());
+  app.get('/api/company-profile',requireAuth,async (_req,res)=>{
+    try { res.json(await getCompanyProfile()); } catch {res.status(500).json({message:'Não foi possível carregar os dados da empresa.'});}
+  });
+  app.put('/api/company-profile',requireAdmin,async (req,res)=>{
+    const parsed=companyProfileSchema.safeParse(req.body);
+    if(!parsed.success)return res.status(400).json({message:'Confira os dados da empresa.',errors:parsed.error.flatten()});
+    try {await saveDocumentSetting('company_profile',parsed.data);res.json(parsed.data);}catch{res.status(500).json({message:'Não foi possível salvar os dados da empresa.'});}
+  });
   app.get('/api/quick-proposals', requireAdmin, async (req, res) => {
     const month = reportMonthSchema.safeParse(req.query.month || new Date().toISOString().slice(0, 7));
     if (!month.success) return res.status(400).json({ message: 'Mês inválido.' });
@@ -82,15 +110,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     catch { res.status(500).json({ message: 'Não foi possível consultar as propostas do aplicativo.' }); }
   });
 
+  app.get('/api/quick-proposals/:id', requireAdmin, async (req, res) => {
+    if (!z.string().uuid().safeParse(req.params.id).success) return res.status(400).json({message:'Identificador inválido.'});
+    let client;
+    try {
+      client = await pool.connect();
+      const proposal = await getQuickProposal(client, req.params.id);
+      res.setHeader('Cache-Control', 'no-store');
+      if (!proposal) return res.status(404).json({message:'Proposta não encontrada.'});
+      res.json(proposal);
+    } catch { res.status(500).json({message:'Não foi possível abrir a proposta.'}); }
+    finally { client?.release(); }
+  });
+  app.put('/api/quick-proposals/:id', requireAdmin, async (req, res) => {
+    if (!z.string().uuid().safeParse(req.params.id).success) return res.status(400).json({message:'Identificador inválido.'});
+    const parsed = quickProposalEditSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({message:'Confira os dados da proposta.',errors:parsed.error.flatten()});
+    let client;
+    try {
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const result = await editQuickProposal(client, req.params.id, parsed.data);
+      if (result.kind !== 'updated') {
+        await client.query('ROLLBACK');
+        if (result.kind === 'invalid') return res.status(400).json({message:'O total calculado deve estar entre R$ 0,01 e R$ 10.000.000,00.'});
+        return res.status(result.kind === 'missing' ? 404 : 409).json({message:result.kind === 'missing' ? 'Proposta não encontrada.' : 'Esta proposta foi alterada em outra aba. Reabra a proposta para conferir os dados antes de salvar novamente.'});
+      }
+      await client.query('COMMIT');
+      res.json(result.proposal);
+    } catch { await client?.query('ROLLBACK'); res.status(500).json({message:'Não foi possível salvar a proposta.'}); }
+    finally { client?.release(); }
+  });
+
   // Auth routes
   app.post("/api/login", async (req, res) => {
     try {
+      const key=req.ip||'unknown';
+      if(!loginLimiter.take(key)){res.setHeader('Retry-After','900');return res.status(429).json({message:'Muitas tentativas. Aguarde 15 minutos.'});}
       const { email, password } = loginUserSchema.parse(req.body);
       const user = await storage.authenticateUser(email, password);
       
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
+      loginLimiter.clear(key);
 
       req.session.regenerate((error) => {
         if (error) return res.status(500).json({ message: 'Login failed' });
@@ -417,8 +480,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Admin e funcionários veem apenas suas próprias propostas
-      const quotations = await storage.getQuotationsByUser(user.id, startDate, endDate);
+      // Admin sees the same canonical company proposals as reports/mobile.
+      // Employees retain their existing own-proposal restriction.
+      const canonical = user.type==='admin' ? await loadReportRows({isAdmin:true,dateFrom:startDate,dateTo:endDate}) : null;
+      const ids=canonical ? new Map(canonical.map(row=>[row.quotationId,row.quotationCreatedAt])) : null;
+      const quotations = ids ? (await storage.getQuotations()).filter(row=>ids.has(row.id)).map(row=>({...row,createdAt:ids.get(row.id)}))
+        : await storage.getQuotationsByUser(user.id, startDate, endDate);
 
       res.json(quotations);
     } catch (error) {
@@ -774,197 +841,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.session.user!;
       const selectedDate = (req.params.date as string) || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      if(!reportMonthSchema.safeParse(selectedDate).success) return res.status(400).json({message:'Mês inválido.'});
       
       const [year, month] = selectedDate.split('-').map(Number);
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
       
       if (user.type === "admin") {
-        // Admin dashboard - comprehensive system view
-        const allQuotationsRaw = await storage.getQuotationsInDateRange(startDate, endDate);
-        
-        // NOVA LÓGICA: Deduplicar propostas - mostrar apenas versão final de cada proposta
-        // Prioridade: versão calculada > versão original
-        const quotationsMap = new Map<string, any>();
-        
-        allQuotationsRaw.forEach(q => {
-          const originalId = q.originalQuotationId || q.id; // ID da proposta original
-          
-          if (!quotationsMap.has(originalId)) {
-            // Primeira vez vendo esta proposta
-            quotationsMap.set(originalId, q);
-          } else {
-            // Já vimos uma versão desta proposta
-            const existing = quotationsMap.get(originalId);
-            // Se a nova é calculada e a existente não, ou se ambas são calculadas mas a nova é mais recente
-            if (q.adminCalculated && !existing.adminCalculated) {
-              quotationsMap.set(originalId, q); // Substituir pela versão calculada
-            }
-          }
-        });
-        
-        const allQuotations = Array.from(quotationsMap.values());
-        
-        const allCustomers = await storage.getCustomers();
-        const allUsers = await storage.getUsers();
-        const employees = allUsers.filter(u => u.type === "vendedor");
-
-        const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
-        const pendingQuotations = allQuotations.filter(q => q.status === 'pending');
-        
-        // Calculate admin dashboard metrics according to new business rules
-        let totalRevenue = 0; // Valor bruto total (nunca muda)
-        let totalCosts = 0; // Custos adicionados pelo admin
-        let totalNetProfit = 0; // Lucro líquido de TODAS as propostas aprovadas
-        
-        // REGRA: Receita Total = soma do valor bruto das propostas aprovadas (SEM DUPLICAÇÃO)
-        // Agora usando apenas a versão final de cada proposta
-        approvedQuotations.forEach(q => {
-          const revenue = parseFloat(q.total || '0');
-          totalRevenue += revenue;
-        });
-        
-        // Separar propostas com custos calculados pelo admin
-        const adminCalculatedQuotations = approvedQuotations.filter(q => q.adminCalculated === true);
-        
-        // REGRA: Custos = apenas das propostas que o admin já processou
-        adminCalculatedQuotations.forEach(q => {
-          const costs = parseFloat(q.totalCosts || '0');
-          totalCosts += costs;
-        });
-        
-        // REGRA: Lucro Líquido = de TODAS as propostas aprovadas (admin + vendedores)
-        approvedQuotations.forEach(q => {
-          // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
-          if (q.netProfit && parseFloat(q.netProfit) > 0) {
-            const netProfit = parseFloat(q.netProfit);
-            totalNetProfit += netProfit;
-          } else {
-            // Se não tem netProfit, calcular lucro básico (valor total menos comissão)
-            const revenue = parseFloat(q.total || '0');
-            const commissionPercent = parseFloat(q.user?.commissionPercent || '0');
-            const commission = revenue * commissionPercent / 100;
-            const basicProfit = revenue - commission;
-            totalNetProfit += basicProfit;
-          }
-        });
-        const conversionRate = allQuotations.length > 0 
-          ? (approvedQuotations.length / allQuotations.length) * 100 
-          : 0;
-
-        // Calculate commissions by employee - BASEADO EM PROPOSTAS DO VENDEDOR
-        const commissionsByEmployee = employees.map(employee => {
-          // REGRA: Comissão baseada nas propostas aprovadas do vendedor (independente de terem sido calculadas)
-          const employeeApproved = approvedQuotations.filter(q => q.userId === employee.id);
-          const commissionPercent = parseFloat(employee.commissionPercent || '0');
-          const totalSales = employeeApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
-          const totalCommission = totalSales * commissionPercent / 100;
-          
-          // Total de propostas do vendedor (para conversão)
-          const employeeQuotations = allQuotations.filter(q => q.userId === employee.id);
-          
-          return {
-            employeeId: employee.id,
-            employeeName: employee.name,
-            employeeBranch: employee.branch,
-            commissionPercent,
-            totalSales,
-            totalCommission,
-            quotationsCount: employeeApproved.length, // Propostas aprovadas (versão final)
-            allQuotationsCount: employeeQuotations.length, // Total de propostas (versão final)
-            conversionRate: employeeQuotations.length > 0 
-              ? (employeeApproved.length / employeeQuotations.length) * 100 
-              : 0
-          };
-        });
-
-        // Performance do próprio Admin (vendas pessoais)
-        const adminApproved = approvedQuotations.filter(q => q.userId === user.id);
-        const adminQuotations = allQuotations.filter(q => q.userId === user.id);
-        const adminTotalSales = adminApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
-        
-        // Calcular lucro das vendas pessoais do admin
-        let adminTotalProfit = 0;
-        adminApproved.forEach(q => {
-          // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
-          if (q.netProfit && parseFloat(q.netProfit) > 0) {
-            adminTotalProfit += parseFloat(q.netProfit);
-          } else {
-            // Se não tem netProfit, usar valor total (admin não paga comissão para si mesmo)
-            adminTotalProfit += parseFloat(q.total || '0');
-          }
-        });
-        
-        const adminConversionRate = adminQuotations.length > 0 
-          ? (adminApproved.length / adminQuotations.length) * 100 
-          : 0;
-
-        const adminPerformance = {
-          employeeId: user.id,
-          employeeName: user.name,
-          employeeBranch: user.branch,
-          totalSales: adminTotalSales,
-          totalProfit: adminTotalProfit, // Novo campo: lucro das vendas pessoais
-          quotationsCount: adminApproved.length,
-          allQuotationsCount: adminQuotations.length,
-          conversionRate: adminConversionRate
-        };
-        
-        // Performance de outros admins
-        const otherAdmins = allUsers.filter(u => u.type === "admin" && u.id !== user.id);
-        const otherAdminsPerformance = otherAdmins.map(admin => {
-          const adminApprovedQuotations = approvedQuotations.filter(q => q.userId === admin.id);
-          const adminAllQuotations = allQuotations.filter(q => q.userId === admin.id);
-          const adminSales = adminApprovedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
-          
-          let adminProfit = 0;
-          adminApprovedQuotations.forEach(q => {
-            // Se a proposta tem netProfit calculado, usar esse valor (mais preciso)
-            if (q.netProfit && parseFloat(q.netProfit) > 0) {
-              adminProfit += parseFloat(q.netProfit);
-            } else {
-              // Se não tem netProfit, usar valor total (admin não paga comissão para si mesmo)
-              adminProfit += parseFloat(q.total || '0');
-            }
-          });
-          
-          return {
-            adminId: admin.id,
-            adminName: admin.name,
-            adminBranch: admin.branch,
-            totalSales: adminSales,
-            totalProfit: adminProfit,
-            quotationsCount: adminApprovedQuotations.length,
-            allQuotationsCount: adminAllQuotations.length,
-            conversionRate: adminAllQuotations.length > 0 
-              ? (adminApprovedQuotations.length / adminAllQuotations.length) * 100 
-              : 0
-          };
-        });
-
-        const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
-
-        res.json({
-          type: "admin",
-          totalRevenue, // Valor bruto total (nunca muda)
-          totalCosts, // Custos adicionados pelo admin
-          totalNetProfit, // Lucro líquido das propostas processadas pelo admin
-          pendingQuotations: pendingQuotations.length,
-          activeCustomers: allCustomers.length,
-          conversionRate,
-          approvedQuotations: approvedQuotations.length,
-          totalQuotations: allQuotations.length,
-          commissionsByEmployee,
-          totalCommissionsPaid,
-          employeesCount: employees.length,
-          // Dados adicionais para o dashboard do admin
-          processedQuotations: adminCalculatedQuotations.length, // Quantas propostas já foram processadas
-          pendingProcessing: approvedQuotations.length - adminCalculatedQuotations.length, // Quantas ainda precisam ser processadas
-          // Performance do próprio Admin
-          adminPerformance,
-          // Performance de outros admins
-          otherAdminsPerformance
-        });
+        const from=selectedDate+'-01';
+        const to=new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
+        const [rows,customers,people]=await Promise.all([
+          loadReportRows({isAdmin:true,fromDay:from,toDay:to}),storage.getCustomers(),storage.getUsers(),
+        ]);
+        res.json(adminDashboard(rows,people,user,customers.length,from,to));
       } else {
         // Employee dashboard - personal view
         const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
@@ -1084,6 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.session.user!;
       const format = req.params.format; // 'pdf' or 'excel'
       const selectedDate = (req.params.date as string) || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      if(!reportMonthSchema.safeParse(selectedDate).success)return res.status(400).json({message:'Mês inválido.'});
       
       const [year, month] = selectedDate.split('-').map(Number);
       const startDate = new Date(year, month - 1, 1);
@@ -1094,61 +984,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (format === 'pdf') {
         // For now, return JSON that can be used to generate PDF on frontend
         if (user.type === "admin") {
-          const allQuotations = await storage.getQuotationsInDateRange(startDate, endDate);
-          const allUsers = await storage.getUsers();
-          const employees = allUsers.filter(u => u.type === "vendedor");
-          
-          const approvedQuotations = allQuotations.filter(q => q.status === 'approved');
-          const totalRevenue = approvedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
-          
-          const commissionsByEmployee = employees.map(employee => {
-            const employeeApprovedQuotations = approvedQuotations.filter(q => q.userId === employee.id);
-            const commissionPercent = parseFloat(employee.commissionPercent || '0');
-            const totalSales = employeeApprovedQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
-            const totalCommission = totalSales * commissionPercent / 100;
-            
-            return {
-              employeeName: employee.name,
-              employeeBranch: employee.branch,
-              commissionPercent,
-              totalSales,
-              totalCommission,
-              quotationsCount: employeeApprovedQuotations.length
-            };
-          });
-
-          const totalCommissionsPaid = commissionsByEmployee.reduce((sum, emp) => sum + emp.totalCommission, 0);
-          
-          // NOVA FUNCIONALIDADE: Incluir performance do admin no PDF
-          const adminApproved = approvedQuotations.filter(q => q.userId === user.id);
-          const adminCommissionPercent = parseFloat(user.commissionPercent || '0');
-          const adminTotalSales = adminApproved.reduce((sum, q) => sum + parseFloat(q.total), 0);
-          const adminTotalCommission = adminTotalSales * adminCommissionPercent / 100;
-          const adminAllQuotations = allQuotations.filter(q => q.userId === user.id);
-          const adminConversionRate = adminAllQuotations.length > 0 
-            ? (adminApproved.length / adminAllQuotations.length) * 100 
-            : 0;
-
-          const adminPerformance = {
-            totalSales: adminTotalSales,
-            totalCommission: adminTotalCommission,
-            quotationsCount: adminApproved.length,
-            commissionPercent: adminCommissionPercent,
-            conversionRate: adminConversionRate
-          };
-          
-          res.json({
-            type: 'admin',
-            monthName,
-            totalRevenue,
-            totalCommissionsPaid,
-            netProfit: totalRevenue - totalCommissionsPaid,
-            commissionsByEmployee,
-            approvedQuotationsCount: approvedQuotations.length,
-            totalQuotationsCount: allQuotations.length,
-            // NOVA FUNCIONALIDADE: Performance do admin no PDF
-            adminPerformance
-          });
+          const from=selectedDate+'-01',to=new Date(Date.UTC(year,month,0)).toISOString().slice(0,10);
+          const [rows,customers,people]=await Promise.all([
+            loadReportRows({isAdmin:true,fromDay:from,toDay:to}),storage.getCustomers(),storage.getUsers(),
+          ]);
+          const metrics=adminDashboard(rows,people,user,customers.length,from,to);
+          res.json({...metrics,monthName,netProfit:metrics.totalNetProfit,
+            approvedQuotationsCount:metrics.approvedQuotations,totalQuotationsCount:metrics.totalQuotations});
         } else {
           const userQuotations = await storage.getQuotationsByUserInDateRange(user.id, startDate, endDate);
           const approvedQuotations = userQuotations.filter(q => q.status === 'approved');

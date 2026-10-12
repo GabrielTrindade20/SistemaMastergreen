@@ -6,8 +6,17 @@ const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }, 'Data inválida');
 
+export const mobileProposalItemSchema = z.object({
+  productId: z.string().uuid().nullable(),
+  name: z.string().trim().min(1).max(500),
+  quantity: z.number().finite().positive().max(10_000_000),
+  unitPrice: z.number().finite().positive().max(10_000_000),
+  unit: z.enum(['m²', 'un', 'm', 'serviço']),
+}).strict();
+
 export const quickProposalSchema = z.object({
   clientId: z.string().uuid(),
+  customerId: z.string().uuid().optional(),
   customer: z.object({
     name: shortText.min(1), contact: shortText.default(''),
     phone: z.string().trim().max(40).default(''),
@@ -18,6 +27,7 @@ export const quickProposalSchema = z.object({
   freight: shortText, warranty: shortText, payment: shortText,
   discountPercent: z.number().finite().min(0).max(100),
   totalCents: z.number().int().positive().max(1_000_000_000),
+  items: z.array(mobileProposalItemSchema).min(1).max(100).optional(),
 }).strict();
 
 export type QuickProposalInput = z.infer<typeof quickProposalSchema>;

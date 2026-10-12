@@ -7,22 +7,46 @@ import { storage } from './storage';
 import { mobileLoginSchema, quickProposalSchema, reportMonthSchema, reportRangeSchema, type QuickProposalInput } from '../shared/mobile-contract';
 import { loadReportRows } from './reporting';
 import { previousPeriod, summarizeReports } from '../shared/report-metrics';
+import { getCompanyProfile } from './company-profile';
+import { quickProposalDetailsSchema } from '../shared/quick-proposal-details';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const ownerEmail = () => (process.env.MOBILE_OWNER_EMAIL || (process.env.NODE_ENV === 'development' ? 'admin@dev.mastergreen.local' : '')).toLowerCase();
 const wrap = (handler: RequestHandler): RequestHandler => (req, res, next) => { Promise.resolve(handler(req, res, next)).catch(() => res.status(500).json({ message: 'Não foi possível concluir. Tente novamente.' })); };
 const attempts = new Map<string, { count: number; until: number }>();
+class MissingCustomerError extends Error {}
 
 // A transação também protege a associação do cliente contra envios simultâneos.
 export async function saveQuickProposal(client: PoolClient, userId: string, input: QuickProposalInput) {
   await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`mobile:${userId}`]);
   const payloadHash = hash(JSON.stringify(input));
-  const existing = await client.query('SELECT id, payload_hash FROM mobile_quick_proposals WHERE user_id=$1 AND client_id=$2', [userId, input.clientId]);
-  if (existing.rows[0]) return { id: existing.rows[0].id, replayed: true, conflict: existing.rows[0].payload_hash !== payloadHash };
+  const { items, ...summary } = input;
+  const details = items ? quickProposalDetailsSchema.parse({
+    version:1, pricingMode:'manual', manualTotalCents:input.totalCents,
+    validUntil:input.proposalDate, notes:'', pdfTitle:'Proposta comercial',
+    responsibleName:'', responsiblePosition:'', shippingIncluded:input.freight.toLowerCase()==='incluso',
+    invoicePercent:4.5, tithePercent:0,
+    items:items.map(item=>({...item,unitCost:0})), costs:[],
+  }) : null;
+  const existing = await client.query('SELECT id, quotation_number AS "quotationNumber", payload_hash FROM mobile_quick_proposals WHERE user_id=$1 AND client_id=$2', [userId, input.clientId]);
+  if (existing.rows[0]) {
+    const row=existing.rows[0];
+    const legacyEnrichment=!!items && row.payload_hash===hash(JSON.stringify(summary));
+    if(legacyEnrichment) {
+      // Only untouched legacy summaries can be enriched. Never overwrite a web edit,
+      // original hash, identity or financial total, including on repeated retries.
+      await client.query(`UPDATE mobile_quick_proposals SET web_details=$1 WHERE id=$2 AND web_details IS NULL
+        AND customer_snapshot=$3::jsonb AND proposal_date=$4 AND freight=$5 AND warranty=$6 AND payment=$7
+        AND discount_percent=$8 AND total_cents=$9`,[JSON.stringify(details),row.id,JSON.stringify(input.customer),input.proposalDate,input.freight,input.warranty,input.payment,input.discountPercent,input.totalCents]);
+    }
+    return {id:row.id,quotationNumber:row.quotationNumber,replayed:true,conflict:row.payload_hash!==payloadHash&&!legacyEnrichment};
+  }
   const digits = (value: string) => value.replace(/\D/g, '');
   const document = digits(input.customer.document);
   const phone = digits(input.customer.phone);
-  const match = await client.query(`SELECT id FROM customers WHERE
+  const selected = input.customerId ? await client.query('SELECT id FROM customers WHERE id=$1',[input.customerId]) : null;
+  if(selected && !selected.rows[0]) throw new MissingCustomerError('Cliente selecionado não encontrado. Atualize os clientes e selecione novamente.');
+  const match = selected || await client.query(`SELECT id FROM customers WHERE
     ($1 <> '' AND regexp_replace(coalesce(cpf_cnpj,''), '[^0-9]', '', 'g')=$1) OR
     ($2 <> '' AND regexp_replace(phone, '[^0-9]', '', 'g')=$2 AND lower(trim(name))=lower(trim($3)))
     ORDER BY created_at LIMIT 1`, [document, phone, input.customer.name]);
@@ -33,24 +57,26 @@ export async function saveQuickProposal(client: PoolClient, userId: string, inpu
     customerId = customer.rows[0].id;
   }
   const result = await client.query(`INSERT INTO mobile_quick_proposals
-    (client_id,user_id,customer_id,customer_snapshot,proposal_date,freight,warranty,payment,discount_percent,total_cents,payload_hash)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-  [input.clientId, userId, customerId, input.customer, input.proposalDate, input.freight, input.warranty, input.payment, input.discountPercent, input.totalCents, payloadHash]);
-  return { id: result.rows[0].id, replayed: false, conflict: false };
+    (client_id,user_id,customer_id,customer_snapshot,proposal_date,freight,warranty,payment,discount_percent,total_cents,payload_hash,web_details)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, quotation_number AS "quotationNumber"`,
+  [input.clientId, userId, customerId, input.customer, input.proposalDate, input.freight, input.warranty, input.payment, input.discountPercent, input.totalCents, payloadHash,details?JSON.stringify(details):null]);
+  return { id: result.rows[0].id, quotationNumber: result.rows[0].quotationNumber, replayed: false, conflict: false };
 }
 
 export async function getMobileData(month: string) {
-  const [customers, products, quick, detailed] = await Promise.all([
-    pool.query(`SELECT id,name,phone,email,cpf_cnpj AS document,address,city,state FROM customers ORDER BY name`),
+  const [customers, products, quick, detailed, company, costs] = await Promise.all([
+    pool.query(`SELECT id,name,phone,email,cpf_cnpj AS document,address,number,neighborhood,zip_code AS "zipCode",city,state FROM customers ORDER BY name`),
     pool.query(`SELECT id,name,category,description,price_per_m2 AS "pricePerM2" FROM products ORDER BY name`),
-    pool.query(`SELECT id,client_id AS "clientId", customer_snapshot AS customer, proposal_date AS date,
-      freight,warranty,payment,discount_percent::float AS "discountPercent",total_cents AS "totalCents",
+    pool.query(`SELECT id,quotation_number AS "quotationNumber",client_id AS "clientId", customer_snapshot AS customer, proposal_date AS date,
+      freight,warranty,payment,discount_percent::float AS "discountPercent",total_cents AS "totalCents",web_details AS "webDetails",
       created_at AS "receivedAt",'mobile' AS source,'Enviada' AS status FROM mobile_quick_proposals ORDER BY proposal_date DESC,created_at DESC`),
     loadReportRows({isAdmin:true}),
+    getCompanyProfile(),
+    pool.query('SELECT id,name,description,value FROM costs ORDER BY name'),
   ]);
   const monthly = quick.rows.filter((row) => row.date.startsWith(month));
   const approved=detailed.filter(row=>row.businessDate.startsWith(month)&&row.quotationStatus==='approved');
-  return { customers: customers.rows, products: products.rows, quickProposals: quick.rows,
+  return { customers: customers.rows, products: products.rows, company, costs:costs.rows, quickProposals: quick.rows,
     history: [...quick.rows, ...detailed.map(row=>({id:row.quotationId,customer:{name:row.customerName||'Cliente'},date:row.businessDate,totalCents:Math.round(row.quotationTotal*100),source:'web',status:row.quotationStatus}))].sort((a,b) => b.date.localeCompare(a.date)),
     summary: { month, quickCount: monthly.length, quickTotalCents: monthly.reduce((sum, row) => sum + row.totalCents, 0),approvedCount:approved.length,approvedRevenue:approved.reduce((sum,row)=>sum+row.quotationTotal,0) },
     updatedAt: new Date().toISOString() };
@@ -119,8 +145,11 @@ export function createMobileRouter() {
       const result = await saveQuickProposal(client, res.locals.mobileUserId, input.data);
       if (result.conflict) { await client.query('ROLLBACK'); res.status(409).json({ message: 'Este identificador já foi enviado com outros dados.' }); return; }
       await client.query('COMMIT');
-      res.status(result.replayed ? 200 : 201).json({ id: result.id, clientId: input.data.clientId, replayed: result.replayed });
-    } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+      res.status(result.replayed ? 200 : 201).json({ id: result.id, quotationNumber: result.quotationNumber, clientId: input.data.clientId, replayed: result.replayed });
+    } catch (error) { await client.query('ROLLBACK');
+      if(error instanceof MissingCustomerError){res.status(400).json({message:error.message});return;}
+      throw error;
+    } finally { client.release(); }
   }));
   return router;
 }

@@ -22,7 +22,7 @@ devem rodar SEMPRE contra um Postgres descartável local, nunca no banco da VPS.
   usuário `postgres`, banco `sistema-mastergren-web`. (A senha está nas credenciais do serviço
   Postgres no EasyPanel; para acessar de fora, habilite temporariamente o "Remote Access".)
 - Banco antigo (Neon), somente leitura para comparação:
-  `postgresql://neondb_owner:npg_co7I6nWEakZd@ep-delicate-glade-afhtezpi.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require`
+  `postgresql://neondb_owner:TROCAR_SENHA@ep-delicate-glade-afhtezpi.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require`
 - Usuários-semente criados automaticamente SE a tabela `users` estiver vazia:
   `admin@mastergreen.com` / `admin123`, `joao@filial1.com` / `func123`, `ana@filial2.com` / `func456`.
 

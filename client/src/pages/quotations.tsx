@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
+import { quotationLinkId } from '@/lib/quotation-link';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -40,35 +41,68 @@ import { formatCurrency, formatDate, formatPhone, formatDocument } from "@/lib/c
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { QuickProposalDialog } from '@/components/quick-proposal-dialog';
+import type { QuickProposalRow } from '@/lib/pdf-generator';
+import { currentProposalPeriod, matchesProposalPeriod, newestProposals, proposalDate } from '@/lib/quotation-list';
 
-type QuickProposalRow = { id:string; customer:{name:string;phone:string}; date:string; totalCents:number; freight:string; warranty:string; payment:string; discountPercent:number };
+function QuickProposalActions({ onView, onEdit }: { onView: () => void; onEdit: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0" aria-label="Ações da proposta">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={onView}><Eye className="mr-2 h-4 w-4" />Visualizar</DropdownMenuItem>
+        <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export default function Quotations() {
   const [showForm, setShowForm] = useState(false);
-  const [selectedQuotation, setSelectedQuotation] = useState<QuotationWithDetails | null>(null);
+  const [selectedQuick,setSelectedQuick]=useState<QuickProposalRow|null>(null);
+  const [localQuotation, setSelectedQuotation] = useState<QuotationWithDetails | null>(null);
   const [duplicateData, setDuplicateData] = useState<any>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const hasDirectLink = new URLSearchParams(search).has('view');
+  const directId = quotationLinkId(search);
+  const directIsApp = new URLSearchParams(search).get('source')==='app';
+  const directQuotation = useQuery<QuotationWithDetails | QuickProposalRow>({
+    queryKey: [directIsApp?'/api/quick-proposals':'/api/quotations', directId],
+    enabled: !!directId && !!user,
+    staleTime: 0,
+    retry: false,
+    queryFn: async () => {
+      const response = await fetch(`${directIsApp?'/api/quick-proposals':'/api/quotations'}/${directId}`, { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error(response.status === 401 ? 'Entre novamente no sistema para ver esta proposta.'
+          : response.status === 404 || response.status === 403 ? 'Proposta não encontrada ou sem permissão de acesso.'
+          : 'Não foi possível carregar a proposta. Confira sua conexão e tente novamente.');
+      }
+      return response.json();
+    },
+  });
+  const selectedQuotation = hasDirectLink ? !directIsApp ? directQuotation.data as QuotationWithDetails ?? null : null : localQuotation;
 
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [monthFilter, setMonthFilter] = useState("all");
-  const [yearFilter, setYearFilter] = useState("all");
+  const [monthFilter, setMonthFilter] = useState(() => currentProposalPeriod().month);
+  const [yearFilter, setYearFilter] = useState(() => currentProposalPeriod().year);
   const [salespersonFilter, setSalespersonFilter] = useState("all");
   const [branchFilter, setBranchFilter] = useState("all");
 
   const { data: quotations = [], isLoading: quotationsLoading } = useQuery<QuotationWithDetails[]>({
-    queryKey: ["/api/quotations", monthFilter, yearFilter],
+    queryKey: ["/api/quotations"],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (yearFilter !== "all") {
-        params.set("year", yearFilter);
-        if (monthFilter !== "all") params.set("month", monthFilter);
-      }
-      const qs = params.toString();
-      const res = await fetch(`/api/quotations${qs ? `?${qs}` : ""}`, {
+      // Keep all accessible dates available when switching months and years.
+      const res = await fetch("/api/quotations", {
         credentials: "include",
       });
       if (!res.ok) throw new Error(`${res.status}: ${await res.text()}`);
@@ -115,14 +149,10 @@ export default function Quotations() {
 
   const createMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('🚀 Enviando dados para o servidor:', data);
       const result = await apiRequest("/api/quotations", { method: "POST", data });
-      console.log('✅ Resposta do servidor:', result);
       return result;
     },
     onSuccess: (result) => {
-      console.log('🎉 Sucesso na criação da proposta:', result);
-      console.log('🔄 Invalidando queries e fechando formulário...');
       
       // Invalidar queries para recarregar a lista
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
@@ -131,7 +161,6 @@ export default function Quotations() {
       setShowForm(false);
       setDuplicateData(null);
       
-      console.log('📝 Estado após fechamento - showForm:', false);
       
       toast({
         title: "Sucesso",
@@ -331,27 +360,15 @@ export default function Quotations() {
   };
 
   const availableYears = useMemo(() => {
-    const years = new Set<number>();
+    const years = new Set<number>([Number(currentProposalPeriod().year), Number(yearFilter)]);
     quotations.forEach((q) => {
-      if (q.createdAt) years.add(new Date(q.createdAt).getFullYear());
+      if (q.createdAt) years.add(Number(proposalDate(q.createdAt).slice(0,4)));
     });
     quickProposals.forEach(row=>years.add(Number(row.date.slice(0,4))));
     return Array.from(years).sort((a, b) => b - a);
-  }, [quotations,quickProposals]);
+  }, [quotations,quickProposals,yearFilter]);
 
-  const availableMonths = useMemo(() => {
-    const months = new Set<number>();
-    quotations.forEach((q) => {
-      if (q.createdAt) {
-        const d = new Date(q.createdAt);
-        if (yearFilter === "all" || d.getFullYear() === parseInt(yearFilter)) {
-          months.add(d.getMonth() + 1);
-        }
-      }
-    });
-    quickProposals.forEach(row=>{if(yearFilter==='all'||row.date.startsWith(yearFilter))months.add(Number(row.date.slice(5,7)));});
-    return Array.from(months).sort((a, b) => a - b);
-  }, [quotations, quickProposals, yearFilter]);
+  const availableMonths = Array.from({length:12}, (_,index)=>index+1);
 
   const availableBranches = useMemo(() => {
     const branches = new Set<string>();
@@ -370,11 +387,7 @@ export default function Quotations() {
         if (!matchesName && !matchesNumber) return false;
       }
       if (statusFilter !== "all" && q.status !== statusFilter) return false;
-      if (q.createdAt) {
-        const d = new Date(q.createdAt);
-        if (yearFilter !== "all" && d.getFullYear() !== parseInt(yearFilter)) return false;
-        if (monthFilter !== "all" && d.getMonth() + 1 !== parseInt(monthFilter)) return false;
-      }
+      if (!matchesProposalPeriod(q.createdAt, yearFilter, monthFilter)) return false;
       if (salespersonFilter !== "all") {
         const matchesSalesperson =
           q.responsibleId === salespersonFilter || q.userId === salespersonFilter;
@@ -388,13 +401,14 @@ export default function Quotations() {
   const filteredQuickProposals=useMemo(()=>quickProposals.filter(row=>{
     if(statusFilter!=='all'&&statusFilter!=='mobile')return false;
     if(salespersonFilter!=='all'||branchFilter!=='all')return false;
-    if(searchText&&!`${row.customer.name} APP-${row.id.slice(0,8)}`.toLocaleLowerCase('pt-BR').includes(searchText.toLocaleLowerCase('pt-BR')))return false;
-    if(yearFilter!=='all'&&!row.date.startsWith(yearFilter))return false;
-    if(monthFilter!=='all'&&Number(row.date.slice(5,7))!==Number(monthFilter))return false;
+    if(searchText&&!`${row.customer.name} ${row.quotationNumber}`.toLocaleLowerCase('pt-BR').includes(searchText.toLocaleLowerCase('pt-BR')))return false;
+    if(!matchesProposalPeriod(row.date,yearFilter,monthFilter))return false;
     return true;
   }),[quickProposals,searchText,statusFilter,monthFilter,yearFilter,salespersonFilter,branchFilter]);
 
-  const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== "all" || yearFilter !== "all" || salespersonFilter !== "all" || branchFilter !== "all";
+  const sortedProposals = useMemo(()=>newestProposals(filteredQuotations,filteredQuickProposals),[filteredQuotations,filteredQuickProposals]);
+
+  const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== currentProposalPeriod().month || yearFilter !== currentProposalPeriod().year || salespersonFilter !== "all" || branchFilter !== "all";
 
   const filteredSummary = useMemo(() => {
     const total = filteredQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0)+filteredQuickProposals.reduce((sum,row)=>sum+row.totalCents/100,0);
@@ -407,8 +421,9 @@ export default function Quotations() {
   const handleClearFilters = () => {
     setSearchText("");
     setStatusFilter("all");
-    setMonthFilter("all");
-    setYearFilter("all");
+    const period = currentProposalPeriod();
+    setMonthFilter(period.month);
+    setYearFilter(period.year);
     setSalespersonFilter("all");
     setBranchFilter("all");
   };
@@ -428,6 +443,24 @@ export default function Quotations() {
         return <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>;
     }
   };
+
+  if (hasDirectLink && (!directId || directQuotation.isError || !directQuotation.data)) {
+    const message = !directId ? 'Link de proposta inválido.' : directQuotation.error?.message;
+    return <div className="container mx-auto p-4 sm:p-6 space-y-4">
+      <h1 className="text-2xl font-bold">Proposta</h1>
+      <p role={message ? 'alert' : 'status'}>{message || 'Carregando proposta…'}</p>
+      {directQuotation.isError && <Button onClick={() => {
+        if (directQuotation.error.message.startsWith('Entre novamente')) window.location.reload();
+        else void directQuotation.refetch();
+      }}>Tentar novamente</Button>}
+      <Button variant="outline" onClick={() => setLocation('/orcamentos')}>Voltar às propostas</Button>
+    </div>;
+  }
+
+  if(hasDirectLink && directIsApp && directQuotation.data) return <div className="container mx-auto p-6">
+    <Button variant="outline" onClick={()=>setLocation('/orcamentos')}>Voltar às propostas</Button>
+    <QuickProposalDialog proposal={directQuotation.data as QuickProposalRow} onClose={()=>setLocation('/orcamentos')}/>
+  </div>;
 
   if (showForm) {
     console.log('🖥️ Renderizando formulário - showForm:', showForm);
@@ -469,7 +502,7 @@ export default function Quotations() {
         <div className="mb-6">
           <Button
             variant="outline"
-            onClick={() => setSelectedQuotation(null)}
+            onClick={() => { setSelectedQuotation(null); if (hasDirectLink) setLocation('/orcamentos'); }}
             className="mb-4"
           >
             ← Voltar
@@ -894,12 +927,11 @@ export default function Quotations() {
                 </SelectContent>
               </Select>
 
-              <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setMonthFilter("all"); }}>
-                <SelectTrigger className="w-full sm:w-36">
+              <Select value={yearFilter} onValueChange={setYearFilter}>
+                <SelectTrigger aria-label="Ano das propostas" className="w-full sm:w-36">
                   <SelectValue placeholder="Ano" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os anos</SelectItem>
                   {availableYears.map((y) => (
                     <SelectItem key={y} value={String(y)}>{y}</SelectItem>
                   ))}
@@ -907,11 +939,10 @@ export default function Quotations() {
               </Select>
 
               <Select value={monthFilter} onValueChange={setMonthFilter}>
-                <SelectTrigger className="w-full sm:w-40">
+                <SelectTrigger aria-label="Mês das propostas" className="w-full sm:w-40">
                   <SelectValue placeholder="Mês" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os meses</SelectItem>
                   {availableMonths.map((m) => (
                     <SelectItem key={m} value={String(m)}>{monthNames[m - 1]}</SelectItem>
                   ))}
@@ -982,8 +1013,15 @@ export default function Quotations() {
             <>
               {/* Mobile view */}
               <div className="block md:hidden space-y-4">
-                {filteredQuotations.map((quotation) => (
-                  <Card key={quotation.id} className="p-4">
+                {sortedProposals.map(entry => {
+                  if(entry.source==='mobile') { const row=entry.value; return (<Card key={`mobile-${row.id}`} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2"><span className="font-medium">{row.quotationNumber}</span><Badge className="bg-blue-100 text-blue-800">App</Badge></div>
+                  <p>{row.customer.name}</p><p>{row.date.split('-').reverse().join('/')}</p><p className="font-semibold">{formatCurrency(row.totalCents/100)}</p>
+                  <p className="text-sm text-gray-600">Enviada · {row.payment||'Pagamento não informado'}</p>
+                  <div className="flex justify-end"><QuickProposalActions onView={()=>setSelectedQuick(row)} onEdit={()=>setLocation(`/orcamentos/novo?edit=${row.id}&source=app`)} /></div>
+                </Card>); }
+                  const quotation=entry.value;
+                  return (<Card key={quotation.id} className="p-4">
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <p className="font-medium">{quotation.quotationNumber}</p>
@@ -1049,13 +1087,8 @@ export default function Quotations() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                  </Card>
-                ))}
-                {filteredQuickProposals.map(row=><Card key={`mobile-${row.id}`} className="p-4 space-y-2">
-                  <div className="flex items-center justify-between gap-2"><span className="font-medium">APP-{row.id.slice(0,8)}</span><Badge className="bg-blue-100 text-blue-800">Feita pelo app</Badge></div>
-                  <p>{row.customer.name}</p><p>{row.date.split('-').reverse().join('/')}</p><p className="font-semibold">{formatCurrency(row.totalCents/100)}</p>
-                  <p className="text-sm text-gray-600">Enviada · {row.payment||'Pagamento não informado'}</p>
-                </Card>)}
+                  </Card>);
+                })}
               </div>
               
               {/* Desktop view */}
@@ -1073,8 +1106,18 @@ export default function Quotations() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredQuotations.map((quotation) => (
-                    <TableRow key={quotation.id}>
+                  {sortedProposals.map(entry => {
+                  if(entry.source==='mobile') { const row=entry.value; return (<TableRow key={`mobile-${row.id}`}>
+                    <TableCell className="font-medium">{row.quotationNumber}</TableCell>
+                    <TableCell><Badge className="bg-blue-100 text-blue-800">App</Badge></TableCell>
+                    <TableCell>{row.customer.name}</TableCell>
+                    <TableCell>{row.date.split('-').reverse().join('/')}</TableCell>
+                    <TableCell>{formatCurrency(row.totalCents/100)}</TableCell>
+                    <TableCell><Badge variant="outline">Enviada</Badge></TableCell>
+                    <TableCell className="text-right"><QuickProposalActions onView={()=>setSelectedQuick(row)} onEdit={()=>setLocation(`/orcamentos/novo?edit=${row.id}&source=app`)} /></TableCell>
+                  </TableRow>); }
+                  const quotation=entry.value;
+                  return (<TableRow key={quotation.id}>
                     <TableCell className="font-medium">
                       {quotation.quotationNumber}
                     </TableCell>
@@ -1155,17 +1198,8 @@ export default function Quotations() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredQuickProposals.map(row=><TableRow key={`mobile-${row.id}`}>
-                    <TableCell className="font-medium">APP-{row.id.slice(0,8)}</TableCell>
-                    <TableCell><Badge className="bg-blue-100 text-blue-800">Feita pelo app</Badge></TableCell>
-                    <TableCell>{row.customer.name}</TableCell>
-                    <TableCell>{row.date.split('-').reverse().join('/')}</TableCell>
-                    <TableCell>{formatCurrency(row.totalCents/100)}</TableCell>
-                    <TableCell><Badge variant="outline">Enviada</Badge></TableCell>
-                    <TableCell className="text-right text-sm text-gray-500">Resumo no app</TableCell>
-                  </TableRow>)}
+                    </TableRow>);
+                })}
                 </TableBody>
                 </Table>
               </div>
@@ -1180,7 +1214,7 @@ export default function Quotations() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p className="text-gray-500">Nenhum orçamento encontrado.</p>
+              <p className="text-gray-500">Nenhuma proposta neste mês. Escolha outro mês ou ano nos filtros.</p>
               <Button
                 onClick={() => setShowForm(true)}
                 className="btn-primary mt-4"
@@ -1191,6 +1225,7 @@ export default function Quotations() {
           )}
         </CardContent>
       </Card>
+      <QuickProposalDialog proposal={selectedQuick} onClose={()=>setSelectedQuick(null)}/>
     </div>
   );
 }

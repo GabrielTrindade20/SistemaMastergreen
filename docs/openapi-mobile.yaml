@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: MasterGreen — integração mobile
-  version: 1.1.0
+  version: 1.6.0
   description: Contrato implementado em develop. Proprietário único; sessão Bearer de 30 dias. Banco inacessível diretamente pelo app.
 servers:
   - url: http://localhost:5001
@@ -55,13 +55,29 @@ paths:
         - { in: query, name: month, schema: { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$' } }
       responses:
         '200':
-          description: customers, products, quickProposals, history, summary e updatedAt; catálogo sem custos ou senha
+          description: customers, products, costs, company, quickProposals, history, summary e updatedAt; custos internos separados e acessíveis apenas ao proprietário
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  customers: { type: array, items: { type: object } }
+                  customers:
+                    type: array
+                    description: ID estável e endereço completo; manter o ID ao selecionar um cliente na proposta.
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        phone: { type: string }
+                        document: { type: string, nullable: true }
+                        email: { type: string, nullable: true }
+                        address: { type: string, nullable: true }
+                        number: { type: string, nullable: true }
+                        neighborhood: { type: string, nullable: true }
+                        city: { type: string, nullable: true }
+                        state: { type: string, nullable: true }
+                        zipCode: { type: string, nullable: true }
                   products:
                     type: array
                     description: Produtos para sugestão no app; preço por m² como texto decimal. Não envia custo.
@@ -70,11 +86,28 @@ paths:
                       properties:
                         id: { type: string, format: uuid }
                         name: { type: string }
-                        category: { type: string, nullable: true }
+                        category: { type: string, nullable: true, description: Categoria original do cadastro de Produtos do web; sem classificação paralela }
                         description: { type: string, nullable: true }
                         pricePerM2: { type: string }
+                  company: { $ref: '#/components/schemas/CompanyProfile' }
+                  costs:
+                    type: array
+                    description: Referências internas; não transformar automaticamente em preço de venda nem enviar custos no resumo da proposta.
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        description: { type: string, nullable: true }
+                        value: { type: string, description: Valor interno de referência em reais }
                   history: { type: array, items: { type: object } }
-                  quickProposals: { type: array, items: { type: object } }
+                  quickProposals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        quotationNumber: { type: string, pattern: '^#[0-9]{8}$', description: Número fixo atribuído no servidor na primeira sincronização }
                   updatedAt: { type: string, format: date-time }
                   summary:
                     type: object
@@ -150,8 +183,8 @@ paths:
         '500': { description: Falha de consulta; manter o cache do mesmo período }
   /api/mobile/proposals:
     post:
-      summary: Receber resumo financeiro sem itens ou custos
-      description: Mesmo clientId e conteúdo retorna o registro original. Conteúdo diferente com mesmo ID retorna 409.
+      summary: Receber proposta rápida com itens comerciais opcionais
+      description: Mesmo clientId e conteúdo retorna o registro original. Conteúdo diferente retorna 409. Exceção compatível com o legado permite complementar itens quando o hash do resumo original confere; somente resumos intactos sem webDetails são enriquecidos, sem sobrescrever edições web. Custos internos não são recebidos. Total negociado é preservado.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -160,8 +193,8 @@ paths:
             schema:
               $ref: '#/components/schemas/QuickProposal'
       responses:
-        '201': { description: Criada; resposta contém id, clientId e replayed false }
-        '200': { description: Já recebida; resposta contém id, clientId e replayed true }
+        '201': { description: Criada; resposta contém id, quotationNumber, clientId e replayed false }
+        '200': { description: Já recebida; resposta contém id, quotationNumber original, clientId e replayed true }
         '400': { description: Resumo inválido; manter registro local e sinalizar atenção }
         '401': { description: Renovar login sem apagar pendências }
         '409': { description: Identificador já usado com outros dados; não sobrescrever }
@@ -174,17 +207,187 @@ paths:
       responses:
         '200': { description: Mesmo formato de /api/mobile/data }
         '403': { description: Sessão web administrativa obrigatória }
+  /api/quick-proposals/{id}:
+    parameters:
+      - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+    get:
+      summary: Abrir proposta do app para edição na tela de propostas web
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Estado atual; revision é opaca e obrigatória ao salvar. Data retornada em date, não proposalDate.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EditableQuickProposal' }
+        '400': { description: UUID inválido }
+        '403': { description: Sessão administrativa obrigatória }
+        '404': { description: Proposta inexistente }
+        '500': { description: Falha ao consultar }
+    put:
+      summary: Editar cliente da proposta, condições e valor final, sem criar outra proposta
+      description: Preserva número, origem, cadastro mestre do cliente e hash do envio original. Reenvio mobile idêntico não sobrescreve edições web. Com webDetails, o servidor recalcula totalCents pelo modo escolhido (manual ou itens). Sem detalhes mantém o fluxo de resumo; não permite omitir detalhes já salvos.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QuickProposalEdit' }
+      responses:
+        '200':
+          description: Estado salvo com nova revisão para a próxima edição
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EditableQuickProposal' }
+        '400': { description: Campos inválidos ou não permitidos }
+        '403': { description: Sessão administrativa obrigatória }
+        '404': { description: Proposta inexistente }
+        '409': { description: Revisão desatualizada ou cliente antigo omitindo detalhes salvos; reabrir antes de tentar novamente }
+        '500': { description: Falha ao salvar; transação revertida }
+  /api/company-profile:
+    get:
+      summary: Dados da empresa para documentos comerciais
+      security: [{ cookieAuth: [] }]
+      responses:
+        '200':
+          description: Perfil configurado ou valores iniciais dos modelos antigos
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CompanyProfile' }
+        '401': { description: Sessão obrigatória }
+        '500': { description: Não foi possível consultar; não gerar documento com dados presumidos }
+    put:
+      summary: Substituir perfil da empresa (somente admin)
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CompanyProfile' }
+      responses:
+        '200': { description: Perfil salvo atomicamente; app recebe na próxima sincronização }
+        '400': { description: Dados inválidos }
+        '403': { description: Admin obrigatório }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
     cookieAuth: { type: apiKey, in: cookie, name: connect.sid }
   schemas:
+    QuickProposalEdit:
+      type: object
+      additionalProperties: false
+      required: [revision, customer, proposalDate, freight, warranty, payment, discountPercent, totalCents]
+      properties:
+        revision: { type: string, pattern: '^[a-f0-9]{64}$' }
+        customer: { $ref: '#/components/schemas/QuickProposal/properties/customer' }
+        proposalDate: { type: string, format: date }
+        freight: { type: string, maxLength: 250 }
+        warranty: { type: string, maxLength: 250 }
+        payment: { type: string, maxLength: 250 }
+        discountPercent: { type: number, minimum: 0, maximum: 100 }
+        totalCents: { type: integer, minimum: 1, maximum: 1000000000 }
+        webDetails: { $ref: '#/components/schemas/QuickProposalDetails' }
+    EditableQuickProposal:
+      type: object
+      required: [id, quotationNumber, revision, customer, date, freight, warranty, payment, discountPercent, totalCents]
+      properties:
+        id: { type: string, format: uuid }
+        quotationNumber: { type: string }
+        revision: { type: string, pattern: '^[a-f0-9]{64}$' }
+        customer: { $ref: '#/components/schemas/QuickProposal/properties/customer' }
+        date: { type: string, format: date }
+        freight: { type: string }
+        warranty: { type: string }
+        payment: { type: string }
+        discountPercent: { type: number }
+        totalCents: { type: integer }
+        webDetails: { $ref: '#/components/schemas/QuickProposalDetails' }
+    QuickProposalDetails:
+      type: object
+      additionalProperties: false
+      description: Snapshot comercial versionado; listas ordenadas, nomes e preços históricos. Não cria proposta duplicada nem aprovação/receita. Modo items exige pelo menos um produto; produto associado ao custo deve existir na lista de itens.
+      required: [version, pricingMode, manualTotalCents, validUntil, notes, pdfTitle, responsibleName, responsiblePosition, shippingIncluded, invoicePercent, tithePercent, items, costs]
+      properties:
+        version: { type: integer, enum: [1] }
+        pricingMode: { type: string, enum: [manual, items] }
+        manualTotalCents: { type: integer, minimum: 1, maximum: 1000000000 }
+        validUntil: { type: string, format: date }
+        notes: { type: string, maxLength: 5000 }
+        pdfTitle: { type: string, maxLength: 250 }
+        responsibleName: { type: string, maxLength: 250 }
+        responsiblePosition: { type: string, maxLength: 250 }
+        shippingIncluded: { type: boolean }
+        invoicePercent: { type: number, minimum: 0, maximum: 100 }
+        tithePercent: { type: number, minimum: 0, maximum: 100 }
+        items:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [productId, name, quantity, unitCost, unitPrice]
+            properties:
+              productId: { type: string, format: uuid, nullable: true }
+              unit: { type: string, enum: ['m²', un, m, serviço], description: Ausência em snapshots antigos equivale a m² }
+              name: { type: string, minLength: 1, maxLength: 500 }
+              quantity: { type: number, minimum: 0, exclusiveMinimum: true, maximum: 10000000 }
+              unitCost: { type: number, minimum: 0, maximum: 10000000 }
+              unitPrice: { type: number, minimum: 0, maximum: 10000000 }
+        costs:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [costId, name, unitValue, quantity, calculationType, percentageValue, productId, supplier, description]
+            properties:
+              costId: { type: string, format: uuid, nullable: true }
+              name: { type: string, minLength: 1, maxLength: 500 }
+              unitValue: { type: number, minimum: 0, maximum: 10000000 }
+              quantity: { type: number, minimum: 0, maximum: 10000000 }
+              calculationType: { type: string, enum: [fixed, percentage] }
+              percentageValue: { type: number, minimum: 0, maximum: 100 }
+              productId: { type: string, format: uuid, nullable: true }
+              supplier: { type: string, maxLength: 500 }
+              description: { type: string, maxLength: 2000 }
+    CompanyProfile:
+      type: object
+      additionalProperties: false
+      required: [name, socialName, cnpj, address, phone, email, pixKey, pixBeneficiary, responsibleName, responsibleRole, paymentTerms, validityDays]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 250 }
+        socialName: { type: string, minLength: 1, maxLength: 250 }
+        cnpj: { type: string, maxLength: 250 }
+        address: { type: string, maxLength: 1000 }
+        phone: { type: string, maxLength: 250 }
+        email: { type: string, maxLength: 250, description: E-mail válido ou vazio }
+        pixKey: { type: string, maxLength: 250 }
+        pixBeneficiary: { type: string, maxLength: 250 }
+        responsibleName: { type: string, maxLength: 250 }
+        responsibleRole: { type: string, maxLength: 250 }
+        paymentTerms: { type: string, maxLength: 1000 }
+        validityDays: { type: integer, minimum: 1, maximum: 365 }
     QuickProposal:
       type: object
       additionalProperties: false
+      description: Itens são opcionais apenas para compatibilidade com versões antigas do app. São salvos em webDetails com custo zero e total manual preservado; não cadastram produtos novos.
       required: [clientId, customer, proposalDate, freight, warranty, payment, discountPercent, totalCents]
       properties:
         clientId: { type: string, format: uuid }
+        customerId: { type: string, format: uuid, description: Opcional; ID do cliente selecionado no catálogo. Deve existir. Evita duplicar clientes sem CPF ou telefone e não altera o cadastro mestre. }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [productId, name, quantity, unitPrice, unit]
+            properties:
+              productId: { type: string, format: uuid, nullable: true }
+              name: { type: string, minLength: 1, maxLength: 500 }
+              quantity: { type: number, minimum: 0, exclusiveMinimum: true, maximum: 10000000 }
+              unitPrice: { type: number, minimum: 0, exclusiveMinimum: true, maximum: 10000000 }
+              unit: { type: string, enum: ['m²', un, m, serviço] }
         customer:
           type: object
           additionalProperties: false

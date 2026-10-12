@@ -149,8 +149,9 @@ ou telefone e nome iguais; nome isolado não causa associação automática.
   compartilhar o PDF pelo Histórico mais tarde. Gerar e compartilhar salva antes
   de abrir o compartilhamento; Visualizar PDF permanece sem finalizar.
 - O web mostra propostas detalhadas e rápidas na mesma tabela de Propostas,
-  identificadas por origem. Propostas rápidas não recebem ações de edição,
-  aprovação ou PDF do web: continuam sem itens/custos na API e no PostgreSQL.
+  identificadas por origem. Propostas rápidas não recebem ações de edição ou
+  aprovação. Desde 11/10/2026 podem ser abertas para consulta e exportação de PDF
+  do resumo; continuam sem itens/custos na API e no PostgreSQL.
   A rota antiga `/propostas-app` saiu da navegação, mas abre a mesma lista para
   preservar links existentes; o relatório aponta à lista.
 
@@ -172,3 +173,175 @@ ou telefone e nome iguais; nome isolado não causa associação automática.
   (somente develop, transação revertida) e paridade em `tests/imported-data-smoke.mjs`.
 - Sem migração de banco nesta etapa; produção permanece intocada. O novo visual
   mobile está em `app-mastergreen/docs/UI-UX-PLAN.md`.
+
+## Documentos e catálogo — 11/10/2026
+
+- `/configuracoes` (admin) configura nome, razão social, documento, endereço,
+  telefone, e-mail, PIX/beneficiário, responsável/cargo, pagamento padrão do web
+  e validade padrão do app. Perfil salvo atomicamente na chave `company_profile`
+  da tabela existente `system_settings`; nenhuma migração ou alteração em produção.
+- Defaults foram reunidos dos PDFs antigos, usando a razão social e beneficiário
+  completos existentes no web. Conferir os dados antes de enviar ao cliente.
+- `GET /api/company-profile` exige sessão web; `PUT` exige admin e validação Zod.
+  O app recebe `company` em `/api/mobile/data`, preservando geração offline.
+  Arquivos já enviados não mudam; novas gerações usam configuração atual/cache.
+- Os dois geradores web antigos agora convergem ao mesmo modelo jsPDF. Documento
+  comercial verde, tabela com descrição e quantidades decimais, total destacado,
+  condições, pagamento e assinatura. Mobile usa HTML de mesma direção visual;
+  salvamento/compartilhamento base64 do Expo mantido. Paginação verificada.
+- Botão “Abrir proposta” na tabela/cards abre o snapshot enviado pelo celular.
+  PDF do resumo não inventa itens, custos, validade nem aprovação que não chegaram.
+- Correção do catálogo (pedido posterior em 11/10/2026): retirada a organização
+  paralela de Configurações e a API `/api/catalog-presentation`. App filtra pela
+  categoria original de `products.category`, sem inferir tipo/categoria pelo nome.
+  Busca e seletor de categoria ficam em Proposta → Escolher produto do sistema.
+  Nome, descrição e preço por m² vêm do cadastro existente no web. Metadados
+  `catalog` de caches anteriores são ignorados, sem apagar dados do aparelho.
+  Custos internos permanecem em opção separada, nunca como preço de venda automático.
+  Dados de `catalog_presentation` eventualmente persistidos ficam inativos no banco,
+  sem exclusão. Classificador antigo arquivado em `_Arquivo`.
+- Testes: `proposal-documents.test.ts`, `document-integration-smoke.cjs` (salva
+  somente os mesmos valores correntes de empresa), `catalog.test.cjs`
+  e `ux-smoke.cjs` mobile com fixtures isoladas. Artefatos em `dist/pdf-review`.
+- Auditoria anterior permanece como pendência: dashboard legado, endereço completo
+  dos clientes, invalidação do resumo, escopo da lista e customerId não foram
+  modificados nesta entrega.
+
+## Lista mensal de propostas — 12/10/2026
+
+### Edição web dos resumos vindos do app — 12/10/2026
+
+#### Ampliação posterior: editor completo — 12/10/2026
+
+- Pedido explícito posterior substitui a variante limitada ao resumo descrita
+  abaixo. Propostas do app agora usam `DetailedQuotationForm`, o mesmo componente
+  de produtos, custos, resumo financeiro e configurações das propostas web.
+  Menu de três pontinhos preservado. Itens antigos ausentes não são inventados.
+- Pode acrescentar/remover produtos, quantidades, preço de venda e custo unitário;
+  custos fixos/percentuais com associação ao produto; validade, título, responsável,
+  observações, garantia e frete. Cliente/data/pagamento recebidos continuam editáveis.
+- Modo inicial “Manter valor final informado” preserva centavos e evita aplicar
+  desconto duas vezes. “Calcular pelos produtos e desconto” opta pelo novo total.
+  Preview e servidor usam `calculateQuickDetails`; custos percentuais preservam
+  tipo/base/percentual ao reabrir. Lucros são estimativas, não aprovação/receita.
+- Migração aditiva `0004_mobile_proposal_details.sql`: coluna nullable
+  `web_details` guarda snapshot comercial versionado e validado (ordem, nomes,
+  preços e configurações históricos). É um documento atômico da proposta, não
+  um segundo cadastro de produtos/custos. Os catálogos existentes permanecem
+  normalizados e não são alterados ao editar. Sem novas linhas de proposta.
+- Detalhes e resumo financeiro gravados juntos, sob bloqueio/revisão. Hash original,
+  clientId, número e cadastro mestre preservados. Cliente antigo que omite detalhes
+  já gravados recebe 409 em vez de apagar o detalhamento. PDF web inclui produtos,
+  validade, título e observações, mas nunca custos internos.
+- Aplicação somente em develop, com runner restrito:
+  `node --env-file=.env --env-file=.env.local scripts/migrate-proposal-details-dev.mjs`.
+  Aplicar migração antes do deploy da API. Rollback de código mantém a coluna/dados;
+  não remover a coluna. Produção não foi alterada. PDFs/cópias locais do celular
+  continuam originais; esta etapa complementa no web, não reescreve o aparelho.
+- Testes: `quick-proposal-details.test.ts` (cálculos e transações revertidas),
+  `quick-proposal-full-editor-smoke.cjs` (browser com fixtures e PDF), além dos
+  testes anteriores de edição/contratos/documentos. PDF de referência do usuário
+  tinha conteúdo visual na primeira página e cinco páginas em branco; restante
+  dos controles foi conferido no formulário web real.
+
+#### Implementação inicial de resumo (ampliada acima)
+
+- Pedido posterior autoriza edição no web, substituindo a limitação anterior
+  de somente consulta. A lista usa o menu minimalista de três pontinhos com
+  “Visualizar” e “Editar”, tanto na tabela quanto nos cards. O diálogo também
+  oferece edição; ambos usam a página existente
+  `/orcamentos/novo?edit=<uuid>&source=app` e a variante de resumo de `NewQuotationForm`.
+- Cliente (nome, contato, telefone, documento, endereço), data, pagamento,
+  frete, garantia, desconto informado e total final podem ser salvos/reeditados.
+  Snapshot é da proposta: não altera cadastro mestre nem outras propostas.
+- Não há conversão para proposta detalhada, nova linha, mudança de número/origem,
+  aprovação ou lucros estimados. Itens antigos não chegaram ao servidor e não
+  são reconstruídos. Total em centavos preservado; desconto já aplicado é
+  informativo, nunca aplicado uma segunda vez. Usuário ajusta total explicitamente.
+- GET/PUT `/api/quick-proposals/:id` exigem sessão admin. Zod compartilhado,
+  revisão opaca e bloqueio de linha transacional impedem perda de edição entre abas.
+  409 mantém campos digitados e pede reabertura/conferência. Tela não monta
+  formulário vazio quando o carregamento falha.
+- `payload_hash` e `client_id` do envio original permanecem intactos; reenvio
+  idêntico do aparelho confirma recebimento sem sobrescrever edição web.
+  Lista, resumo PDF web e próxima leitura da API mobile usam os dados editados.
+  Proposta/PDF já salvos localmente no celular não são reescritos por esta entrega.
+- Sem migração, nova dependência ou alteração em produção. Testes SQL em
+  transações revertidas: `tests/quick-proposal-edit.test.ts`; interface com
+  fixtures: `tests/quick-proposal-edit-smoke.cjs`; API local sem gravação:
+  `tests/quick-proposal-edit-api.mjs`. Contrato em `docs/openapi-mobile.yaml`.
+
+- Numeração do app: `quotationNumber` persistido no servidor no padrão `#` +
+  8 dígitos, usado na lista/busca/detalhe e PDF do resumo gerado pelo web.
+  Migração `0003_mobile_proposal_numbers.sql` preenche números das propostas
+  existentes sem alterar UUID, clientId, datas, valores ou números web antigos.
+  Gatilhos serializam alocação web/app, verificam colisões nas duas tabelas e
+  preservam o número mobile em reenvios. O UUID continua sendo a chave interna.
+  Aplicar a migração em transação antes de publicar a API leitora; rollback de
+  código pode manter a coluna/gatilhos, sem apagar números já atribuídos.
+  Runner restrito a develop: `node --env-file=.env --env-file=.env.local scripts/migrate-proposal-numbers-dev.mjs`.
+  Produção não foi migrada. PDF nativo/offline do telefone não foi alterado;
+  a numeração é atribuída na recepção pelo servidor, sem exigir rede para gerar no app.
+
+- Web inicia mês/ano atuais no fuso de Brasília. Ambos são obrigatórios;
+  os 12 meses ficam disponíveis e limpar filtros retorna ao período atual.
+- Datas acessíveis continuam carregadas para manter anos anteriores selecionáveis.
+  Ordenação decrescente única por data para propostas web e app, em tabela/cards;
+  horário desempata quando disponível. Selos de origem: “App” e “Web”.
+- Testes: `tests/quotation-list.test.ts` e `tests/quotation-filters-smoke.cjs`.
+  Sem alteração de banco ou de regras financeiras.
+
+## Itens do app e nova proposta acessível — 12/10/2026
+
+- Pedido posterior substitui envio limitado ao resumo: app guarda o productId
+  escolhido e envia descrição, quantidade, unidade e preço de venda históricos.
+  Itens livres enviam productId null; custo interno não é transmitido.
+- API valida até 100 itens e inicializa web_details na mesma transação da proposta.
+  Reutiliza a coluna da migração 0004, sem nova migração. Editor web permite
+  alterar descrição/unidade, selecionar catálogo, adicionar itens/custos e salvar.
+  Custo desconhecido começa em zero, com aviso; preço negociado não vira custo.
+  Total continua manual até escolha explícita de recalcular pelos itens.
+- Na retomada online, fila antiga com documento local pode reenviar itens com o
+  clientId/resumo original. Hash legado permite somente complementar resumos
+  intactos, sem web_details; dados já editados não são sobrepostos. Flag local
+  itemsSynced evita repetir o processo. Sem cópia local não se inventam itens.
+- Nova proposta fica fixa abaixo do cabeçalho, com confirmação e aviso sobre
+  campos não salvos. Limpa formulário/lastFinalized, não fila nem histórico;
+  cancelamento preserva campos e falha de gravação restaura o rascunho.
+- Testes: 24 testes unitários mobile, tipos/lint, 7 testes web transacionais
+  revertidos, ux-smoke (reset/recuperação/sem duplicação) e editor completo
+  (produtos e múltiplos itens livres). Testes de tela usam APIs simuladas.
+- Produção não alterada. Validar no celular após Reload e sincronização Wi-Fi.
+
+## Abrir proposta web pelo histórico do app — 12/10/2026
+
+- O detalhe de propostas Web no histórico mobile tem Abrir no sistema web,
+  usando `/orcamentos?view=UUID`. Abre o navegador; PDFs locais do app mantêm
+  seu compartilhamento existente. Não há link público nem token na URL.
+- A página usa GET `/api/quotations/:id` já protegido pela sessão e permissões
+  existentes, independente do filtro mensal da lista. Login preserva somente
+  essa rota e UUID válidos; login comum continua no dashboard. Há loading,
+  erro de conexão, proposta indisponível, retry e volta à lista.
+- `EXPO_PUBLIC_WEB_URL` é opcional para web/API em origens separadas; fallback
+  na origem de `EXPO_PUBLIC_API_URL`. HTTPS fora do desenvolvimento. No celular
+  em desenvolvimento, o PC deve estar acessível na rede local.
+- Verificados tipos em ambos, lint e 26 testes mobile, ux-smoke com abertura de
+  nova aba, quotation-deep-link-smoke (login, proposta antiga, PDF, 404, retry e
+  link inválido) e regressão dos filtros. Dados simulados, sem escrita no banco.
+  Abertura pelo navegador Android ainda deve ser conferida no aparelho.
+
+## Estabilização pré-lançamento — 12/10/2026
+
+- Endereço completo e customerId na seleção mobile; resumo renova após sync/foco.
+- Dashboard/extrato/lista administrativa usam a base canônica dos relatórios.
+  Não transforma proposta rápida em venda aprovada, não recalcula o orçamento local.
+- Histórico conserva a cópia original e oferece versão atual no web para App/Web,
+  com autenticação e retorno ao documento; edição permanece exclusiva do web.
+- Foco da prévia web corrigido e testes offline atualizados. Cookies de produção
+  seguros, login limitado e store PostgreSQL (migração 0005 explícita antes do deploy).
+- 27 testes mobile, 25 web, seis fluxos de navegador e segurança HTTP passaram.
+  Comparação real: 10.488 verificações, sem divergências; build web e bundle Android
+  Hermes passaram. Ainda não houve build/instalação do APK final nem deploy.
+- Dependências críticas corrigidas, mas alertas residuais seguem como gate de segurança.
+  Resultado detalhado: RELEASE-AUDIT-2026-10-12.md. Publicação e roteiro físico:
+  RELEASE-CHECKLIST.md. Ambos substituem as contagens/pendências históricas anteriores.

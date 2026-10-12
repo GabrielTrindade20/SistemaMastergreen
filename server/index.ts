@@ -6,9 +6,10 @@ process.env.TZ = 'America/Sao_Paulo';
 
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { registerRoutes } from '../server/routes.js';
-import { setupVite, serveStatic, log } from './vite.js';
+import { serveStatic, log } from './runtime.js';
 
 const app = express();
+app.get('/health', (_req, res) => res.status(200).json({ status: 'ok' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -36,17 +37,19 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    const requestedStatus = Number(err.status || err.statusCode || 500);
+    const status = Number.isInteger(requestedStatus) && requestedStatus >= 400 && requestedStatus <= 599 ? requestedStatus : 500;
+    if(res.headersSent) return _next(err);
+    res.status(status).json({ message: status>=500 ? 'Não foi possível concluir a operação.' : 'Requisição inválida.' });
+    // Do not crash the process or log request bodies/tokens on a malformed request.
+    log(`Request failed with status ${status}`);
   });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
+    const { setupVite } = await import('./vite.js');
     await setupVite(app, server);
   } else {
     serveStatic(app);

@@ -8,6 +8,7 @@ import NewQuotationForm from "@/components/new-quotation-form";
 import type { Customer, Product, QuotationWithDetails } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import type { EditableQuickProposal } from '@shared/quick-proposal-edit';
 
 export default function NewQuotation() {
   const [, setLocation] = useLocation();
@@ -18,7 +19,9 @@ export default function NewQuotation() {
 
   const searchParams = new URLSearchParams(search);
   const editingQuotationId = searchParams.get('edit');
-  const isAdminEditing = searchParams.get('admin') === 'true' && user?.type === 'admin';
+  const isQuickEditing = !!editingQuotationId && searchParams.get('source') === 'app';
+  const isAdminEditing = !isQuickEditing && searchParams.get('admin') === 'true' && user?.type === 'admin';
+  const editingEndpoint = isQuickEditing ? '/api/quick-proposals' : '/api/quotations';
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -29,30 +32,28 @@ export default function NewQuotation() {
   });
 
   // Fetch quotation data if editing
-  const { data: editingQuotation } = useQuery<QuotationWithDetails | null>({
-    queryKey: ["/api/quotations", editingQuotationId],
+  const { data: editingQuotation, isLoading: loadingQuotation, error: loadingError } = useQuery<QuotationWithDetails | EditableQuickProposal | null>({
+    queryKey: [editingEndpoint, editingQuotationId],
     queryFn: async () => {
       if (!editingQuotationId) return null;
-      return await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "GET" });
+      return await apiRequest(`${editingEndpoint}/${editingQuotationId}`, { method: "GET" });
     },
     enabled: !!editingQuotationId,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
   const createQuotationMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('MUTATION: Starting API request with data:', data);
-      console.log('MUTATION: Editing ID:', editingQuotationId);
       
       if (editingQuotationId) {
-        console.log('MUTATION: Updating existing quotation');
-        return await apiRequest(`/api/quotations/${editingQuotationId}`, { method: "PUT", data });
+        return await apiRequest(`${editingEndpoint}/${editingQuotationId}`, { method: "PUT", data });
       } else {
-        console.log('MUTATION: Creating new quotation');
         return await apiRequest("/api/quotations", { method: "POST", data });
       }
     },
     onSuccess: (data) => {
-      console.log('Mutation success response:', data);
+      queryClient.invalidateQueries({ queryKey: ["/api/quick-proposals"] });
       queryClient.invalidateQueries({ queryKey: ["/api/quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/employee-quotations"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin-calculated-quotations"] });
@@ -71,7 +72,7 @@ export default function NewQuotation() {
       console.error("Error saving quotation:", error);
       toast({
         title: "Erro",
-        description: "Erro ao salvar proposta. Tente novamente.",
+        description: error.message.startsWith('409:') ? 'Esta proposta foi alterada em outra aba. Seus dados continuam no formulário; reabra a proposta para conferir a versão atual antes de salvar.' : "Erro ao salvar proposta. Tente novamente.",
         variant: "destructive",
       });
     },
@@ -79,7 +80,7 @@ export default function NewQuotation() {
 
   // Redirect away if the quotation being edited is already approved or rejected
   useEffect(() => {
-    if (editingQuotation) {
+    if (editingQuotation && 'status' in editingQuotation) {
       const status = editingQuotation.status;
       if (status === 'approved' || status === 'rejected') {
         toast({
@@ -93,9 +94,6 @@ export default function NewQuotation() {
   }, [editingQuotation]);
 
   const handleSubmit = (data: any) => {
-    console.log('NEW-QUOTATION PAGE: Received data to submit:', data);
-    console.log('Admin editing mode:', isAdminEditing);
-    console.log('Editing quotation ID:', editingQuotationId);
     createQuotationMutation.mutate(data);
   };
 
@@ -135,7 +133,16 @@ export default function NewQuotation() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {createQuotationMutation.error && <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-red-800">
+              {createQuotationMutation.error.message.startsWith('409:')
+                ? 'Esta proposta foi alterada em outra aba. Seus dados continuam no formulário. Copie o que precisar e volte à lista para reabrir a versão atual antes de salvar.'
+                : 'Não foi possível salvar. Seus dados continuam no formulário; verifique a conexão e tente novamente.'}
+            </p>}
+            {editingQuotationId && (loadingQuotation || !editingQuotation || loadingError) ? (
+              <p role={loadingError ? 'alert' : 'status'}>{loadingError ? 'Não foi possível abrir esta proposta. Verifique seu acesso e volte à lista para tentar novamente.' : 'Carregando proposta…'}</p>
+            ) : (
             <NewQuotationForm
+              key={`${editingEndpoint}-${editingQuotationId || 'new'}`}
               customers={customers}
               products={products}
               onSubmit={handleSubmit}
@@ -143,7 +150,9 @@ export default function NewQuotation() {
               isLoading={createQuotationMutation.isPending}
               initialData={editingQuotation}
               isEditMode={!!editingQuotationId && !isAdminEditing}
+              quickProposal={isQuickEditing ? editingQuotation as EditableQuickProposal : undefined}
             />
+            )}
           </CardContent>
         </Card>
       </div>

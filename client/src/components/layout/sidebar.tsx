@@ -10,6 +10,7 @@ import {
   MessageCircle, 
   User,
   Shield,
+  Settings,
   LogOut,
   DollarSign,
   Menu,
@@ -34,7 +35,7 @@ export default function Sidebar() {
 
   const navigation = [
     ...baseNavigation.filter(item => !item.adminOnly || user?.type === "admin"),
-    ...(user?.type === "admin" ? [{ name: "Admin", href: "/admin", icon: Shield }] : [])
+    ...(user?.type === "admin" ? [{ name: "Configurações", href: "/configuracoes", icon: Settings },{ name: "Admin", href: "/admin", icon: Shield }] : [])
   ];
 
   const handleLogout = () => {
