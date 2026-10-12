@@ -23,6 +23,7 @@ import {
   LineChart, Line, PieChart, Pie, Cell, Legend
 } from "recharts";
 import * as XLSX from "xlsx";
+import { Link } from 'wouter';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface ReportRow {
@@ -1081,6 +1082,10 @@ export default function Reports() {
         </div>
       </div>
 
+      <div className="mx-4 md:mx-6 mt-4 p-4 rounded-lg border border-green-200 bg-green-50 text-green-950">
+        <p>Estes indicadores e exportações consideram propostas detalhadas do web. Propostas rápidas do aplicativo não informam custos nem lucro e são consultadas separadamente.</p>
+        <Link href="/propostas-app" className="underline font-semibold inline-block mt-2">Ver valores e propostas do aplicativo</Link>
+      </div>
       <Tabs defaultValue="reports" className="w-full">
         <div className="px-4 md:px-6 pt-4">
           <TabsList>

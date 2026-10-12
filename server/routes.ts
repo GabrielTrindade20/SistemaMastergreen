@@ -14,6 +14,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import session from "express-session";
+import { createMobileRouter, getMobileData } from './mobile';
+import { reportMonthSchema } from '../shared/mobile-contract';
 
 const createQuotationSchema = z.object({
   quotation: insertQuotationSchema.omit({ userId: true, branch: true }).extend({
@@ -71,6 +73,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.initializeDefaultProducts();
   await storage.initializeDefaultUsers();
   await storage.initializeDefaultSettings();
+
+  app.use('/api/mobile', createMobileRouter());
+  app.get('/api/quick-proposals', requireAdmin, async (req, res) => {
+    const month = reportMonthSchema.safeParse(req.query.month || new Date().toISOString().slice(0, 7));
+    if (!month.success) return res.status(400).json({ message: 'Mês inválido.' });
+    try { res.json(await getMobileData(month.data)); }
+    catch { res.status(500).json({ message: 'Não foi possível consultar as propostas do aplicativo.' }); }
+  });
 
   // Auth routes
   app.post("/api/login", async (req, res) => {

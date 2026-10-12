@@ -1,14 +1,15 @@
 openapi: 3.0.3
 info:
-  title: MasterGreen — primeiro contrato mobile
-  version: 0.1.0
-  description: O app usa a sessão do sistema web. Não recebe credenciais do PostgreSQL.
+  title: MasterGreen — integração mobile
+  version: 1.0.0
+  description: Contrato implementado em develop. Proprietário único; sessão Bearer de 30 dias. Banco inacessível diretamente pelo app.
 servers:
-  - url: https://sistemamastergreen.com.br
+  - url: http://localhost:5001
+    description: Desenvolvimento isolado (no celular use o IP do computador)
 paths:
-  /api/login:
+  /api/mobile/auth/login:
     post:
-      summary: Entrar com a conta MasterGreen
+      summary: Autenticar o proprietário configurado em MOBILE_OWNER_EMAIL
       requestBody:
         required: true
         content:
@@ -17,77 +18,113 @@ paths:
               type: object
               required: [email, password]
               properties:
-                email: { type: string, format: email }
-                password: { type: string }
-      responses:
-        '200': { description: Sessão iniciada; resposta contém user sem password }
-        '401': { description: Credenciais inválidas }
-  /api/me:
-    get:
-      summary: Conta autenticada, sem senha
-      security: [{ cookieAuth: [] }]
-      responses:
-        '200': { description: Usuário autenticado }
-        '401': { description: Sem sessão }
-  /api/mobile/bootstrap:
-    get:
-      summary: Produtos, clientes permitidos e percentual de nota fiscal
-      description: Funcionário recebe apenas seus clientes e não recebe custo por m².
-      security: [{ cookieAuth: [] }]
+                email: { type: string, format: email, maxLength: 250 }
+                password: { type: string, maxLength: 500 }
       responses:
         '200':
-          description: Dados iniciais do app
+          description: Token opaco; guardar no SecureStore, nunca a senha
           content:
             application/json:
               schema:
                 type: object
-                required: [user, settings, products, customers]
+                required: [token, expiresAt, user]
                 properties:
+                  token: { type: string }
+                  expiresAt: { type: string, format: date-time }
                   user:
                     type: object
-                    required: [id, name, type, branch]
                     properties:
                       id: { type: string, format: uuid }
                       name: { type: string }
-                      type: { type: string }
-                      branch: { type: string }
-                  settings:
-                    type: object
-                    required: [invoicePercent]
-                    properties:
-                      invoicePercent: { type: number }
-                  products:
-                    type: array
-                    items:
-                      type: object
-                      required: [id, name, pricePerM2]
-                      properties:
-                        id: { type: string, format: uuid }
-                        name: { type: string }
-                        category: { type: string, nullable: true }
-                        pricePerM2: { type: string, description: Decimal em formato PostgreSQL }
-                        costPerM2: { type: string, nullable: true, description: Apenas administrador }
-                  customers:
-                    type: array
-                    items:
-                      type: object
-                      required: [id, name]
-                      properties:
-                        id: { type: string, format: uuid }
-                        name: { type: string }
-                        phone: { type: string }
-                        city: { type: string }
-                        address: { type: string, nullable: true }
-        '401': { description: Sem sessão }
-  /api/logout:
+                      email: { type: string }
+        '400': { description: Dados inválidos }
+        '401': { description: Credenciais inválidas ou usuário não autorizado no mobile }
+        '429': { description: Limite de tentativas por IP; aguardar 15 minutos }
+  /api/mobile/auth/logout:
     post:
-      summary: Encerrar sessão
-      security: [{ cookieAuth: [] }]
+      summary: Revogar a sessão atual
+      security: [{ bearerAuth: [] }]
       responses:
-        '200': { description: Sessão encerrada }
+        '200': { description: Sessão revogada }
+        '401': { description: Sessão expirada ou inválida }
+  /api/mobile/data:
+    get:
+      summary: Clientes, histórico resumido e resumo mensal do proprietário
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: query, name: month, schema: { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$' } }
+      responses:
+        '200':
+          description: customers, quickProposals, history, summary e updatedAt; sem produtos, custos do app ou senha
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customers: { type: array, items: { type: object } }
+                  history: { type: array, items: { type: object } }
+                  quickProposals: { type: array, items: { type: object } }
+                  updatedAt: { type: string, format: date-time }
+                  summary:
+                    type: object
+                    properties:
+                      month: { type: string }
+                      quickCount: { type: integer }
+                      quickTotalCents: { type: integer, description: Valor proposto no app, em centavos; não receita }
+                      approvedCount: { type: integer }
+                      approvedRevenue: { type: number, description: Propostas detalhadas aprovadas do web, em reais }
+        '400': { description: Mês inválido }
+        '401': { description: Renovar login; preservar fila local }
+  /api/mobile/proposals:
+    post:
+      summary: Receber resumo financeiro sem itens ou custos
+      description: Mesmo clientId e conteúdo retorna o registro original. Conteúdo diferente com mesmo ID retorna 409.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuickProposal'
+      responses:
+        '201': { description: Criada; resposta contém id, clientId e replayed false }
+        '200': { description: Já recebida; resposta contém id, clientId e replayed true }
+        '400': { description: Resumo inválido; manter registro local e sinalizar atenção }
+        '401': { description: Renovar login sem apagar pendências }
+        '409': { description: Identificador já usado com outros dados; não sobrescrever }
+  /api/quick-proposals:
+    get:
+      summary: Consulta da página web Propostas do app
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { in: query, name: month, schema: { type: string } }
+      responses:
+        '200': { description: Mesmo formato de /api/mobile/data }
+        '403': { description: Sessão web administrativa obrigatória }
 components:
   securitySchemes:
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: connect.sid
+    bearerAuth: { type: http, scheme: bearer }
+    cookieAuth: { type: apiKey, in: cookie, name: connect.sid }
+  schemas:
+    QuickProposal:
+      type: object
+      additionalProperties: false
+      required: [clientId, customer, proposalDate, freight, warranty, payment, discountPercent, totalCents]
+      properties:
+        clientId: { type: string, format: uuid }
+        customer:
+          type: object
+          additionalProperties: false
+          required: [name]
+          properties:
+            name: { type: string, minLength: 1, maxLength: 250 }
+            contact: { type: string, maxLength: 250, default: '' }
+            phone: { type: string, maxLength: 40, default: '' }
+            document: { type: string, maxLength: 30, default: '' }
+            address: { type: string, maxLength: 1000, default: '' }
+        proposalDate: { type: string, format: date }
+        freight: { type: string, maxLength: 250 }
+        warranty: { type: string, maxLength: 250 }
+        payment: { type: string, maxLength: 250 }
+        discountPercent: { type: number, minimum: 0, maximum: 100 }
+        totalCents: { type: integer, minimum: 1, maximum: 1000000000 }

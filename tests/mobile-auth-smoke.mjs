@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+const base='http://127.0.0.1:5001';
+assert.ok(process.env.DEV_ADMIN_EMAIL&&process.env.DEV_ADMIN_PASSWORD,'Carregue .env.local de desenvolvimento.');
+const post=(path,body,token)=>fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(body)});
+assert.equal((await fetch(base+'/api/mobile/data')).status,401);
+const wrong=await post('/api/mobile/auth/login',{email:process.env.DEV_ADMIN_EMAIL,password:'invalid-test-only'});assert.equal(wrong.status,401);
+const response=await post('/api/mobile/auth/login',{email:process.env.DEV_ADMIN_EMAIL,password:process.env.DEV_ADMIN_PASSWORD});assert.equal(response.status,200);
+const session=await response.json();assert.equal(session.token.length,64);assert.equal('password' in session.user,false);
+assert.ok(Math.abs(Date.parse(session.expiresAt)-Date.now()-30*86400000)<10000);
+const headers={Authorization:'Bearer '+session.token};
+const dataResponse=await fetch(base+'/api/mobile/data',{headers});assert.equal(dataResponse.status,200);
+const data=await dataResponse.json();assert.ok(Array.isArray(data.customers));assert.ok(Array.isArray(data.history));assert.equal(JSON.stringify(data).includes('password'),false);
+assert.equal((await post('/api/mobile/proposals',{totalCents:-1},session.token)).status,400);
+assert.equal((await fetch(base+'/api/mobile/data?month=bad',{headers})).status,400);
+assert.equal((await post('/api/mobile/auth/logout',{},session.token)).status,200);
+assert.equal((await fetch(base+'/api/mobile/data',{headers})).status,401);
+console.log('PASS: autenticação real, sessão de 30 dias, respostas sem segredos, validação e revogação.');

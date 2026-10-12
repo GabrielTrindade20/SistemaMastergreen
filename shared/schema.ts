@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { relations } from "drizzle-orm";
-import { pgTable, text, varchar, decimal, integer, timestamp, uuid, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, decimal, integer, timestamp, uuid, index, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -188,6 +188,33 @@ export const systemSettings = pgTable("system_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const mobileSessions = pgTable('mobile_sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({ userIdx: index('mobile_sessions_user_idx').on(table.userId) }));
+
+export const mobileQuickProposals = pgTable('mobile_quick_proposals', {
+  id: uuid('id').primaryKey().default(sql`gen_random_uuid()`),
+  clientId: uuid('client_id').notNull(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  customerId: uuid('customer_id').notNull().references(() => customers.id),
+  customerSnapshot: jsonb('customer_snapshot').notNull(),
+  proposalDate: text('proposal_date').notNull(),
+  freight: text('freight').notNull(),
+  warranty: text('warranty').notNull(),
+  payment: text('payment').notNull(),
+  discountPercent: decimal('discount_percent', { precision: 5, scale: 2 }).notNull(),
+  totalCents: integer('total_cents').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  clientKey: uniqueIndex('mobile_quick_proposals_client_key').on(table.userId, table.clientId),
+  customerIdx: index('mobile_quick_proposals_customer_idx').on(table.customerId),
+  dateIdx: index('mobile_quick_proposals_date_idx').on(table.proposalDate),
+}));
 
 export const insertSystemSettingSchema = createInsertSchema(systemSettings);
 export type SystemSetting = typeof systemSettings.$inferSelect;

@@ -2,7 +2,8 @@
 
 O sistema web e o aplicativo são repositórios Git separados, ambos na branch
 `develop`. Eles se comunicam pela API HTTP; não compartilham código ou conexão
-direta com PostgreSQL. Veja `openapi-mobile.yaml` para o contrato inicial.
+direta com PostgreSQL. Veja `openapi-mobile.yaml` para o contrato atual e
+`MOBILE-IMPLEMENTATION.md` para o escopo implementado e a homologação.
 
 ## Banco isolado
 
@@ -28,13 +29,18 @@ base oficial sem uma solicitação específica e backup.
 `npm run dev` inicia o web local na porta definida no `.env` (atualmente 5001).
 O app precisa de `EXPO_PUBLIC_API_URL=http://IP_DO_PC:5001` no próprio
 `.env.local` para acessar pelo celular. `localhost` no Android não é o PC.
-A sessão expira em 24 horas e, nesta fase, fica apenas em memória; após reiniciar
-o servidor, é necessário entrar novamente no app e no web.
+A sessão web continua em memória por 24h. O aplicativo usa sessão própria,
+armazenada no PostgreSQL e no SecureStore do Android, com validade fixa de 30 dias.
+Reiniciar o servidor não encerra a sessão mobile.
 
 Smoke test com conta local de desenvolvimento:
 `node --env-file-if-exists=.env.local scripts/smoke-mobile-api.mjs`
 
-O bootstrap mobile é **somente leitura**: autentica o usuário, devolve produtos,
-clientes autorizados e o percentual da nota fiscal. Não grava propostas.
-O fluxo rápido/PDF segue offline no app. A sincronização de propostas,
-histórico e relatórios será implementada em etapas posteriores.
+O bootstrap anterior é legado; o app atual não lê produtos ou taxas do web.
+Use `node --env-file=.env scripts/migrate-mobile-dev.mjs` para aplicar a migração
+aditiva exclusivamente em mastergreen_develop. O app envia resumos por
+`POST /api/mobile/proposals`; a consulta web fica em `/propostas-app`.
+
+Os testes de ponta a ponta mantêm uma única proposta explicitamente fictícia
+de R$ 720 no banco de desenvolvimento, para inspeção visual. Testes de
+persistência transacional usam rollback; nenhum dado oficial é copiado.
