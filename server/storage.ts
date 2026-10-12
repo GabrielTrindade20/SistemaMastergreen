@@ -1,3 +1,4 @@
+import { loadReportRows } from './reporting';
 import { 
   customers, 
   products, 
@@ -1064,80 +1065,7 @@ export class DatabaseStorage implements IStorage {
     userId?: string;
     isAdmin?: boolean;
   }): Promise<any[]> {
-    const conditions: any[] = [];
-
-    if (filters.dateFrom) {
-      conditions.push(gte(quotations.createdAt, filters.dateFrom));
-    }
-    if (filters.dateTo) {
-      conditions.push(lte(quotations.createdAt, filters.dateTo));
-    }
-    if (filters.city) {
-      conditions.push(ilike(customers.city, `%${filters.city}%`));
-    }
-    if (filters.state) {
-      conditions.push(ilike(customers.state, `%${filters.state}%`));
-    }
-    if (filters.responsibleId) {
-      conditions.push(eq(quotations.responsibleId, filters.responsibleId));
-    }
-    if (filters.customerStatus) {
-      conditions.push(eq(customers.customerStatus, filters.customerStatus));
-    }
-    if (filters.customerId) {
-      conditions.push(eq(customers.id, filters.customerId));
-    }
-    if (!filters.isAdmin && filters.userId) {
-      conditions.push(eq(quotations.userId, filters.userId));
-    }
-
-    // Only non-admin-calculated quotations in the base result
-    conditions.push(eq(quotations.adminCalculated, 0));
-
-    const result = await db
-      .select({
-        quotation: quotations,
-        customer: customers,
-        // Join on responsibleId to get the actual responsible seller's data
-        // Fall back to userId if responsibleId is null (same person)
-      })
-      .from(quotations)
-      .leftJoin(customers, eq(quotations.customerId, customers.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(desc(quotations.createdAt));
-
-    // For each quotation fetch the responsible user (preferring responsibleId, falling back to userId)
-    const rowsWithUsers = await Promise.all(result.map(async (row) => {
-      const lookupId = row.quotation.responsibleId || row.quotation.userId;
-      const [responsibleUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, lookupId))
-        .limit(1);
-      return { quotation: row.quotation, customer: row.customer, responsibleUser };
-    }));
-
-    return rowsWithUsers.map(({ quotation, customer, responsibleUser }) => ({
-      quotationId: quotation.id,
-      quotationNumber: quotation.quotationNumber,
-      quotationStatus: quotation.status,
-      quotationTotal: parseFloat(quotation.total || '0'),
-      quotationNetProfit: parseFloat(quotation.netProfit || '0'),
-      quotationCreatedAt: quotation.createdAt,
-      quotationBranch: quotation.branch,
-      customerId: customer?.id,
-      customerName: customer?.name,
-      customerEmail: customer?.email,
-      customerPhone: customer?.phone,
-      customerCity: customer?.city,
-      customerState: customer?.state,
-      customerStatus: customer?.customerStatus,
-      customerLeadOrigin: customer?.leadOrigin,
-      customerCreatedAt: customer?.createdAt,
-      responsibleId: responsibleUser?.id,
-      responsibleName: responsibleUser?.name,
-      responsibleBranch: responsibleUser?.branch,
-    }));
+    return loadReportRows(filters);
   }
 }
 

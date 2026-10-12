@@ -136,8 +136,8 @@ ou telefone e nome iguais; nome isolado não causa associação automática.
 - npm audit informou 36 alertas no conjunto mobile (13 moderados, 22 altos,
   1 crítico). Não foi feito upgrade forçado que altere o SDK. Revisão de
   dependências é necessária antes de distribuição de produção.
-- A API de consultas retorna o conjunto completo (interface exibe páginas de
-  30); avaliar paginação no servidor se a base crescer significativamente.
+- A API de consultas retorna o conjunto completo (interface usa listas
+  virtualizadas); avaliar paginação no servidor se a base crescer significativamente.
 
 ## Integração de catálogo e lista única — 11/10/2026
 
@@ -153,3 +153,22 @@ ou telefone e nome iguais; nome isolado não causa associação automática.
   aprovação ou PDF do web: continuam sem itens/custos na API e no PostgreSQL.
   A rota antiga `/propostas-app` saiu da navegação, mas abre a mesma lista para
   preservar links existentes; o relatório aponta à lista.
+
+## UI/UX e resumo por período — 11/10/2026
+
+- `/api/mobile/summary` exige a mesma sessão proprietária; datas inclusivas
+  validadas, valores em centavos, comparação de duração equivalente e cache
+  por usuário/período no aparelho (24 consultas). OpenAPI atualizado.
+- `server/reporting.ts` centraliza os relatórios avançado/executivo e histórico
+  mobile. Admin conta a versão calculada quando existe, uma vez por original;
+  situação comercial vem da versão escolhida e criação vem da original, em America/Sao_Paulo. Funcionário
+  continua vendo somente seus originais, sem versões calculadas do administrador.
+- Custos/lucro exibidos só no subconjunto com total_costs positivo, sem alegar
+  completude. Comissão pela taxa atual é identificada como estimativa, não como
+  comissão histórica paga. Proposta rápida não entra em vendas aprovadas.
+- Dashboard antigo do web não foi refeito; pode ter regras diferentes dos
+  relatórios avançados. Não usar seus fallbacks de lucro como fonte do mobile.
+- Testes adicionais: `tests/report-metrics.test.ts`, `tests/report-integration.test.ts`
+  (somente develop, transação revertida) e paridade em `tests/imported-data-smoke.mjs`.
+- Sem migração de banco nesta etapa; produção permanece intocada. O novo visual
+  mobile está em `app-mastergreen/docs/UI-UX-PLAN.md`.

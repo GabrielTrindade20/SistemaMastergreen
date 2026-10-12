@@ -4,7 +4,9 @@ import type { PoolClient } from 'pg';
 import cors from 'cors';
 import { pool } from './db';
 import { storage } from './storage';
-import { mobileLoginSchema, quickProposalSchema, reportMonthSchema, type QuickProposalInput } from '../shared/mobile-contract';
+import { mobileLoginSchema, quickProposalSchema, reportMonthSchema, reportRangeSchema, type QuickProposalInput } from '../shared/mobile-contract';
+import { loadReportRows } from './reporting';
+import { previousPeriod, summarizeReports } from '../shared/report-metrics';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const ownerEmail = () => (process.env.MOBILE_OWNER_EMAIL || (process.env.NODE_ENV === 'development' ? 'admin@dev.mastergreen.local' : '')).toLowerCase();
@@ -38,22 +40,19 @@ export async function saveQuickProposal(client: PoolClient, userId: string, inpu
 }
 
 export async function getMobileData(month: string) {
-  const [customers, products, quick, detailed, summary] = await Promise.all([
+  const [customers, products, quick, detailed] = await Promise.all([
     pool.query(`SELECT id,name,phone,email,cpf_cnpj AS document,address,city,state FROM customers ORDER BY name`),
     pool.query(`SELECT id,name,category,description,price_per_m2 AS "pricePerM2" FROM products ORDER BY name`),
     pool.query(`SELECT id,client_id AS "clientId", customer_snapshot AS customer, proposal_date AS date,
       freight,warranty,payment,discount_percent::float AS "discountPercent",total_cents AS "totalCents",
       created_at AS "receivedAt",'mobile' AS source,'Enviada' AS status FROM mobile_quick_proposals ORDER BY proposal_date DESC,created_at DESC`),
-    pool.query(`SELECT q.id,json_build_object('name',c.name) AS customer,to_char(q.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD') AS date,
-      round(q.total*100)::bigint::float AS "totalCents",'web' AS source,q.status
-      FROM quotations q JOIN customers c ON c.id=q.customer_id WHERE coalesce(q.admin_calculated,0)=0 ORDER BY q.created_at DESC`),
-    pool.query(`SELECT count(*)::int AS "approvedCount",coalesce(sum(total),0)::float AS "approvedRevenue"
-      FROM quotations WHERE status='approved' AND coalesce(admin_calculated,0)=0 AND to_char(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo','YYYY-MM')=$1`, [month]),
+    loadReportRows({isAdmin:true}),
   ]);
   const monthly = quick.rows.filter((row) => row.date.startsWith(month));
+  const approved=detailed.filter(row=>row.businessDate.startsWith(month)&&row.quotationStatus==='approved');
   return { customers: customers.rows, products: products.rows, quickProposals: quick.rows,
-    history: [...quick.rows, ...detailed.rows].sort((a,b) => b.date.localeCompare(a.date)),
-    summary: { month, quickCount: monthly.length, quickTotalCents: monthly.reduce((sum, row) => sum + row.totalCents, 0), ...summary.rows[0] },
+    history: [...quick.rows, ...detailed.map(row=>({id:row.quotationId,customer:{name:row.customerName||'Cliente'},date:row.businessDate,totalCents:Math.round(row.quotationTotal*100),source:'web',status:row.quotationStatus}))].sort((a,b) => b.date.localeCompare(a.date)),
+    summary: { month, quickCount: monthly.length, quickTotalCents: monthly.reduce((sum, row) => sum + row.totalCents, 0),approvedCount:approved.length,approvedRevenue:approved.reduce((sum,row)=>sum+row.quotationTotal,0) },
     updatedAt: new Date().toISOString() };
 }
 
@@ -82,7 +81,7 @@ export function createMobileRouter() {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ token, expiresAt, user: { id: user.id, name: user.name, email: user.email } });
   }));
-  router.use(['/auth/logout','/data','/proposals'],wrap(async (req, res, next) => {
+  router.use(['/auth/logout','/data','/proposals','/summary'],wrap(async (req, res, next) => {
     const token = req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
     if (!token) { res.status(401).json({ message: 'Entre novamente para sincronizar.' }); return; }
     const result = await pool.query(`SELECT u.id FROM mobile_sessions s JOIN users u ON u.id=s.user_id
@@ -101,6 +100,15 @@ export function createMobileRouter() {
     const month = reportMonthSchema.safeParse(req.query.month || new Date().toISOString().slice(0,7));
     if (!month.success) { res.status(400).json({ message: 'Mês inválido.' }); return; }
     res.json(await getMobileData(month.data));
+  }));
+  router.get('/summary',wrap(async(req,res)=>{
+    const parsed=reportRangeSchema.safeParse(req.query);
+    if(!parsed.success){res.status(400).json({message:'Informe um período válido, com início e fim entre 2000 e 2100.'});return;}
+    const {from,to}=parsed.data,previous=previousPeriod(from,to);
+    const rows=await loadReportRows({isAdmin:true,fromDay:previous.from,toDay:to});
+    const current=summarizeReports(rows,from,to),before=summarizeReports(rows,previous.from,previous.to);
+    const quick=await pool.query('SELECT count(*)::int AS count,coalesce(sum(total_cents),0)::float AS "totalCents" FROM mobile_quick_proposals WHERE proposal_date >= $1 AND proposal_date <= $2',[from,to]);
+    res.json({from,to,...current,quick:quick.rows[0],previous:{...previous,approvedCents:before.approvedCents,changePercent:before.approvedCents>0?Math.round((current.approvedCents-before.approvedCents)/before.approvedCents*1000)/10:null},updatedAt:new Date().toISOString()});
   }));
   router.post('/proposals', wrap(async (req,res) => {
     const input = quickProposalSchema.safeParse(req.body);

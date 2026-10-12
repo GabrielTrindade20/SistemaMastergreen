@@ -25,3 +25,4 @@ export const mobileLoginSchema = z.object({
   email: z.string().trim().email().max(250), password: z.string().min(1).max(500),
 }).strict();
 export const reportMonthSchema = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+export const reportRangeSchema = z.object({from:dateOnly,to:dateOnly}).strict().refine(value=>value.from<=value.to&&value.from>='2000-01-01'&&value.to<='2100-12-31','Período inválido (2000 a 2100)');
