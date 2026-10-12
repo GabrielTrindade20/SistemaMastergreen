@@ -9,7 +9,8 @@ direta com PostgreSQL. Veja `openapi-mobile.yaml` para o contrato atual e
 
 O `.env` local, ignorado pelo Git, deve apontar para `mastergreen_develop`.
 Esta base é separada do banco oficial, mas está na **mesma instância PostgreSQL
-da VPS**. Nenhum cliente ou proposta real foi copiado. O servidor bloqueia a
+da VPS**. Desde 11/10/2026, contém uma amostra de dados reais para homologação;
+trate-a como base com dados pessoais e financeiros, com acesso restrito. O servidor bloqueia a
 inicialização em modo `development` se `DATABASE_URL` apontar para o banco
 oficial `sistema-mastergren-web`.
 
@@ -41,6 +42,14 @@ Use `node --env-file=.env scripts/migrate-mobile-dev.mjs` para aplicar a migraç
 aditiva exclusivamente em mastergreen_develop. O app envia resumos por
 `POST /api/mobile/proposals`; a consulta web fica em `/propostas-app`.
 
-Os testes de ponta a ponta mantêm uma única proposta explicitamente fictícia
-de R$ 720 no banco de desenvolvimento, para inspeção visual. Testes de
-persistência transacional usam rollback; nenhum dado oficial é copiado.
+Os testes de ponta a ponta mantêm uma proposta explicitamente fictícia
+de R$ 720 no banco de desenvolvimento, para inspeção visual. Os testes de
+persistência transacional usam rollback. Além dela, há 285 clientes, 73 produtos,
+18 custos e 126 propostas detalhadas (51 aprovadas, 75 pendentes), com 189 itens
+e 462 custos vinculados, copiados da base oficial em 11/10/2026. O banco oficial
+foi consultado em transação somente leitura; registros locais foram preservados.
+As contas copiadas foram desativadas para login (e-mails inválidos e novos hashes).
+Nenhum dump ou dado pessoal deve ser versionado. Para inspecionar a origem e o
+destino sem exibir dados pessoais: `node --env-file=.env scripts/inspect-real-data.mjs`.
+`node --env-file=.env scripts/import-real-sample.mjs` faz prévia; `--apply` aplica
+de forma transacional e idempotente apenas em `mastergreen_develop`.

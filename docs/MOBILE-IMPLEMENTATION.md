@@ -89,6 +89,23 @@ ou telefone e nome iguais; nome isolado não causa associação automática.
 - Bundle Android de desenvolvimento entregue com HTTP 200. Isso não confirma
   funcionamento nativo no aparelho; checklist de homologação permanece aberto.
 
+## Amostra real para homologação — 11/10/2026
+
+- `mastergreen_develop` recebeu 285 clientes, 73 produtos, 18 custos e 126
+  propostas detalhadas da base oficial: 51 aprovadas e 75 pendentes, com 189
+  itens e 462 custos vinculados. A proposta rápida fictícia anterior foi mantida.
+- A importação leu a origem em transação `READ ONLY` e escreveu somente no banco
+  de desenvolvimento, em transação com verificações de contagem e total.
+- Os usuários de origem foram copiados apenas para preservar relacionamentos,
+  com e-mails inválidos e hashes substituídos; o login continua sendo a conta
+  local de desenvolvimento. O histórico do administrador principal foi vinculado
+  a essa conta: 124 propostas aparecem em Propostas; duas de outro administrador
+  permanecem visíveis nos relatórios e no histórico mobile.
+- A base de desenvolvimento agora contém dados pessoais e financeiros reais.
+  Restringir acesso e nunca versionar dump, registros ou credenciais. O script
+  `scripts/import-real-sample.mjs` executa prévia por padrão e aceita `--apply`.
+  `tests/imported-data-smoke.mjs` confere banco e respostas autenticadas da API.
+
 ## Publicação e retorno (não executados)
 
 1. Fazer backup verificado do banco oficial e confirmar conta proprietária/admin.
