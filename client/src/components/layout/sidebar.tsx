@@ -21,7 +21,6 @@ import { useState } from "react";
 const baseNavigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Propostas", href: "/orcamentos", icon: FileText },
-  { name: "Propostas do app", href: "/propostas-app", icon: FileText, adminOnly: true },
   { name: "Clientes", href: "/clientes", icon: Users },
   { name: "Produtos", href: "/produtos", icon: Package, adminOnly: true },
   { name: "Custos", href: "/custos", icon: DollarSign, adminOnly: true },

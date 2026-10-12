@@ -38,8 +38,9 @@ export async function saveQuickProposal(client: PoolClient, userId: string, inpu
 }
 
 export async function getMobileData(month: string) {
-  const [customers, quick, detailed, summary] = await Promise.all([
+  const [customers, products, quick, detailed, summary] = await Promise.all([
     pool.query(`SELECT id,name,phone,email,cpf_cnpj AS document,address,city,state FROM customers ORDER BY name`),
+    pool.query(`SELECT id,name,category,description,price_per_m2 AS "pricePerM2" FROM products ORDER BY name`),
     pool.query(`SELECT id,client_id AS "clientId", customer_snapshot AS customer, proposal_date AS date,
       freight,warranty,payment,discount_percent::float AS "discountPercent",total_cents AS "totalCents",
       created_at AS "receivedAt",'mobile' AS source,'Enviada' AS status FROM mobile_quick_proposals ORDER BY proposal_date DESC,created_at DESC`),
@@ -50,7 +51,7 @@ export async function getMobileData(month: string) {
       FROM quotations WHERE status='approved' AND coalesce(admin_calculated,0)=0 AND to_char(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo','YYYY-MM')=$1`, [month]),
   ]);
   const monthly = quick.rows.filter((row) => row.date.startsWith(month));
-  return { customers: customers.rows, quickProposals: quick.rows,
+  return { customers: customers.rows, products: products.rows, quickProposals: quick.rows,
     history: [...quick.rows, ...detailed.rows].sort((a,b) => b.date.localeCompare(a.date)),
     summary: { month, quickCount: monthly.length, quickTotalCents: monthly.reduce((sum, row) => sum + row.totalCents, 0), ...summary.rows[0] },
     updatedAt: new Date().toISOString() };

@@ -41,6 +41,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
+type QuickProposalRow = { id:string; customer:{name:string;phone:string}; date:string; totalCents:number; freight:string; warranty:string; payment:string; discountPercent:number };
+
 export default function Quotations() {
   const [showForm, setShowForm] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState<QuotationWithDetails | null>(null);
@@ -73,6 +75,16 @@ export default function Quotations() {
       return res.json();
     },
   });
+  const {data: mobileData, isLoading: mobileLoading} = useQuery<{quickProposals:QuickProposalRow[]}>({
+    queryKey:["/api/quick-proposals", "all"],
+    queryFn:async()=>{
+      const response=await fetch('/api/quick-proposals',{credentials:'include'});
+      if(!response.ok)throw new Error('Não foi possível carregar as propostas do aplicativo.');
+      return response.json();
+    },
+    enabled:user?.type==='admin',staleTime:30000,refetchInterval:30000,
+  });
+  const quickProposals=mobileData?.quickProposals || [];
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
@@ -323,8 +335,9 @@ export default function Quotations() {
     quotations.forEach((q) => {
       if (q.createdAt) years.add(new Date(q.createdAt).getFullYear());
     });
+    quickProposals.forEach(row=>years.add(Number(row.date.slice(0,4))));
     return Array.from(years).sort((a, b) => b - a);
-  }, [quotations]);
+  }, [quotations,quickProposals]);
 
   const availableMonths = useMemo(() => {
     const months = new Set<number>();
@@ -336,8 +349,9 @@ export default function Quotations() {
         }
       }
     });
+    quickProposals.forEach(row=>{if(yearFilter==='all'||row.date.startsWith(yearFilter))months.add(Number(row.date.slice(5,7)));});
     return Array.from(months).sort((a, b) => a - b);
-  }, [quotations, yearFilter]);
+  }, [quotations, quickProposals, yearFilter]);
 
   const availableBranches = useMemo(() => {
     const branches = new Set<string>();
@@ -371,15 +385,24 @@ export default function Quotations() {
     });
   }, [quotations, searchText, statusFilter, monthFilter, yearFilter, salespersonFilter, branchFilter]);
 
+  const filteredQuickProposals=useMemo(()=>quickProposals.filter(row=>{
+    if(statusFilter!=='all'&&statusFilter!=='mobile')return false;
+    if(salespersonFilter!=='all'||branchFilter!=='all')return false;
+    if(searchText&&!`${row.customer.name} APP-${row.id.slice(0,8)}`.toLocaleLowerCase('pt-BR').includes(searchText.toLocaleLowerCase('pt-BR')))return false;
+    if(yearFilter!=='all'&&!row.date.startsWith(yearFilter))return false;
+    if(monthFilter!=='all'&&Number(row.date.slice(5,7))!==Number(monthFilter))return false;
+    return true;
+  }),[quickProposals,searchText,statusFilter,monthFilter,yearFilter,salespersonFilter,branchFilter]);
+
   const hasActiveFilters = searchText !== "" || statusFilter !== "all" || monthFilter !== "all" || yearFilter !== "all" || salespersonFilter !== "all" || branchFilter !== "all";
 
   const filteredSummary = useMemo(() => {
-    const total = filteredQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0);
+    const total = filteredQuotations.reduce((sum, q) => sum + parseFloat(q.total), 0)+filteredQuickProposals.reduce((sum,row)=>sum+row.totalCents/100,0);
     const pending = filteredQuotations.filter((q) => q.status === "pending").length;
     const approved = filteredQuotations.filter((q) => q.status === "approved").length;
     const rejected = filteredQuotations.filter((q) => q.status === "rejected").length;
-    return { total, pending, approved, rejected };
-  }, [filteredQuotations]);
+    return { total, pending, approved, rejected, mobile:filteredQuickProposals.length };
+  }, [filteredQuotations,filteredQuickProposals]);
 
   const handleClearFilters = () => {
     setSearchText("");
@@ -842,7 +865,7 @@ export default function Quotations() {
         <CardHeader>
           <CardTitle>Lista de Propostas</CardTitle>
           <CardDescription>
-            {`Mostrando ${filteredQuotations.length} de ${quotations.length} proposta(s)`}
+            {`Mostrando ${filteredQuotations.length+filteredQuickProposals.length} de ${quotations.length+quickProposals.length} proposta(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -867,6 +890,7 @@ export default function Quotations() {
                   <SelectItem value="pending">Pendente</SelectItem>
                   <SelectItem value="approved">Aprovado</SelectItem>
                   <SelectItem value="rejected">Rejeitado</SelectItem>
+                  {user?.type==='admin'&&<SelectItem value="mobile">Enviada pelo app</SelectItem>}
                 </SelectContent>
               </Select>
 
@@ -927,14 +951,14 @@ export default function Quotations() {
             </div>
           </div>
 
-          {filteredQuotations.length > 0 && (
+          {filteredQuotations.length+filteredQuickProposals.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-3 rounded-lg bg-gray-50 border border-gray-200 px-4 py-3 text-sm">
               <div className="flex items-center gap-1.5">
                 <span className="text-gray-500">Total:</span>
-                <span className="font-semibold text-gray-800">{filteredQuotations.length} proposta(s)</span>
+                <span className="font-semibold text-gray-800">{filteredQuotations.length+filteredQuickProposals.length} proposta(s)</span>
               </div>
               <div className="border-l border-gray-300 pl-3 flex items-center gap-1.5">
-                <span className="text-gray-500">Valor total:</span>
+                <span className="text-gray-500">Valor total proposto (não receita):</span>
                 <span className="font-semibold text-master-green">{formatCurrency(filteredSummary.total)}</span>
               </div>
               <div className="border-l border-gray-300 pl-3 flex items-center gap-1.5">
@@ -946,14 +970,15 @@ export default function Quotations() {
               <div className="flex items-center gap-1.5">
                 <span className="text-red-600 font-medium">Rejeitado: {filteredSummary.rejected}</span>
               </div>
+              <div className="flex items-center gap-1.5"><span className="text-blue-700 font-medium">Do app: {filteredSummary.mobile}</span></div>
             </div>
           )}
 
-          {quotationsLoading ? (
+          {quotationsLoading || (user?.type==='admin'&&mobileLoading) ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-master-green"></div>
             </div>
-          ) : filteredQuotations.length > 0 ? (
+          ) : filteredQuotations.length+filteredQuickProposals.length > 0 ? (
             <>
               {/* Mobile view */}
               <div className="block md:hidden space-y-4">
@@ -1026,6 +1051,11 @@ export default function Quotations() {
                     </div>
                   </Card>
                 ))}
+                {filteredQuickProposals.map(row=><Card key={`mobile-${row.id}`} className="p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2"><span className="font-medium">APP-{row.id.slice(0,8)}</span><Badge className="bg-blue-100 text-blue-800">Feita pelo app</Badge></div>
+                  <p>{row.customer.name}</p><p>{row.date.split('-').reverse().join('/')}</p><p className="font-semibold">{formatCurrency(row.totalCents/100)}</p>
+                  <p className="text-sm text-gray-600">Enviada · {row.payment||'Pagamento não informado'}</p>
+                </Card>)}
               </div>
               
               {/* Desktop view */}
@@ -1034,6 +1064,7 @@ export default function Quotations() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Número</TableHead>
+                    <TableHead>Origem</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Data</TableHead>
                     <TableHead>Valor</TableHead>
@@ -1047,6 +1078,7 @@ export default function Quotations() {
                     <TableCell className="font-medium">
                       {quotation.quotationNumber}
                     </TableCell>
+                    <TableCell><Badge variant="outline">Web</Badge></TableCell>
                     <TableCell>{quotation.customer.name}</TableCell>
                     <TableCell>{formatDate(quotation.createdAt!)}</TableCell>
                     <TableCell>
@@ -1125,6 +1157,15 @@ export default function Quotations() {
                     </TableCell>
                     </TableRow>
                   ))}
+                  {filteredQuickProposals.map(row=><TableRow key={`mobile-${row.id}`}>
+                    <TableCell className="font-medium">APP-{row.id.slice(0,8)}</TableCell>
+                    <TableCell><Badge className="bg-blue-100 text-blue-800">Feita pelo app</Badge></TableCell>
+                    <TableCell>{row.customer.name}</TableCell>
+                    <TableCell>{row.date.split('-').reverse().join('/')}</TableCell>
+                    <TableCell>{formatCurrency(row.totalCents/100)}</TableCell>
+                    <TableCell><Badge variant="outline">Enviada</Badge></TableCell>
+                    <TableCell className="text-right text-sm text-gray-500">Resumo no app</TableCell>
+                  </TableRow>)}
                 </TableBody>
                 </Table>
               </div>

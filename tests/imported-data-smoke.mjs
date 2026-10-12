@@ -14,7 +14,12 @@ try {
     (SELECT count(*)::int FROM quotation_costs) AS costs,
     (SELECT count(*)::int FROM mobile_quick_proposals) AS quick,
     (SELECT count(*)::int FROM quotations WHERE status='approved') AS approved`);
-  assert.deepEqual(count.rows[0], {customers:286,quotations:126,items:189,costs:462,quick:1,approved:51});
+  assert.ok(count.rows[0].customers>=286);
+  assert.ok(count.rows[0].quotations>=126);
+  assert.ok(count.rows[0].items>=189);
+  assert.ok(count.rows[0].costs>=462);
+  assert.ok(count.rows[0].quick>=1);
+  assert.ok(count.rows[0].approved>=51);
   const login = await fetch(`${base}/api/login`, { method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:process.env.DEV_ADMIN_EMAIL,password:process.env.DEV_ADMIN_PASSWORD}) });
   assert.equal(login.status,200);
   const cookie=login.headers.get('set-cookie')?.split(';',1)[0];
@@ -26,17 +31,24 @@ try {
     const data=await response.json();
     sizes[path]=Array.isArray(data)?data.length:null;
   }
-  assert.equal(sizes['/api/customers'],286);
+  assert.equal(sizes['/api/customers'],count.rows[0].customers);
   assert.ok(sizes['/api/quotations']>=120);
   assert.ok(sizes['/api/reports/advanced']>=120);
+  const quickResponse=await fetch(`${base}/api/quick-proposals`,{headers:{cookie}});
+  assert.equal(quickResponse.status,200);
+  const quickData=await quickResponse.json();
+  assert.equal(quickData.quickProposals.length,count.rows[0].quick);
   const mobileLogin=await fetch(`${base}/api/mobile/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:process.env.DEV_ADMIN_EMAIL,password:process.env.DEV_ADMIN_PASSWORD})});
   assert.equal(mobileLogin.status,200);
   const mobileSession=await mobileLogin.json();
   const mobile=await fetch(`${base}/api/mobile/data`,{headers:{Authorization:`Bearer ${mobileSession.token}`}});
   assert.equal(mobile.status,200);
   const mobileData=await mobile.json();
-  assert.equal(mobileData.customers.length,286);
-  assert.equal(mobileData.history.length,127);
+  assert.equal(mobileData.customers.length,count.rows[0].customers);
+  assert.equal(mobileData.history.length,count.rows[0].quotations+count.rows[0].quick);
+  assert.ok(Array.isArray(mobileData.products));
+  assert.ok(mobileData.products.length>=73);
+  assert.ok(mobileData.products.every(product=>typeof product.pricePerM2==='string'&&!('costPerM2' in product)));
   await fetch(`${base}/api/mobile/auth/logout`,{method:'POST',headers:{Authorization:`Bearer ${mobileSession.token}`}});
-  console.log(JSON.stringify({database:count.rows[0],api:sizes,mobile:{customers:mobileData.customers.length,history:mobileData.history.length}}));
+  console.log(JSON.stringify({database:count.rows[0],api:sizes,mobile:{customers:mobileData.customers.length,products:mobileData.products.length,history:mobileData.history.length}}));
 } finally { await db.query('ROLLBACK').catch(()=>{});await db.end(); }

@@ -37,10 +37,11 @@ Reiniciar o servidor não encerra a sessão mobile.
 Smoke test com conta local de desenvolvimento:
 `node --env-file-if-exists=.env.local scripts/smoke-mobile-api.mjs`
 
-O bootstrap anterior é legado; o app atual não lê produtos ou taxas do web.
+O bootstrap anterior é legado; o app lê apenas o catálogo (nome, descrição e
+preço por m²), nunca as taxas ou custos do web.
 Use `node --env-file=.env scripts/migrate-mobile-dev.mjs` para aplicar a migração
 aditiva exclusivamente em mastergreen_develop. O app envia resumos por
-`POST /api/mobile/proposals`; a consulta web fica em `/propostas-app`.
+`POST /api/mobile/proposals`; a consulta web fica na lista unificada `/orcamentos`.
 
 Os testes de ponta a ponta mantêm uma proposta explicitamente fictícia
 de R$ 720 no banco de desenvolvimento, para inspeção visual. Os testes de

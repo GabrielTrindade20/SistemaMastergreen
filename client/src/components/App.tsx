@@ -13,7 +13,6 @@ import Products from "@/pages/products";
 import Costs from "@/pages/costs";
 import Reports from "@/pages/reports";
 import Employees from "@/pages/employees";
-import QuickProposals from '@/pages/quick-proposals';
 
 
 import Admin from "@/pages/admin";
@@ -46,7 +45,7 @@ function Router() {
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/orcamentos" component={Quotations} />
-          {user.type === 'admin' && <Route path="/propostas-app" component={QuickProposals} />}
+          {user.type === "admin" && <Route path="/propostas-app" component={Quotations} />}
           <Route path="/orcamentos/novo" component={NewQuotation} />
           <Route path="/clientes" component={Customers} />
           <Route path="/produtos" component={Products} />

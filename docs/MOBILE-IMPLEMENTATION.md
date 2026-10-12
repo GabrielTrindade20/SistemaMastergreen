@@ -6,9 +6,11 @@
 - Depois do primeiro login, cálculo/PDF locais continuam disponíveis offline.
 - O cálculo legado usa 4,5% sobre o bruto, antes do desconto, independente do web.
 - Propostas rápidas enviam apenas cliente, data, condições e total final.
-- Itens livres e custos ficam no aparelho; não há catálogo no app.
+- Itens livres ficam no aparelho; o catálogo de nomes/preços do web é opcional
+  e cacheado, sem sincronizar custos ou impor seleção de produtos.
 - Envio idempotente; proposta concluída não pode ser sobrescrita por repetição.
-- Sem edição, exclusão ou abertura de detalhes no histórico mobile.
+- Sem edição ou exclusão no histórico mobile; propostas salvas neste aparelho
+  podem ter o PDF compartilhado novamente.
 - Clientes e histórico consultáveis com cache. Resumo separa valores propostos
   de vendas aprovadas e não inventa lucro/custo das propostas rápidas.
 - Sincronização em Wi-Fi por padrão, ao abrir/retomar o app e reconectar.
@@ -45,10 +47,9 @@ ou telefone e nome iguais; nome isolado não causa associação automática.
    protegem reenvio e associação de cliente. Só o administrador com e-mail
    configurado em `MOBILE_OWNER_EMAIL` pode entrar no app. No desenvolvimento
    existe fallback explícito para a conta local de testes; produção falha fechada.
-2. **Propostas no web**: `/propostas-app`, busca e filtro mensal, atualização a
-   cada 30 segundos. Condições comerciais e valor final são consultáveis; não
-   há edição/exclusão nem PDF recriado no web. Relatórios existentes apontam
-   para este resumo separado, sem somar propostas a receita aprovada.
+2. **Propostas no web**: a lista `/orcamentos` identifica as rápidas do app,
+   sem edição/exclusão nem PDF recriado no web. A consulta separada à API ainda
+   existe; relatórios não somam propostas rápidas à receita aprovada.
 3. **Persistência**: AsyncStorage por URL da API e usuário. Escritas serializadas;
    falhas de disco são sinalizadas. Antes de compartilhar o PDF, o resumo é
    gravado na fila. Pré-visualizar não finaliza. Cancelar o compartilhamento não
@@ -137,3 +138,18 @@ ou telefone e nome iguais; nome isolado não causa associação automática.
   dependências é necessária antes de distribuição de produção.
 - A API de consultas retorna o conjunto completo (interface exibe páginas de
   30); avaliar paginação no servidor se a base crescer significativamente.
+
+## Integração de catálogo e lista única — 11/10/2026
+
+- `/api/mobile/data` inclui catálogo de produtos com nome, categoria, descrição
+  e preço por m², sem custo. O app mantém cache para seleção pesquisável offline;
+  selecionar preenche descrição/preço e deixa metragem/preço editáveis. Adição
+  manual continua, sem cadastrar produto novo no catálogo central.
+- Salvar proposta grava resumo na fila e cópia local dos itens/condições para
+  compartilhar o PDF pelo Histórico mais tarde. Gerar e compartilhar salva antes
+  de abrir o compartilhamento; Visualizar PDF permanece sem finalizar.
+- O web mostra propostas detalhadas e rápidas na mesma tabela de Propostas,
+  identificadas por origem. Propostas rápidas não recebem ações de edição,
+  aprovação ou PDF do web: continuam sem itens/custos na API e no PostgreSQL.
+  A rota antiga `/propostas-app` saiu da navegação, mas abre a mesma lista para
+  preservar links existentes; o relatório aponta à lista.
